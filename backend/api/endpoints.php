@@ -1,0 +1,322 @@
+<?php
+/**
+ * API Endpoints - Zentraler Request Handler
+ * 
+ * Alle API-Anfragen werden hier verarbeitet.
+ * Dünne Wrapper-Schicht - Business Logic in Services.
+ * 
+ * Actions:
+ * - get_tiles: Alle Tiles laden
+ * - get_tile: Einzelne Tile laden
+ * - save_tile: Tile speichern (neu/update)
+ * - delete_tile: Tile löschen
+ * - update_positions: Positionen aktualisieren
+ * - get_settings: Settings laden
+ * - save_settings: Settings speichern
+ * - upload_image: Bild hochladen
+ * - upload_download: Download-Datei hochladen
+ * - upload_header: Header-Bild hochladen
+ * - delete_file: Datei löschen
+ * - list_files: Dateien auflisten
+ * - generate: HTML generieren
+ * - preview: Preview HTML
+ * - get_tile_types: Verfügbare Tile-Typen
+ */
+
+header('Content-Type: application/json; charset=utf-8');
+
+// Zentrale Konfiguration laden
+require_once __DIR__ . '/../config.php';
+
+// Error Handling
+set_error_handler(function($severity, $message, $file, $line) {
+    throw new ErrorException($message, 0, $severity, $file, $line);
+});
+
+try {
+    // Session starten für CSRF und Auth
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    
+    // Services laden
+    require_once __DIR__ . '/../core/LogService.php';
+    require_once __DIR__ . '/../core/AuthService.php';
+    require_once __DIR__ . '/../core/TileService.php';
+    require_once __DIR__ . '/../core/UploadService.php';
+    require_once __DIR__ . '/../core/GeneratorService.php';
+    require_once __DIR__ . '/../core/StorageService.php';
+    
+    // Auth prüfen (außer für bestimmte Actions)
+    $auth = new AuthService();
+    $publicActions = ['preview'];  // Actions die ohne Auth erlaubt sind
+    $getActions = ['get_tiles', 'get_tile', 'get_settings', 'get_tile_types', 'list_files', 'preview'];  // GET erlaubt
+    
+    // Action ermitteln
+    $action = $_POST['action'] ?? $_GET['action'] ?? '';
+    
+    // Auth-Check (nur für nicht-öffentliche Actions)
+    if (!in_array($action, $publicActions) && !$auth->isAuthenticated()) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Nicht authentifiziert']);
+        exit;
+    }
+    
+    // CSRF-Token Validierung für modifizierende Actions (POST, nicht GET-Actions)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($action, $getActions)) {
+        $csrfToken = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+        if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $csrfToken)) {
+            LogService::warning('API', 'CSRF token mismatch', ['action' => $action]);
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => 'Ungültiges CSRF-Token']);
+            exit;
+        }
+    }
+    
+    // Request verarbeiten
+    switch ($action) {
+        
+        // ===== TILES =====
+        
+        case 'get_tiles':
+            $tileService = new TileService();
+            $tiles = $tileService->getTiles();
+            echo json_encode(['success' => true, 'tiles' => $tiles]);
+            break;
+            
+        case 'get_tile':
+            $id = $_GET['id'] ?? $_POST['id'] ?? '';
+            if (empty($id)) {
+                throw new InvalidArgumentException('Tile-ID erforderlich');
+            }
+            
+            $tileService = new TileService();
+            $tile = $tileService->getTile($id);
+            
+            if ($tile === null) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => 'Tile nicht gefunden']);
+            } else {
+                echo json_encode(['success' => true, 'tile' => $tile]);
+            }
+            break;
+            
+        case 'save_tile':
+            $tileData = json_decode($_POST['tile'] ?? '{}', true);
+            if (empty($tileData)) {
+                $tileData = json_decode(file_get_contents('php://input'), true)['tile'] ?? [];
+            }
+            
+            if (empty($tileData)) {
+                throw new InvalidArgumentException('Tile-Daten erforderlich');
+            }
+            
+            $tileService = new TileService();
+            $result = $tileService->saveTile($tileData);
+            
+            if (!$result['success']) {
+                http_response_code(400);
+            }
+            echo json_encode($result);
+            break;
+            
+        case 'delete_tile':
+            $id = $_POST['id'] ?? '';
+            if (empty($id)) {
+                throw new InvalidArgumentException('Tile-ID erforderlich');
+            }
+            
+            $tileService = new TileService();
+            $result = $tileService->deleteTile($id);
+            
+            if (!$result['success']) {
+                http_response_code(404);
+            }
+            echo json_encode($result);
+            break;
+            
+        case 'update_positions':
+            $positions = json_decode($_POST['positions'] ?? '[]', true);
+            if (empty($positions)) {
+                $positions = json_decode(file_get_contents('php://input'), true)['positions'] ?? [];
+            }
+            
+            $tileService = new TileService();
+            $result = $tileService->updatePositions($positions);
+            echo json_encode($result);
+            break;
+            
+        case 'get_tile_types':
+            $tileService = new TileService();
+            $types = $tileService->getAvailableTypes();
+            echo json_encode(['success' => true, 'types' => $types]);
+            break;
+        
+        // ===== SETTINGS =====
+        
+        case 'get_settings':
+            $storage = new StorageService('settings.json');
+            $settings = $storage->read();
+            
+            // Email für Security maskieren (nur letzte 4 Zeichen zeigen)
+            if (isset($settings['auth']['email'])) {
+                $email = $settings['auth']['email'];
+                $masked = '***' . substr($email, -10);
+                $settings['auth']['emailMasked'] = $masked;
+            }
+            
+            echo json_encode(['success' => true, 'settings' => $settings]);
+            break;
+            
+        case 'save_settings':
+            $newSettings = json_decode($_POST['settings'] ?? '{}', true);
+            if (empty($newSettings)) {
+                $newSettings = json_decode(file_get_contents('php://input'), true)['settings'] ?? [];
+            }
+            
+            // Aktuelle Settings laden
+            $storage = new StorageService('settings.json');
+            $settings = $storage->read();
+            
+            // Nur erlaubte Felder aktualisieren (Email ist geschützt)
+            if (isset($newSettings['site'])) {
+                $settings['site'] = array_merge($settings['site'] ?? [], $newSettings['site']);
+            }
+            if (isset($newSettings['theme'])) {
+                $settings['theme'] = array_merge($settings['theme'] ?? [], $newSettings['theme']);
+            }
+            
+            // Speichern
+            if ($storage->write($settings)) {
+                LogService::info('API', 'Settings saved');
+                echo json_encode(['success' => true, 'settings' => $settings]);
+            } else {
+                throw new Exception('Speichern fehlgeschlagen');
+            }
+            break;
+        
+        // ===== UPLOADS =====
+        
+        case 'upload_image':
+            if (empty($_FILES['file'])) {
+                throw new InvalidArgumentException('Keine Datei hochgeladen');
+            }
+            
+            $uploadService = new UploadService();
+            $result = $uploadService->uploadImage($_FILES['file']);
+            
+            if (!$result['success']) {
+                http_response_code(400);
+            }
+            echo json_encode($result);
+            break;
+            
+        case 'upload_download':
+            if (empty($_FILES['file'])) {
+                throw new InvalidArgumentException('Keine Datei hochgeladen');
+            }
+            
+            $uploadService = new UploadService();
+            $result = $uploadService->uploadDownload($_FILES['file']);
+            
+            if (!$result['success']) {
+                http_response_code(400);
+            }
+            echo json_encode($result);
+            break;
+            
+        case 'upload_header':
+            if (empty($_FILES['file'])) {
+                throw new InvalidArgumentException('Keine Datei hochgeladen');
+            }
+            
+            $uploadService = new UploadService();
+            $result = $uploadService->uploadHeader($_FILES['file']);
+            
+            if ($result['success']) {
+                // Auch in Settings speichern
+                $storage = new StorageService('settings.json');
+                $settings = $storage->read();
+                $settings['site']['headerImage'] = $result['path'];
+                $storage->write($settings);
+            } else {
+                http_response_code(400);
+            }
+            echo json_encode($result);
+            break;
+            
+        case 'delete_file':
+            $path = $_POST['path'] ?? '';
+            if (empty($path)) {
+                throw new InvalidArgumentException('Dateipfad erforderlich');
+            }
+            
+            $uploadService = new UploadService();
+            $success = $uploadService->delete($path);
+            echo json_encode(['success' => $success]);
+            break;
+            
+        case 'list_files':
+            $type = $_GET['type'] ?? 'images';
+            if (!in_array($type, ['images', 'downloads', 'header'])) {
+                throw new InvalidArgumentException('Ungültiger Dateityp');
+            }
+            
+            $uploadService = new UploadService();
+            $files = $uploadService->listFiles($type);
+            echo json_encode(['success' => true, 'files' => $files]);
+            break;
+        
+        // ===== GENERATOR =====
+        
+        case 'generate':
+            $generator = new GeneratorService();
+            
+            // Backup vor Generierung
+            $tileService = new TileService();
+            $tileService->backup();
+            
+            $result = $generator->generate();
+            
+            if (!$result['success']) {
+                http_response_code(500);
+            }
+            echo json_encode($result);
+            break;
+            
+        case 'preview':
+            $generator = new GeneratorService();
+            $html = $generator->preview();
+            
+            // HTML direkt zurückgeben (nicht JSON)
+            header('Content-Type: text/html; charset=utf-8');
+            echo $html;
+            break;
+        
+        case 'extend_session':
+            // Session-Zeit zurücksetzen
+            $_SESSION['auth_time'] = time();
+            echo json_encode(['success' => true, 'message' => 'Session verlängert']);
+            break;
+        
+        // ===== DEFAULT =====
+        
+        default:
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Unbekannte Action: ' . $action]);
+    }
+    
+} catch (InvalidArgumentException $e) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    
+} catch (Exception $e) {
+    LogService::error('API', 'Exception', [
+        'message' => $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine()
+    ]);
+    
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Interner Fehler']);
+}

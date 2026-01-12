@@ -1,0 +1,23 @@
+# Info-Hub Backend Security Rules
+
+# Disable directory listing
+Options -Indexes
+
+# Prevent access to hidden files
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Protect data, logs, archive directories
+<DirectoryMatch "(data|logs|archive|core|tiles|templates)">
+    Require all denied
+</DirectoryMatch>
+
+# Block direct access to sensitive files
+<FilesMatch "\.(json|log|bak)$">
+    Require all denied
+</FilesMatch>
+
+# Allow only specific PHP entry points
+# API endpoint muss als einziges in api/ erreichbar sein
+# Andere PHP-Dateien in Unterordnern sind standardmäßig blockiert durch DirectoryMatch

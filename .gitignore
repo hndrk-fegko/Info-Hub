@@ -1,0 +1,52 @@
+# ===== Info-Hub .gitignore =====
+
+# Config - enthält lokale Einstellungen
+backend/config.php
+
+# User data - sollte nicht ins Repo
+backend/data/settings.json
+backend/data/tiles.json
+
+# Uploads - benutzerspezifisch
+backend/media/downloads/*
+backend/media/images/*
+backend/media/header/*
+!backend/media/downloads/.gitkeep
+!backend/media/images/.gitkeep
+!backend/media/header/.gitkeep
+
+# Logs
+backend/logs/*
+!backend/logs/.gitkeep
+
+# Archive
+backend/archive/*
+!backend/archive/.gitkeep
+
+# Generated files
+index.html
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# PHP
+*.log

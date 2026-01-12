@@ -1,0 +1,589 @@
+# SOFTWARE DEVELOPMENT GUIDELINES FÜR KI-AGENTEN
+Version 1.0 | Letzte Aktualisierung: November 2025
+
+Diese Richtlinien MÜSSEN bei JEDER Codeentwicklung, Refactoring und Projekterstellung befolgt werden.
+
+---
+
+## 1. PROJEKTSTRUKTUR & ORGANISATION
+
+### 1.1 Verzeichnisstruktur
+Jedes Projekt MUSS folgende klare Trennung aufweisen:
+
+```
+/
+├── src/                    # Quellcode (Codebase)
+│   ├── core/              # Kernfunktionalität
+│   ├── modules/           # Wiederverwendbare Module
+│   ├── config/            # Konfigurationsdateien
+│   └── utils/             # Hilfsfunktionen
+├── docs/                  # Dokumentation
+│   ├── dev/              # Entwicklerdokumentation
+│   ├── admin/            # Administrator-Dokumentation
+│   └── user/             # Benutzerdokumentation
+├── tests/                 # Test-Suite
+│   ├── unit/             # Unit-Tests
+│   ├── integration/      # Integrationstests
+│   └── e2e/              # End-to-End-Tests
+├── data/                  # Benutzerdaten & Laufzeitdaten
+└── logs/                  # Log-Dateien
+```
+
+### 1.2 Namenskonventionen
+- **Konsistenz**: Einheitliche Namensgebung projektübergreifend
+- **Modulpräfixe**: Variablen in Modulen enthalten den Modulnamen als Präfix
+  - Beispiel: `loggerConfig`, `loggerInstance`, `loggerUtils`
+- **Dateibenennung**: Kleinbuchstaben mit Bindestrichen oder CamelCase je nach Sprache
+- **Funktionen**: Verben verwenden (`getUserData`, `validateInput`, `initializeModule`)
+- **Konstanten**: UPPERCASE mit Unterstrichen (`MAX_RETRIES`, `DEFAULT_TIMEOUT`)
+
+---
+
+## 2. LOGGING, DEBUGGING & ERROR TRACKING
+
+### 2.1 Zentrales Logging-System
+JEDES Projekt benötigt von Anfang an ein zentrales Logging-System.
+
+### 2.2 Pflichtfelder für jeden Log-Eintrag
+Jeder Log-Eintrag MUSS folgende Informationen enthalten (sofern verfügbar):
+
+```
+{
+  "timestamp": "ISO 8601 Format",
+  "level": "INFO | ERROR | DEBUG | WARNING | EXCEPTION | SUCCESS | FAILURE | ANNOUNCEMENT",
+  "module": "Modulname",
+  "file": "Dateiname mit Pfad",
+  "line": "Zeilennummer",
+  "function": "Funktionsname",
+  "message": "Beschreibung der Meldung",
+  "context": "Zusätzliche Kontextinformationen",
+  "stackTrace": "Bei Fehlern: vollständiger Stack Trace"
+}
+```
+
+### 2.3 Log-Level Verwendung
+- **DEBUG**: Detaillierte Informationen für Entwicklung
+- **INFO**: Allgemeine Informationen über Programmablauf
+- **WARNING**: Potenzielle Probleme, System läuft aber weiter
+- **ERROR**: Fehler, die behandelt werden können
+- **EXCEPTION**: Unbehandelte Exceptions
+- **SUCCESS**: Erfolgreiche Abschlüsse wichtiger Operationen
+- **FAILURE**: Fehlgeschlagene Operationen
+- **ANNOUNCEMENT**: Neue Features, Updates, Neuigkeiten (wird z.B. genutzt um User über neue Funktionen zu informieren)
+
+### 2.4 Integration & Wiederverwendbarkeit
+- Alle Systemkomponenten loggen in das zentrale System
+- Module können sich hier einhängen und bestimmte Nachrichten als Trigger benutzen
+- Beispiel: Toast-Benachrichtigungs-Modul liest aus dem zentralen Log-Stream und gibt Success, FAILURE und ANNOUNCEMENT im Frontend aus.
+
+---
+
+## 3. MODULARE ARCHITEKTUR
+
+### 3.1 Grundprinzipien
+- **Maximale Modularität**: Jede Funktionalität als eigenständiges Modul
+- **Wiederverwendbarkeit**: Code so schreiben, dass er in anderen Projekten nutzbar ist
+- **Plugin-Architektur**: Hook-Points für Erweiterungen definieren
+
+### 3.2 Plugin/Hook-System
+Module müssen sich an definierten Einhängepunkten registrieren können:
+
+**Hook-Beispiele:**
+- `onAppInit`: Initialisierung beim Start
+- `onConfigLoad`: Konfiguration geladen
+- `registerMenuItem`: Menüeinträge hinzufügen
+- `registerSettingsPanel`: Einstellungs-Panels registrieren
+- `registerRoute`: Routen registrieren (Webapps)
+- `onBeforeShutdown`: Vor dem Beenden
+
+### 3.3 Modul-Integration
+**Frage: Wie integrieren Module ihre Assets (API, CSS, JS)?**
+
+**Antwort & Implementierung:**
+1. **Manifest-Datei**: Jedes Modul hat eine `module.json` mit Metadaten:
+   ```json
+   {
+     "name": "moduleName",
+     "version": "1.0.0",
+     "assets": {
+       "css": ["styles/main.css"],
+       "js": ["scripts/init.js"],
+       "api": ["api/endpoints.js"]
+     },
+     "hooks": ["onAppInit", "registerMenuItem"],
+     "dependencies": ["loggerModule", "configModule"]
+   }
+   ```
+
+2. **Asset-Loader**: Zentraler Loader lädt Assets beim Modulstart
+3. **API-Registry**: Zentrale API-Registry registriert Endpunkte
+4. **Dependency Injection**: Module erhalten benötigte Dependencies injiziert
+
+---
+
+## 4. LAYERED ARCHITECTURE (SCHICHTENARCHITEKTUR)
+
+### 4.1 Prinzip der Abstraktion
+Geschäftslogik NIEMALS direkt an Implementierungsdetails koppeln.
+
+### 4.2 Standard-Layer
+```
+┌─────────────────────────────────┐
+│   Presentation Layer (UI)       │  ← Nutzt nur Service Layer
+├─────────────────────────────────┤
+│   Service/Business Logic Layer  │  ← Nutzt nur Data Access Layer
+├─────────────────────────────────┤
+│   Data Access Layer (DAL)       │  ← Abstrakte Interfaces
+├─────────────────────────────────┤
+│   Implementation Layer          │  ← Konkrete Implementierungen
+│   (JSON, Database, API)         │     (austauschbar)
+└─────────────────────────────────┘
+```
+
+### 4.3 Praktisches Beispiel
+
+**Falsch:**
+```javascript
+// Frontend direkt gekoppelt an JSON
+function saveUserData(user) {
+  fs.writeFileSync('data.json', JSON.stringify(user));
+}
+```
+
+**Richtig:**
+```javascript
+// Frontend nutzt abstrakten Service
+function saveUserData(user) {
+  dataService.save('users', user);
+}
+
+// Data Service Layer (Interface)
+class DataService {
+  save(entity, data) {
+    return this.storage.save(entity, data);
+  }
+}
+
+// Implementation Layer (austauschbar)
+class JsonStorage { save(entity, data) { /* JSON */ } }
+class DatabaseStorage { save(entity, data) { /* SQL */ } }
+```
+
+**Vorteil:** Migration von JSON zu Datenbank erfordert nur Austausch der Storage-Implementierung, kein Frontend-Code wird angefasst.
+
+### 4.4 Skalierungsplanung
+Skalierungspläne MÜSSEN in `docs/dev/vision.md` und `docs/dev/roadmap.md` dokumentiert werden:
+- Soll das System skaliert werden, wenn ja wie (mehr installationen, mehr Daten, etc.) und wie groß (anzahl der Nutzer, Anzahl der Daten, etc.)
+- Welche Layer werden bei Wachstum ausgetauscht?
+- Welche Technologien sind für Skalierung vorgesehen?
+- Ab welchen Metriken wird skaliert?
+
+---
+
+## 5. DOKUMENTATION
+
+### 5.1 Dokumentationspflicht
+Dokumentation ist KEIN Optional, sondern Teil der Definition of Done.
+
+### 5.2 Zielgruppenspezifische Dokumentation
+
+#### A) Entwicklerdokumentation (`docs/dev/`) - KI-OPTIMIERT
+1. **vision.md**
+   - Projektziele & Langzeitvision
+   - Erfolgskriterien
+   - Zielgruppe & Use Cases
+
+2. **architecture.md**
+   - Systemarchitektur-Diagramme
+   - Komponenten & deren Interaktionen
+   - Design Patterns & Begründungen
+   - Datenflüsse
+
+3. **codebase.md**
+   - Verwendete Programmiersprachen & Versionen
+   - Abhängigkeiten & Pakete
+   - Development Setup (Schritt-für-Schritt)
+   - Build- & Deployment-Prozess
+   - Code-Konventionen
+
+4. **roadmap.md** & **changelog.md**
+   - Geplante Features nach Priorität
+   - Versionshistorie mit Breaking Changes
+   - Migration Guides
+
+5. **api.md** & **interfaces.md**
+   - Alle öffentlichen APIs dokumentiert
+   - Schnittstellen zwischen Modulen
+   - Datenmodelle & Schemas
+
+#### B) Administrator-Dokumentation (`docs/admin/`)
+1. **deployment.md**
+   - Installationsanleitung
+   - Konfiguration
+   - Wartung & Updates
+   - Monitoring & Logging
+   - Backup & Recovery
+
+#### C) Benutzerdokumentation (`docs/user/`)
+1. **user-guide.md**
+   - Bedienungsanleitung mit Screenshots
+   - Häufige Workflows
+   - FAQ
+   - Troubleshooting
+
+### 5.3 Modul-spezifische Dokumentation
+Jedes Modul KANN eine eigene `README.md` im Modulverzeichnis haben:
+- Zweck des Moduls
+- Öffentliche API
+- Konfigurationsoptionen
+- Verwendungsbeispiele
+- Dependencies
+
+### 5.4 Dokumentations-Workflow
+**WICHTIG:**
+- ✅ Bestehende Dokumente überarbeiten statt neue erstellen
+- ✅ Dokumentation aktualisieren bei Codeänderungen
+- ✅ Änderungen im Changelog dokumentieren
+
+---
+
+## 6. ARBEITSABLAUF & BEST PRACTICES
+
+### 6.1 Aufgabengröße & Komplexität managen
+
+**KRITISCH für KI-Agenten:**
+Große, komplexe Aufgaben MÜSSEN in kleine, handhabbare Schritte zerlegt werden.
+
+**Faustregel für Aufgabengröße:**
+- ✅ **Optimal**: 1-3 Dateien bearbeiten, 10-50 Zeilen Code
+- ⚠️ **Akzeptabel**: 3-5 Dateien, 50-100 Zeilen Code
+- ❌ **Zu groß**: Mehr als 5 Dateien oder > 100 Zeilen - AUFTEILEN!
+
+**Warum kleinschrittig?**
+- KI-Agenten verlieren bei großen Aufgaben den Überblick
+- Fehler sind leichter zu identifizieren
+- Fortschritt ist messbar und nachvollziehbar
+- Rücksprung bei Problemen ist einfacher
+
+### 6.2 Vor jeder Implementierung: Fragen stellen
+**Vor dem Coding IMMER prüfen:**
+- ❓ Gibt es bereits ähnlichen Code, der wiederverwendet werden kann?
+- ❓ Ist diese Funktionalität wirklich notwendig (YAGNI-Prinzip)?
+- ❓ Wie fügt sich dies in die bestehende Architektur ein?
+- ❓ Welche Dokumentation muss aktualisiert werden?
+- ❓ **Ist diese Aufgabe klein genug? Kann sie weiter unterteilt werden?**
+
+**Regel:** Lieber eine Frage mehr als Code doppelt schreiben!
+
+### 6.3 Standard-Arbeitsschritte für einfache Aufgaben
+
+**JEDE Implementierung folgt diesem Workflow:**
+
+1. **Todo-Liste erstellen**
+   - Detaillierte Aufgabenliste mit Checkboxen
+   - Abhängigkeiten identifizieren
+   - Zeitschätzungen hinzufügen
+
+2. **Einordnung in Projektstruktur**
+   - Wo gehört der Code hin?
+   - Welche Module sind betroffen?
+   - Welche Schnittstellen werden berührt?
+
+3. **Dokumentation sichten**
+   - Relevante Abschnitte in `docs/` lesen
+   - Architektur-Constraints prüfen
+   - Bestehende Patterns identifizieren
+
+4. **Vision & Erfolgskriterien abgleichen**
+   - Passt die Lösung zur Projektvision?
+   - Erfüllt sie die Erfolgskriterien?
+   - Gibt es bessere Alternativen?
+
+5. **Implementierung**
+   - Code schreiben nach den definierten Standards
+   - Tests parallel entwickeln (TDD bevorzugt)
+   - Logging-Statements hinzufügen
+   - Code-Kommentare für komplexe Logik
+
+6. **Dokumentation aktualisieren**
+   - Betroffene Dokumente updaten
+   - Changelog-Eintrag hinzufügen
+   - API-Dokumentation erweitern
+   - README bei Bedarf anpassen
+
+7. **Review & Testing**
+   - Unit-Tests ausführen
+   - Integration-Tests prüfen
+   - Code-Review (oder Selbst-Review)
+   - Erfolgskriterien validieren
+
+
+### 6.4 Komplexe Aufgaben - Iterativer Workflow mit Arbeitsdokument
+
+**Für große Features, Refactorings oder Architektur-Änderungen:**
+
+#### Phase 1: Planung & Diskussion
+1. **Arbeitsdokument erstellen** (temporär im Workspace-Root oder `docs/wip/`)
+   ```markdown
+   # [WIP] Feature: [Name]
+   Status: 🟡 In Planung
+   
+   ## 1. Beschreibung & Ziele
+   - Was wird implementiert?
+   - Warum ist es notwendig?
+   - Welches Problem wird gelöst?
+   
+   ## 2. Betroffene Komponenten
+   - Liste aller Module/Dateien
+   - Abhängigkeiten
+   - Schnittstellen
+   
+   ## 3. Technisches Konzept
+   - Architektur-Ansatz
+   - Design Patterns
+   - API-Änderungen
+   
+   ## 4. Offene Fragen & Diskussion
+   - ❓ Frage 1
+   - ❓ Frage 2
+   
+   ## 5. Entscheidungen
+   - ✅ Entscheidung 1: Begründung
+   - ✅ Entscheidung 2: Begründung
+   ```
+
+2. **Alle Fragen klären**
+   - Diskussion mit User/Team
+   - Architektur-Entscheidungen dokumentieren
+   - Alternativen bewerten und begründen
+
+3. **Task-Unterteilung**
+   - Feature in 5-10 kleine, unabhängige Schritte zerlegen
+   - Jeder Schritt max. 1-3 Dateien, 50 Zeilen Code
+   - Reihenfolge und Abhängigkeiten festlegen
+
+#### Phase 2: Umsetzung mit Tracking
+4. **Todo-Liste mit Fortschrittstracking im Arbeitsdokument**
+   ```markdown
+   ## 6. Implementierungs-Plan
+   
+   ### Sprint 1: Grundstruktur
+   - [ ] Task 1.1: Logger-Modul Grundgerüst erstellen
+     - Dateien: `src/modules/logger/index.js`
+     - Geschätzt: 30min
+   - [ ] Task 1.2: Config-Interface definieren
+     - Dateien: `src/modules/logger/config.js`
+     - Geschätzt: 15min
+   
+   ### Sprint 2: Kern-Funktionalität
+   - [ ] Task 2.1: Log-Formatter implementieren
+   - [ ] Task 2.2: File-Writer implementieren
+   
+   ### Sprint 3: Integration
+   - [ ] Task 3.1: Ins Hauptsystem integrieren
+   - [ ] Task 3.2: Tests schreiben
+   
+   ## 7. Fortschritt
+   - ✅ 2024-11-11 10:30 - Task 1.1 abgeschlossen
+   - ✅ 2024-11-11 11:00 - Task 1.2 abgeschlossen
+   - 🔄 2024-11-11 11:15 - Task 2.1 in Arbeit
+   ```
+
+5. **Schrittweise Implementierung**
+   - EINEN Task nach dem anderen abarbeiten
+   - Nach jedem Task: Commit + Tests
+   - Fortschritt im Arbeitsdokument aktualisieren
+   - Bei Problemen: Dokumentieren und Fragen stellen
+
+#### Phase 3: Abschluss & Dokumentation
+6. **Arbeitsdokument in finale Dokumentation überführen**
+   - Relevante Teile in `docs/dev/architecture.md` integrieren
+   - API-Änderungen in `docs/dev/api.md` eintragen
+   - Feature-Beschreibung in `docs/dev/changelog.md` hinzufügen
+   - Roadmap in `docs/dev/roadmap.md` aktualisieren
+
+7. **Arbeitsdokument löschen**
+   - Temporäres `[WIP]`-Dokument entfernen
+   - Alle wichtigen Infos sind jetzt in der offiziellen Doku
+
+**Vorteile dieses Workflows:**
+- ✅ Klarer Fortschritt sichtbar
+- ✅ Diskussionen und Entscheidungen dokumentiert
+- ✅ Kleine, handhabbare Aufgaben
+- ✅ Keine Duplikate in der finalen Doku
+- ✅ Einfacher Wiedereinstieg nach Unterbrechungen
+
+### 6.5 Dokumentenstruktur für Features/Module
+
+**VERALTET - Verwende stattdessen den Workflow aus 6.4!**
+
+Für schnelle Referenz oder sehr kleine Features (< 3 Tasks):
+
+```markdown
+# Feature: [Name]
+
+## 1. Beschreibung
+Was wird implementiert und warum?
+
+## 2. Technische Spezifikation
+Wie wird es implementiert?
+
+## 3. Betroffene Module
+Welche Teile der Codebase werden geändert?
+
+## 4. API-Änderungen
+Neue oder geänderte Schnittstellen
+
+## 5. Tests
+Teststrategie & Testfälle
+
+## 6. Migration
+Wie werden bestehende User/Daten migriert?
+
+## 7. Dokumentation
+Welche Docs müssen aktualisiert werden?
+```
+
+**Hinweis:** Für alle komplexen Aufgaben verwende das ausführliche Arbeitsdokument-Format aus 6.4!
+
+### 6.6 Fortschrittsdokumentation während der Arbeit
+
+**WICHTIG:** Dokumentation ist kein einmaliger Schritt am Ende, sondern ein kontinuierlicher Prozess!
+
+**Während der Implementierung MUSS dokumentiert werden:**
+
+1. **Im Arbeitsdokument (`[WIP]`)**
+   - ✅ Abgeschlossene Tasks sofort abhaken
+   - 📝 Timestamp und Kurzbeschreibung hinzufügen
+   - ⚠️ Probleme, Blockers und Workarounds notieren
+   - 💡 Erkenntnisse und Lessons Learned festhalten
+   - 🔄 Änderungen am ursprünglichen Plan dokumentieren
+
+2. **Im Code**
+   - Aussagekräftige Commit-Messages schreiben
+   - Komplexe Logik mit Inline-Kommentaren erklären
+   - TODO/FIXME-Marker für offene Punkte setzen
+   - Deprecation-Warnings bei API-Änderungen
+
+3. **In Tests**
+   - Test-Cases dokumentieren das erwartete Verhalten
+   - Edge-Cases und Bug-Fixes als Tests festhalten
+
+**Warum ist kontinuierliche Dokumentation wichtig?**
+- KI-Agenten können Kontext bei langen Tasks verlieren
+- Bei Unterbrechungen ist der Wiedereinstieg einfacher
+- Entscheidungen und Begründungen gehen nicht verloren
+- Die finale Dokumentation ist bereits zu 80% fertig
+
+**Beispiel für gute Fortschrittsdokumentation:**
+```markdown
+## 7. Fortschritt
+
+✅ 2024-11-11 10:30 - Task 1.1 abgeschlossen
+   - Logger-Grundgerüst erstellt in src/modules/logger/
+   - Entscheidung: Winston statt Custom-Logger (bessere Maintenance)
+
+✅ 2024-11-11 11:00 - Task 1.2 abgeschlossen
+   - Config-Schema definiert mit JSON Schema Validation
+
+🔄 2024-11-11 11:15 - Task 2.1 in Arbeit
+   - Problem: Winston Transport Config komplex
+   - Workaround: Wrapper-Klasse erstellt für Vereinfachung
+
+⚠️ 2024-11-11 11:30 - Blocker bei Task 2.1
+   - Winston unterstützt kein natives Log-Rotation
+   - Frage an User: Separate Library einbinden oder Custom implementieren?
+```
+
+---
+
+## 7. CODE-QUALITÄT & STANDARDS
+
+### 7.1 Code-Review Checkliste
+Vor jedem Commit prüfen:
+- [ ] Code folgt Namenskonventionen
+- [ ] Logging an kritischen Stellen implementiert
+- [ ] Keine Code-Duplikation
+- [ ] Funktionen haben Single Responsibility
+- [ ] Tests geschrieben und bestanden
+- [ ] Dokumentation aktualisiert
+- [ ] Keine hartcodierten Werte (Config verwenden)
+- [ ] Error Handling implementiert
+- [ ] Security-Aspekte berücksichtigt
+
+### 7.2 DRY (Don't Repeat Yourself)
+- Duplizierten Code in Funktionen/Methoden extrahieren
+- Gemeinsame Logik in Utility-Module auslagern
+- Config-Werte zentral verwalten
+
+### 7.3 SOLID-Prinzipien befolgen
+- **S**ingle Responsibility
+- **O**pen/Closed
+- **L**iskov Substitution
+- **I**nterface Segregation
+- **D**ependency Inversion
+
+### 7.4 Testing
+- **Unit-Tests**: Für jede Funktion/Methode
+- **Integration-Tests**: Für Modul-Interaktionen
+- **E2E-Tests**: Für kritische User-Journeys
+- **Test Coverage**: Minimum 80% anstreben
+
+---
+
+## 8. ZUSAMMENFASSUNG DER KERNPRINZIPIEN
+
+### Die 12 Gebote der Code-Qualität:
+
+1. **Struktur**: Klare Trennung von Code, Docs, Tests, Daten
+2. **Logging**: Zentrales Logging von Tag 1
+3. **Modularität**: Maximale Wiederverwendbarkeit
+4. **Layer**: Abstraktion durch Schichtenarchitektur
+5. **Dokumentation**: Mehrere Zielgruppen, kontinuierlich aktualisiert
+6. **Fragen**: Lieber fragen als doppelten Code schreiben
+7. **Kleinschrittigkeit**: Große Aufgaben in kleine Tasks (max. 50 Zeilen) unterteilen
+8. **Arbeitsdokumente**: Komplexe Features mit temporärem WIP-Dokument planen
+9. **Fortschritt dokumentieren**: Während der Arbeit, nicht nur am Ende
+10. **Standards**: Konsistente Namensgebung & Conventions
+11. **Testing**: Tests sind nicht optional
+12. **Vision**: Jede Entscheidung gegen Vision abgleichen
+
+### Workflow-Kurzreferenz
+
+**Einfache Aufgabe (< 3 Dateien, < 50 Zeilen):**
+→ Direkt implementieren nach Standard-Workflow (6.3)
+
+**Mittlere Aufgabe (3-5 Dateien oder 50-100 Zeilen):**
+→ Todo-Liste erstellen, dann implementieren
+
+**Komplexe Aufgabe (> 5 Dateien oder > 100 Zeilen):**
+→ `[WIP]`-Arbeitsdokument erstellen (6.4)
+→ Feature in 5-10 kleine Tasks unterteilen
+→ Jeder Task einzeln umsetzen mit Fortschrittsdoku
+→ Am Ende: Erkenntnisse in offizielle Doku überführen, WIP löschen
+
+---
+
+## 9. CHECKLISTE FÜR NEUES PROJEKT
+
+Beim Start eines neuen Projekts:
+
+
+- [ ] Verzeichnisstruktur angelegt (`src/`, `docs/`, `tests/`, `data/`)
+- [ ] Logging-System implementiert
+- [ ] `docs/dev/vision.md` erstellt und ausführlich diskutiert
+- [ ] `docs/dev/roadmap.md` erstellt 
+- [ ] `docs/dev/architecture.md` erstellt
+- [ ] `docs/dev/codebase.md` erstellt
+- [ ] `.gitignore` konfiguriert
+- [ ] `README.md` mit Quick-Start
+- [ ] Test-Framework eingerichtet
+- [ ] CI/CD Pipeline konfiguriert (wenn zutreffend)
+- [ ] Namenskonventionen definiert
+- [ ] Code-Style Guide gewählt (ESLint, Prettier, etc.)
+
+---
+
+**Ende der Richtlinien**
+
+*Diese Richtlinien sind ein lebendes Dokument und sollten bei Bedarf aktualisiert werden.* 

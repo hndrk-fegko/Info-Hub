@@ -1,0 +1,186 @@
+# Info-Hub
+
+**Ultra-schlankes, file-based CMS für schnelle Informationsseiten**
+
+![PHP](https://img.shields.io/badge/PHP-7.4+-777BB4?logo=php&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+![No Database](https://img.shields.io/badge/Database-None-blue)
+
+## ✨ Features
+
+- ⚡ **Setup in < 5 Minuten** - Kein kompliziertes Setup
+- 🗃️ **Keine Datenbank** - Nur PHP + JSON
+- 🔐 **Email-Code-Login** - Kein Passwort nötig
+- 🎨 **Visueller Tile-Editor** - Drag & Drop ready
+- 📄 **Statische HTML-Generierung** - Schnell & SEO-freundlich
+- 📱 **Responsive Design** - CSS Grid Layout
+- 🛡️ **CSRF-Schutz** - Sichere API-Calls
+- 🔒 **Security-Warnungen** - Debug-Mode & HTTPS-Checks
+
+## 🧱 Tile-Typen
+
+| Typ | Beschreibung | Felder |
+|-----|--------------|--------|
+| **Infobox** | Texte & Ankündigungen | title, showTitle, description |
+| **Download** | Datei-Downloads | title, showTitle, description, file, buttonText |
+| **Bild** | Fotos mit Lightbox/Link | title, showTitle, image, caption, lightbox, link |
+| **Link** | Externe Verlinkungen | title, showTitle, description, url, linkText, external |
+| **Iframe** | Eingebettete Formulare | title, showTitle, url, description, displayMode, aspectRatio |
+
+## 🎨 Design-Features
+
+- **4 Akzentfarben** - Primär + 3 weitere
+- **2 Tile-Styles** - Flat (transparent) oder Card (mit Schatten)
+- **5 Farbschemata** - Default, White, Accent1-3
+- **WCAG-Kontrast** - Automatische Textfarben-Anpassung
+- **Sticky Footer** - Immer am unteren Rand
+
+## 📦 Embedding-Optionen
+
+Seiten können mit URL-Parametern eingebettet werden:
+
+```
+?embedded=true          # Header & Footer ausblenden
+?style=clean            # Transparenter Hintergrund
+?style=minimalbox       # Alle Tiles weiß mit dunklem Text
+?style=clean,minimalbox # Kombinierbar
+```
+
+## 🔧 Anforderungen
+
+- PHP 7.4+ mit `mail()` Funktion
+- Apache mit mod_rewrite (oder nginx)
+- Schreibrechte für:
+  - `/backend/data/`
+  - `/backend/media/`
+  - `/backend/logs/`
+  - `/backend/archive/`
+
+## 🚀 Installation
+
+### 1. Repository klonen
+
+```bash
+git clone https://github.com/hdrk-fegko/Info-Hub.git
+cd Info-Hub
+```
+
+### 2. Beispieldateien kopieren
+
+```bash
+cp backend/config.example.php backend/config.php
+cp backend/data/settings.example.json backend/data/settings.json
+cp backend/data/tiles.example.json backend/data/tiles.json
+```
+
+### 3. Berechtigungen setzen (Linux/Mac)
+
+```bash
+chmod 755 backend/
+chmod 777 backend/data/ backend/media/ backend/logs/ backend/archive/
+```
+
+### 4. Setup aufrufen
+
+```
+https://deine-domain.de/backend/setup.php
+```
+
+### 5. Einloggen
+
+```
+https://deine-domain.de/backend/login.php
+```
+
+## 💻 Lokale Entwicklung
+
+```bash
+php -S localhost:8000
+# Dann: http://localhost:8000/backend/setup.php
+```
+
+**Tipp:** `DEBUG_MODE` auf `true` setzen in `login.php` für Login-Codes ohne Mail-Server.
+
+## 📁 Projektstruktur
+
+```
+Info-Hub/
+├── index.html              # Generierte Seite
+├── .htaccess               # Security & Redirects
+│
+├── backend/
+│   ├── login.php           # Email-Code Login
+│   ├── editor.php          # Visueller Editor
+│   ├── setup.php           # Einmal-Setup
+│   │
+│   ├── api/
+│   │   └── endpoints.php   # REST API
+│   │
+│   ├── core/               # Services
+│   │   ├── AuthService.php
+│   │   ├── TileService.php
+│   │   ├── GeneratorService.php
+│   │   ├── UploadService.php
+│   │   ├── StorageService.php
+│   │   ├── LogService.php
+│   │   └── SecurityHelper.php
+│   │
+│   ├── tiles/              # Tile-Definitionen
+│   │   ├── _registry.php   # Auto-Import
+│   │   ├── TileBase.php    # Abstrakte Basis
+│   │   ├── InfoboxTile.php
+│   │   ├── DownloadTile.php
+│   │   ├── ImageTile.php
+│   │   ├── LinkTile.php
+│   │   └── IframeTile.php
+│   │
+│   ├── data/               # JSON-Speicher
+│   ├── media/              # Uploads
+│   ├── logs/               # Anwendungslogs
+│   └── archive/            # Backups
+│
+├── assets/
+│   ├── css/editor.css
+│   └── js/editor.js
+│
+└── docs/                   # Dokumentation
+```
+
+## 🔐 Sicherheit
+
+| Feature | Status |
+|---------|--------|
+| Email-Code-Auth | ✅ |
+| Session-Timeout | ✅ 1 Stunde |
+| Session-Regeneration | ✅ Nach Login |
+| Rate-Limiting | ✅ 3 Versuche → 10 Min Sperre |
+| CSRF-Token | ✅ Alle POST-Requests |
+| Upload-Validierung | ✅ Extension + MIME |
+| XSS-Schutz | ✅ htmlspecialchars() |
+| Security-Warnungen | ✅ Debug-Mode & HTTPS |
+
+## 📚 Dokumentation
+
+- [Benutzerhandbuch](docs/user/guide.md)
+- [API-Referenz](docs/dev/api.md)
+- [Architektur](docs/dev/architecture.md)
+- [Deployment](docs/dev/deployment.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Testing-Checkliste](docs/TESTING.md)
+
+## 🤝 Contributing
+
+Beiträge sind willkommen! Siehe [ROADMAP.md](docs/ROADMAP.md#-contributing) für Details.
+
+1. Fork das Repository
+2. Feature-Branch erstellen
+3. Änderungen committen
+4. Pull Request erstellen
+
+## 📄 Lizenz
+
+MIT License - siehe [LICENSE](LICENSE)
+
+---
+
+**Made with ❤️ für die Gemeindearbeit**
