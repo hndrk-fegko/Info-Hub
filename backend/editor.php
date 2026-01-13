@@ -317,7 +317,7 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
             apiUrl: 'api/endpoints.php',
             sessionTimeout: <?= $sessionTimeout ?>,
             sessionWarning: <?= $sessionWarning ?>,
-            sessionRemaining: <?= $remainingTime ?>
+            sessionRemaining: <?= $remainingTime ?>,
             debugMode: <?= (defined('DEBUG_MODE') && DEBUG_MODE) ? 'true' : 'false' ?>
         };
         
