@@ -2,117 +2,123 @@
 /**
  * UploadService - Sichere Datei-Uploads
  * 
- * Unterstützt:
- * - Bilder (jpg, jpeg, png, gif, webp) - max 5MB
- * - Downloads (pdf, docx, xlsx, zip) - max 50MB
- * - Header-Bilder
+ * Validiert und speichert hochgeladene Dateien.
  */
+
+// Config laden falls noch nicht geschehen
+if (!defined('MAX_IMAGE_SIZE') && file_exists(__DIR__ . '/../config.php')) {
+    require_once __DIR__ . '/../config.php';
+}
 
 require_once __DIR__ . '/LogService.php';
 
 class UploadService {
     
     private const ALLOWED_IMAGES = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    private const ALLOWED_DOWNLOADS = ['pdf', 'docx', 'xlsx', 'zip', 'pptx', 'txt'];
-    private const MAX_IMAGE_SIZE = 5 * 1024 * 1024;      // 5MB
-    private const MAX_DOWNLOAD_SIZE = 50 * 1024 * 1024;  // 50MB
+    private const ALLOWED_DOWNLOADS = ['pdf', 'docx', 'xlsx', 'zip', 'doc', 'xls', 'pptx', 'ppt', 'txt'];
     
-    private string $mediaDir;
+    // Größenlimits aus config.php oder Fallbacks
+    private int $maxImageSize;
+    private int $maxDownloadSize;
+    
+    private const MEDIA_PATH = __DIR__ . '/../media/';
     
     public function __construct() {
-        $this->mediaDir = __DIR__ . '/../media/';
-        $this->ensureMediaDirs();
+        // Werte aus config.php laden (mit Fallbacks)
+        $this->maxImageSize = defined('MAX_IMAGE_SIZE') ? constant('MAX_IMAGE_SIZE') : 5 * 1024 * 1024;
+        $this->maxDownloadSize = defined('MAX_DOWNLOAD_SIZE') ? constant('MAX_DOWNLOAD_SIZE') : 50 * 1024 * 1024;
+        
+        // Debug: Log die geladenen Werte
+        if (defined('DEBUG_MODE') && constant('DEBUG_MODE')) {
+            LogService::debug('UploadService', 'Config loaded', [
+                'maxImageSize' => $this->maxImageSize,
+                'maxDownloadSize' => $this->maxDownloadSize
+            ]);
+        }
     }
     
     /**
-     * Upload eines Bildes
-     * 
-     * @param array $file $_FILES Array-Element
-     * @return array ['success' => bool, 'path' => string] oder ['error' => string]
+     * Lädt ein Bild hoch
      */
     public function uploadImage(array $file): array {
-        return $this->upload($file, 'images', self::ALLOWED_IMAGES, self::MAX_IMAGE_SIZE);
+        return $this->upload($file, 'images', self::ALLOWED_IMAGES, $this->maxImageSize);
     }
     
     /**
-     * Upload eines Header-Bildes
-     */
-    public function uploadHeader(array $file): array {
-        return $this->upload($file, 'header', self::ALLOWED_IMAGES, self::MAX_IMAGE_SIZE);
-    }
-    
-    /**
-     * Upload einer Download-Datei
+     * Lädt eine Download-Datei hoch
      */
     public function uploadDownload(array $file): array {
-        return $this->upload($file, 'downloads', self::ALLOWED_DOWNLOADS, self::MAX_DOWNLOAD_SIZE);
+        return $this->upload($file, 'downloads', self::ALLOWED_DOWNLOADS, $this->maxDownloadSize);
+    }
+    
+    /**
+     * Lädt ein Header-Bild hoch
+     */
+    public function uploadHeader(array $file): array {
+        return $this->upload($file, 'header', self::ALLOWED_IMAGES, $this->maxImageSize);
     }
     
     /**
      * Generische Upload-Methode
      */
     private function upload(array $file, string $type, array $allowedExts, int $maxSize): array {
-        // 1. Upload-Error prüfen
+        // 1. Validierung: Upload-Error
         if ($file['error'] !== UPLOAD_ERR_OK) {
-            $errorMsg = $this->getUploadErrorMessage($file['error']);
-            LogService::error('UploadService', 'Upload error', [
-                'error_code' => $file['error'],
-                'message' => $errorMsg
-            ]);
-            return ['success' => false, 'error' => $errorMsg];
+            LogService::warning('UploadService', 'Upload error', ['error' => $file['error']]);
+            return ['success' => false, 'error' => 'Upload fehlgeschlagen'];
         }
         
-        // 2. Dateigröße prüfen
+        // 2. Validierung: Dateigröße
         if ($file['size'] > $maxSize) {
-            $maxMB = round($maxSize / 1024 / 1024, 1);
-            return ['success' => false, 'error' => "Datei zu groß (max. {$maxMB}MB)"];
+            LogService::warning('UploadService', 'File too large', [
+                'size' => $file['size'],
+                'max' => $maxSize
+            ]);
+            return ['success' => false, 'error' => 'Datei zu groß (max. ' . ($maxSize / 1024 / 1024) . 'MB)'];
         }
         
-        // 3. Dateiendung prüfen
-        $originalName = $file['name'];
-        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-        
+        // 3. Validierung: Extension
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         if (!in_array($ext, $allowedExts)) {
-            LogService::warning('UploadService', 'Invalid file extension', [
-                'extension' => $ext,
-                'allowed' => $allowedExts
-            ]);
+            LogService::warning('UploadService', 'Invalid extension', ['ext' => $ext]);
             return ['success' => false, 'error' => 'Dateityp nicht erlaubt'];
         }
         
-        // 4. Bei Bildern: MIME-Type prüfen
-        if (in_array($ext, self::ALLOWED_IMAGES)) {
-            $mimeType = mime_content_type($file['tmp_name']);
-            $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        // 4. Validierung: MIME-Type (für Bilder)
+        if ($type === 'images' || $type === 'header') {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
             
-            if (!in_array($mimeType, $allowedMimes)) {
-                LogService::warning('UploadService', 'Invalid MIME type', [
-                    'mime' => $mimeType,
-                    'file' => $originalName
-                ]);
-                return ['success' => false, 'error' => 'Ungültiger Dateityp'];
+            $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!in_array($mime, $allowedMimes)) {
+                LogService::warning('UploadService', 'Invalid MIME type', ['mime' => $mime]);
+                return ['success' => false, 'error' => 'Ungültiger Bildtyp'];
             }
         }
         
-        // 5. Sicherer Dateiname generieren
-        $basename = pathinfo($originalName, PATHINFO_FILENAME);
-        $basename = preg_replace('/[^a-zA-Z0-9_-]/', '', $basename);
-        $basename = substr($basename, 0, 50) ?: 'file';  // Max 50 Zeichen
+        // 5. Sicherer Dateiname
+        $basename = preg_replace('/[^a-zA-Z0-9_-]/', '', pathinfo($file['name'], PATHINFO_FILENAME));
+        if (empty($basename)) {
+            $basename = 'file';
+        }
         $filename = $basename . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
         
         // 6. Zielverzeichnis
-        $targetDir = $this->mediaDir . $type . '/';
+        $targetDir = self::MEDIA_PATH . $type . '/';
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0755, true);
+        }
+        
         $targetPath = $targetDir . $filename;
         
         // 7. Datei verschieben
         if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
-            LogService::error('UploadService', 'Failed to move uploaded file', [
-                'target' => $targetPath
-            ]);
+            LogService::error('UploadService', 'Failed to move file', ['target' => $targetPath]);
             return ['success' => false, 'error' => 'Speichern fehlgeschlagen'];
         }
         
-        LogService::info('UploadService', 'File uploaded successfully', [
+        LogService::success('UploadService', 'File uploaded', [
             'filename' => $filename,
             'type' => $type,
             'size' => $file['size']
@@ -121,49 +127,15 @@ class UploadService {
         return [
             'success' => true,
             'filename' => $filename,
-            'path' => "/backend/media/$type/$filename",
-            'originalName' => $originalName,
-            'size' => $file['size']
+            'path' => "/backend/media/$type/$filename"
         ];
     }
     
     /**
-     * Löscht eine Datei
-     * 
-     * @param string $path Relativer Pfad (z.B. /backend/media/images/file.jpg)
-     * @return bool Erfolg
-     */
-    public function delete(string $path): bool {
-        // Sicherheit: Nur Dateien im media-Ordner erlauben
-        if (strpos($path, '/backend/media/') !== 0) {
-            LogService::warning('UploadService', 'Invalid delete path', ['path' => $path]);
-            return false;
-        }
-        
-        // Relativen Pfad zu absolutem umwandeln
-        $absolutePath = __DIR__ . '/..' . str_replace('/backend', '', $path);
-        $absolutePath = realpath($absolutePath);
-        
-        // Sicherstellen, dass Pfad im Media-Ordner liegt
-        if (!$absolutePath || strpos($absolutePath, realpath($this->mediaDir)) !== 0) {
-            LogService::warning('UploadService', 'Path traversal attempt', ['path' => $path]);
-            return false;
-        }
-        
-        if (file_exists($absolutePath) && unlink($absolutePath)) {
-            LogService::info('UploadService', 'File deleted', ['path' => $path]);
-            return true;
-        }
-        
-        return false;
-    }
-    
-    /**
-     * Listet Dateien eines Typs auf
+     * Listet Dateien eines Typs
      */
     public function listFiles(string $type): array {
-        $dir = $this->mediaDir . $type . '/';
-        
+        $dir = self::MEDIA_PATH . $type . '/';
         if (!is_dir($dir)) {
             return [];
         }
@@ -180,39 +152,26 @@ class UploadService {
             }
         }
         
-        // Nach Datum sortieren (neueste zuerst)
+        // Neueste zuerst
         usort($files, fn($a, $b) => $b['modified'] <=> $a['modified']);
         
         return $files;
     }
     
     /**
-     * Stellt sicher, dass Media-Verzeichnisse existieren
+     * Löscht eine Datei
      */
-    private function ensureMediaDirs(): void {
-        $dirs = ['images', 'downloads', 'header'];
+    public function deleteFile(string $type, string $filename): bool {
+        // Sicherheit: Nur Dateiname, kein Pfad
+        $filename = basename($filename);
+        $filepath = self::MEDIA_PATH . $type . '/' . $filename;
         
-        foreach ($dirs as $dir) {
-            $path = $this->mediaDir . $dir;
-            if (!is_dir($path)) {
-                mkdir($path, 0755, true);
-            }
+        if (file_exists($filepath) && is_file($filepath)) {
+            unlink($filepath);
+            LogService::info('UploadService', 'File deleted', ['file' => $filename]);
+            return true;
         }
-    }
-    
-    /**
-     * Übersetzt Upload-Fehlercodes
-     */
-    private function getUploadErrorMessage(int $errorCode): string {
-        return match($errorCode) {
-            UPLOAD_ERR_INI_SIZE => 'Datei überschreitet Server-Limit',
-            UPLOAD_ERR_FORM_SIZE => 'Datei zu groß',
-            UPLOAD_ERR_PARTIAL => 'Upload unvollständig',
-            UPLOAD_ERR_NO_FILE => 'Keine Datei ausgewählt',
-            UPLOAD_ERR_NO_TMP_DIR => 'Server-Fehler (temp)',
-            UPLOAD_ERR_CANT_WRITE => 'Server-Fehler (write)',
-            UPLOAD_ERR_EXTENSION => 'Upload blockiert',
-            default => 'Unbekannter Fehler'
-        };
+        
+        return false;
     }
 }

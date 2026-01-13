@@ -9,26 +9,46 @@
  * 4. Session wird aktiviert (konfigurierbare Dauer)
  */
 
+// Config laden falls noch nicht geschehen
+if (!defined('SESSION_TIMEOUT') && file_exists(__DIR__ . '/../config.php')) {
+    require_once __DIR__ . '/../config.php';
+}
+
 require_once __DIR__ . '/LogService.php';
 require_once __DIR__ . '/StorageService.php';
 require_once __DIR__ . '/SecurityHelper.php';
 
 class AuthService {
     
-    // Fallback-Werte falls config.php nicht geladen wurde
+    // Werte aus config.php (mit Fallbacks)
     private int $codeExpiry;
     private int $sessionExpiry;
     private int $maxAttempts;
     private int $lockoutTime;
+    private int $warningBefore;
     
     private StorageService $settingsStorage;
     
     public function __construct() {
         // Werte aus config.php laden (mit Fallbacks)
-        $this->codeExpiry = defined('LOGIN_CODE_EXPIRY') ? LOGIN_CODE_EXPIRY : 900;
-        $this->sessionExpiry = defined('SESSION_TIMEOUT') ? SESSION_TIMEOUT : 3600;
-        $this->maxAttempts = defined('MAX_LOGIN_ATTEMPTS') ? MAX_LOGIN_ATTEMPTS : 3;
-        $this->lockoutTime = defined('LOGIN_LOCKOUT_DURATION') ? LOGIN_LOCKOUT_DURATION : 600;
+        $this->codeExpiry = defined('LOGIN_CODE_EXPIRY') ? constant('LOGIN_CODE_EXPIRY') : 900;
+        $this->sessionExpiry = defined('SESSION_TIMEOUT') ? constant('SESSION_TIMEOUT') : 3600;
+        $this->maxAttempts = defined('MAX_LOGIN_ATTEMPTS') ? constant('MAX_LOGIN_ATTEMPTS') : 3;
+        $this->lockoutTime = defined('LOGIN_LOCKOUT_DURATION') ? constant('LOGIN_LOCKOUT_DURATION') : 600;
+        $this->warningBefore = defined('SESSION_WARNING_BEFORE') ? constant('SESSION_WARNING_BEFORE') : 300;
+        
+        // Debug: Log die geladenen Werte
+        if (defined('DEBUG_MODE') && constant('DEBUG_MODE')) {
+            LogService::debug('AuthService', 'Config loaded', [
+                'sessionExpiry' => $this->sessionExpiry,
+                'codeExpiry' => $this->codeExpiry,
+                'maxAttempts' => $this->maxAttempts,
+                'lockoutTime' => $this->lockoutTime,
+                'warningBefore' => $this->warningBefore,
+                'SESSION_TIMEOUT_defined' => defined('SESSION_TIMEOUT'),
+                'SESSION_TIMEOUT_value' => defined('SESSION_TIMEOUT') ? constant('SESSION_TIMEOUT') : 'not defined'
+            ]);
+        }
         
         $this->settingsStorage = new StorageService('settings.json');
         $this->ensureSession();
@@ -234,6 +254,6 @@ class AuthService {
      * Gibt Warnung-Vorlauf zurück (für JS)
      */
     public function getSessionWarningBefore(): int {
-        return defined('SESSION_WARNING_BEFORE') ? SESSION_WARNING_BEFORE : 300;
+        return $this->warningBefore;
     }
 }

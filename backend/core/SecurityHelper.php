@@ -2,38 +2,38 @@
 /**
  * SecurityHelper - Zentrale Sicherheitsprüfungen
  * 
- * Prüft Debug-Modi, HTTPS-Status und andere Sicherheitsaspekte.
- * Wird von Login, Editor und Email verwendet.
+ * Prüft auf unsichere Konfigurationen und gibt Warnungen aus.
  */
+
+// Config laden falls noch nicht geschehen
+if (!defined('DEBUG_MODE') && file_exists(__DIR__ . '/../config.php')) {
+    require_once __DIR__ . '/../config.php';
+}
 
 class SecurityHelper {
     
     /**
-     * Prüft ob irgendein Debug-Modus aktiv ist
-     * 
-     * @return bool True wenn Debug aktiv
+     * Prüft ob Debug-Mode aktiv ist
      */
     public static function isDebugMode(): bool {
-        return defined('DEBUG_MODE') && constant('DEBUG_MODE');
+        return defined('DEBUG_MODE') && constant('DEBUG_MODE') === true;
     }
     
     /**
-     * Prüft ob HTTPS verwendet wird
-     * 
-     * @return bool True wenn HTTPS aktiv
+     * Prüft ob HTTPS aktiv ist
      */
     public static function isHttps(): bool {
-        // Standard HTTPS-Check
+        // Standard HTTPS Check
         if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
             return true;
         }
         
-        // Proxy/Load-Balancer Header
+        // Proxy/Load Balancer Check
         if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
             return true;
         }
         
-        // CloudFlare
+        // CloudFlare Check
         if (!empty($_SERVER['HTTP_CF_VISITOR'])) {
             $visitor = json_decode($_SERVER['HTTP_CF_VISITOR'], true);
             if (isset($visitor['scheme']) && $visitor['scheme'] === 'https') {
@@ -41,7 +41,7 @@ class SecurityHelper {
             }
         }
         
-        // Port 443
+        // Port Check
         if (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443) {
             return true;
         }
@@ -50,182 +50,113 @@ class SecurityHelper {
     }
     
     /**
-     * Prüft ob localhost (Development)
-     * 
-     * @return bool True wenn localhost
+     * Prüft ob Localhost (Development)
      */
     public static function isLocalhost(): bool {
         $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '';
-        $localHosts = ['localhost', '127.0.0.1', '::1'];
-        
-        foreach ($localHosts as $local) {
-            if (strpos($host, $local) !== false) {
-                return true;
-            }
-        }
-        
-        return false;
+        return in_array($host, ['localhost', '127.0.0.1', '::1']) 
+            || strpos($host, 'localhost:') === 0
+            || strpos($host, '127.0.0.1:') === 0;
     }
     
     /**
-     * Gibt alle aktiven Sicherheitswarnungen zurück
-     * 
-     * @return array ['warnings' => [...], 'isProduction' => bool]
+     * Gibt alle Sicherheitswarnungen zurück
      */
     public static function getSecurityStatus(): array {
         $warnings = [];
-        $isProduction = !self::isLocalhost();
         
-        // Debug-Modus
         if (self::isDebugMode()) {
             $warnings[] = [
                 'type' => 'debug',
-                'icon' => '🐛',
-                'title' => 'Debug-Modus aktiv',
-                'message' => 'Debug-Modus sollte in Produktion deaktiviert werden.',
-                'severity' => $isProduction ? 'error' : 'warning'
+                'level' => self::isLocalhost() ? 'warning' : 'error',
+                'message' => 'Debug-Modus ist aktiv',
+                'detail' => 'In config.php DEBUG_MODE auf false setzen'
             ];
         }
         
-        // HTTPS (nur warnen wenn nicht localhost)
-        if (!self::isHttps() && $isProduction) {
+        if (!self::isHttps() && !self::isLocalhost()) {
             $warnings[] = [
                 'type' => 'https',
-                'icon' => '🔓',
-                'title' => 'Kein HTTPS',
-                'message' => 'Die Verbindung ist nicht verschlüsselt. Bitte HTTPS aktivieren.',
-                'severity' => 'error'
+                'level' => 'error',
+                'message' => 'Keine HTTPS-Verbindung',
+                'detail' => 'SSL-Zertifikat installieren'
             ];
         }
         
-        // PHP Error Display (kritisch in Production)
-        if (ini_get('display_errors') && $isProduction) {
-            $warnings[] = [
-                'type' => 'errors',
-                'icon' => '⚠️',
-                'title' => 'PHP-Fehler sichtbar',
-                'message' => 'display_errors sollte in Produktion deaktiviert sein.',
-                'severity' => 'warning'
-            ];
-        }
-        
-        return [
-            'warnings' => $warnings,
-            'hasWarnings' => count($warnings) > 0,
-            'isProduction' => $isProduction,
-            'isSecure' => count($warnings) === 0
-        ];
+        return $warnings;
     }
     
     /**
-     * Generiert Security-Info für Login-Email
-     * 
-     * @return string Formatierter Text für Email
+     * Gibt Security-Infos für Email zurück
      */
     public static function getEmailSecurityInfo(): string {
-        $lines = [];
-        $lines[] = "\n---\nSicherheitshinweise:";
+        $info = "\n\n---\nSicherheitshinweise:";
+        $info .= "\n• Angefragt von: " . ($_SERVER['REMOTE_ADDR'] ?? 'unbekannt');
+        $info .= "\n• Server: " . ($_SERVER['HTTP_HOST'] ?? 'unbekannt');
+        $info .= "\n• Verbindung: " . (self::isHttps() ? '✓ Verschlüsselt (HTTPS)' : '⚠ Unverschlüsselt (HTTP)');
         
-        // IP und Hostname
-        $ip = $_SERVER['REMOTE_ADDR'] ?? 'unbekannt';
-        $host = $_SERVER['HTTP_HOST'] ?? 'unbekannt';
-        $lines[] = "• Angefragt von: $ip";
-        $lines[] = "• Server: $host";
-        
-        // HTTPS-Status
-        if (self::isHttps()) {
-            $lines[] = "• Verbindung: ✓ Verschlüsselt (HTTPS)";
-        } else {
-            $lines[] = "• Verbindung: ⚠ Unverschlüsselt (HTTP)";
-        }
-        
-        // Debug-Status
         if (self::isDebugMode()) {
-            $lines[] = "• Debug-Modus: ⚠ AKTIV - In Produktion deaktivieren!";
+            $info .= "\n• Debug-Modus: ⚠ AKTIV - In Produktion deaktivieren!";
         }
         
-        // Localhost
         if (self::isLocalhost()) {
-            $lines[] = "• Umgebung: Development (localhost)";
-        } else {
-            $lines[] = "• Umgebung: Production";
+            $info .= "\n• Umgebung: Development (localhost)";
         }
         
-        $lines[] = "\nZeit: " . date('d.m.Y H:i:s');
+        $info .= "\n• Zeit: " . date('d.m.Y H:i:s');
         
-        return implode("\n", $lines);
+        return $info;
     }
     
     /**
-     * Generiert HTML für Security-Badge (Icon mit Tooltip)
-     * 
-     * @return string HTML oder leerer String wenn keine Warnungen
-     */
-    public static function renderSecurityBadge(): string {
-        $status = self::getSecurityStatus();
-        
-        if (!$status['hasWarnings']) {
-            return '';
-        }
-        
-        $count = count($status['warnings']);
-        $tooltip = [];
-        $icons = [];
-        
-        foreach ($status['warnings'] as $warning) {
-            $icons[] = $warning['icon'];
-            $tooltip[] = $warning['title'] . ': ' . $warning['message'];
-        }
-        
-        $iconStr = implode('', array_unique($icons));
-        // &#10; für Zeilenumbruch im title-Attribut (HTML-konform)
-        $tooltipStr = htmlspecialchars(implode("\n", $tooltip));
-        $tooltipStr = str_replace("\n", "&#10;", $tooltipStr);
-        
-        return <<<HTML
-<span class="security-badge security-warning" title="{$tooltipStr}">
-    {$iconStr} <span class="badge-count">{$count}</span>
-</span>
-HTML;
-    }
-    
-    /**
-     * Generiert HTML für Security-Banner (dismissable)
-     * 
-     * @return string HTML oder leerer String wenn keine Warnungen
+     * Generiert HTML für Security-Warnings Banner
      */
     public static function renderSecurityBanner(): string {
-        $status = self::getSecurityStatus();
+        $warnings = self::getSecurityStatus();
         
-        if (!$status['hasWarnings']) {
+        if (empty($warnings)) {
             return '';
         }
         
-        $items = [];
-        foreach ($status['warnings'] as $warning) {
-            $severityClass = $warning['severity'] === 'error' ? 'banner-error' : 'banner-warning';
-            $items[] = "<div class=\"banner-item {$severityClass}\">{$warning['icon']} <strong>{$warning['title']}:</strong> {$warning['message']}</div>";
+        $html = '<div class="security-banner" id="securityBanner">';
+        $html .= '<div class="security-banner-content">';
+        $html .= '<strong>⚠️ Sicherheitshinweise:</strong> ';
+        
+        $messages = array_map(fn($w) => $w['message'], $warnings);
+        $html .= implode(' | ', $messages);
+        
+        $html .= '</div>';
+        $html .= '<button type="button" onclick="dismissSecurityBanner()" class="security-banner-close">×</button>';
+        $html .= '</div>';
+        
+        $html .= '<script>
+            function dismissSecurityBanner() {
+                document.getElementById("securityBanner").style.display = "none";
+                fetch("?dismiss_security_banner=1");
+            }
+        </script>';
+        
+        return $html;
+    }
+    
+    /**
+     * Generiert HTML für Security-Badge im Editor
+     */
+    public static function renderSecurityBadge(): string {
+        $warnings = self::getSecurityStatus();
+        
+        if (empty($warnings)) {
+            return '';
         }
         
-        $itemsHtml = implode("\n", $items);
+        $count = count($warnings);
+        $tooltip = implode('&#10;', array_map(fn($w) => "• {$w['message']}: {$w['detail']}", $warnings));
         
-        return <<<HTML
-<div class="security-banner" id="securityBanner">
-    <div class="banner-content">
-        {$itemsHtml}
-    </div>
-    <button class="banner-dismiss" onclick="dismissSecurityBanner()" title="Schließen">×</button>
-</div>
-<script>
-function dismissSecurityBanner() {
-    document.getElementById('securityBanner').style.display = 'none';
-    sessionStorage.setItem('securityBannerDismissed', '1');
-}
-// Auto-hide wenn bereits dismissed
-if (sessionStorage.getItem('securityBannerDismissed')) {
-    document.getElementById('securityBanner')?.style.setProperty('display', 'none');
-}
-</script>
-HTML;
+        $html = '<div class="security-badge" title="' . htmlspecialchars($tooltip) . '">';
+        $html .= '<span class="security-badge-icon">🐛</span>';
+        $html .= '<span class="security-badge-count">' . $count . '</span>';
+        $html .= '</div>';
+        
+        return $html;
     }
 }
