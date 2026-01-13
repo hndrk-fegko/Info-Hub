@@ -6,7 +6,13 @@
  */
 
 // WICHTIG: Config ZUERST laden, bevor andere Services!
-require_once __DIR__ . '/config.php';
+if (file_exists(__DIR__ . '/config.php')) {
+    require_once __DIR__ . '/config.php';
+} else {
+    // Config fehlt - zurück zu Setup
+    header('Location: setup.php');
+    exit;
+}
 
 // Error Reporting basierend auf DEBUG_MODE (bereits in config.php gesetzt)
 
@@ -168,7 +174,7 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                 <div class="form-row">
                     <div class="form-group">
                         <label for="tileStyle">Stil</label>
-                        <select name="style" id="tileStyle" onchange="updateColorOptions()">
+                        <select name="style" id="tileStyle" onchange="updateColorSchemeOptions()">
                             <option value="flat">Flat (transparent)</option>
                             <option value="card" selected>Card (mit Schatten)</option>
                         </select>
@@ -187,7 +193,7 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                 </div>
                 
                 <!-- Dynamische Felder je nach Typ -->
-                <div id="dynamicFields"></div>
+                <div id="tileFields"></div>
                 
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeTileModal()">Abbrechen</button>
@@ -279,54 +285,45 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                     <div class="file-list" id="fileList">
                         <!-- Dateien werden per JS geladen -->
                     </div>
-                    <div class="file-upload-section">
-                        <input type="file" id="fileUpload" onchange="uploadFile()">
-                        <button type="button" class="btn btn-secondary" id="uploadBtn" onclick="document.getElementById('fileUpload').click()">
-                            + Neue Datei hochladen
-                        </button>
+                    <div class="file-upload-dropzone" id="fileDropzone">
+                        <input type="file" id="fileBrowserUpload" onchange="uploadFile(this)" style="display: none;">
+                        <div class="dropzone-content">
+                            <span class="dropzone-icon">📁</span>
+                            <p>Dateien hierher ziehen<br><small>oder klicken zum Auswählen</small></p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <!-- Session Timeout Modal -->
-    <div id="sessionModal" class="modal">
-        <div class="modal-content modal-small">
-            <div class="modal-header">
-                <h2>⏰ Session läuft ab</h2>
-            </div>
-            <div class="session-warning-content">
-                <p>Deine Session läuft in <strong id="sessionCountdown">120</strong> Sekunden ab.</p>
-                <p>Möchtest du eingeloggt bleiben?</p>
-            </div>
-            <div class="form-actions">
-                <button type="button" class="btn btn-secondary" onclick="logout()">Abmelden</button>
-                <button type="button" class="btn btn-primary" onclick="extendSession()">Eingeloggt bleiben</button>
-            </div>
-        </div>
-    </div>
+    <!-- Session Timeout Dialog wird dynamisch von JS erstellt mit korrekten Werten aus CONFIG -->
     
     <!-- Toast Container -->
     <div id="toastContainer" class="toast-container"></div>
     
     <script>
-        // Konfiguration aus PHP
-        const CONFIG = {
+        // Konfiguration aus PHP - als window.CONFIG für editor.js
+        window.CONFIG = {
             csrfToken: '<?= $csrfToken ?>',
             apiUrl: 'api/endpoints.php',
             sessionTimeout: <?= $sessionTimeout ?>,
             sessionWarning: <?= $sessionWarning ?>,
             sessionRemaining: <?= $remainingTime ?>,
-            debugMode: <?= (defined('DEBUG_MODE') && DEBUG_MODE) ? 'true' : 'false' ?>
+            debugMode: <?= (defined('DEBUG_MODE') && DEBUG_MODE) ? 'true' : 'false' ?>,
+            // Daten für Editor
+            tiles: <?= json_encode($tiles, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
+            tileTypes: <?= json_encode($tileService->getAvailableTypes(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
+            settings: <?= json_encode($settings, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>
         };
         
         // Debug output nur wenn DEBUG_MODE aktiv ist
-        if (CONFIG.debugMode) {
+        if (window.CONFIG.debugMode) {
             console.log('DEBUG_MODE is active');
-            console.log('CONFIG loaded:', CONFIG);
-            console.log('Session timeout:', CONFIG.sessionTimeout, 'seconds');
-            console.log('Session warning:', CONFIG.sessionWarning, 'seconds before');
+            console.log('CONFIG loaded:', window.CONFIG);
+            console.log('Session timeout:', window.CONFIG.sessionTimeout, 'seconds');
+            console.log('Session warning:', window.CONFIG.sessionWarning, 'seconds before');
+            console.log('Tiles:', window.CONFIG.tiles?.length || 0);
         }
         
     </script>

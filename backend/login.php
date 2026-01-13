@@ -9,7 +9,13 @@
  */
 
 // Zentrale Konfiguration laden
-require_once __DIR__ . '/config.php';
+if (file_exists(__DIR__ . '/config.php')) {
+    require_once __DIR__ . '/config.php';
+} else {
+    // Config fehlt - zurück zu Setup
+    header('Location: setup.php');
+    exit;
+}
 
 session_start();
 

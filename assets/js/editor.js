@@ -9,8 +9,8 @@
  */
 
 // ===== Configuration =====
-const API_URL = window.INITIAL_DATA?.apiUrl || 'api/endpoints.php';
-const CSRF_TOKEN = window.INITIAL_DATA?.csrfToken || '';
+const API_URL = window.CONFIG?.apiUrl || 'api/endpoints.php';
+const CSRF_TOKEN = window.CONFIG?.csrfToken || '';
 
 // ===== Helper: API Request with CSRF =====
 async function apiPost(action, data = {}) {
@@ -38,9 +38,9 @@ async function apiPostFormData(formData) {
 }
 
 // ===== State =====
-let tiles = window.INITIAL_DATA?.tiles || [];
-let tileTypes = window.INITIAL_DATA?.tileTypes || {};
-let settings = window.INITIAL_DATA?.settings || {};
+let tiles = window.CONFIG?.tiles || [];
+let tileTypes = window.CONFIG?.tileTypes || {};
+let settings = window.CONFIG?.settings || {};
 let currentEditTile = null;
 let fileBrowserCallback = null;
 let currentFileType = 'images';
@@ -718,7 +718,7 @@ function openFileBrowser(type, targetInputId) {
     
     document.getElementById('fileBrowserModal').classList.add('active');
     
-    // Accept-Attribut für Upload setzen und Button-Text aktualisieren
+    // Accept-Attribut für Upload setzen
     updateFileUploadUI(type);
     
     // Tabs aktualisieren
@@ -726,20 +726,63 @@ function openFileBrowser(type, targetInputId) {
         tab.classList.toggle('active', tab.dataset.type === type);
     });
     
+    // Dropzone initialisieren
+    initDropzone();
+    
     loadFiles(type);
 }
 
-// Aktualisiert Upload-Input und Button basierend auf Dateityp
+// Dropzone initialisieren
+function initDropzone() {
+    const dropzone = document.getElementById('fileDropzone');
+    const uploadInput = document.getElementById('fileBrowserUpload');
+    
+    if (!dropzone || dropzone.dataset.initialized) return;
+    dropzone.dataset.initialized = 'true';
+    
+    // Klick auf Dropzone öffnet Dateiauswahl
+    dropzone.addEventListener('click', () => uploadInput.click());
+    
+    // Drag & Drop Events
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.add('dragover');
+        // Default ist kopieren, nicht verschieben
+        e.dataTransfer.dropEffect = 'copy';
+    });
+    
+    dropzone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('dragover');
+    });
+    
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFileUpload(files[0]);
+        }
+    });
+}
+
+// Aktualisiert Upload-Input basierend auf Dateityp
 function updateFileUploadUI(type) {
     const uploadInput = document.getElementById('fileBrowserUpload');
-    const uploadBtn = document.getElementById('uploadBtn');
+    const dropzoneIcon = document.querySelector('.dropzone-icon');
+    
+    if (!uploadInput) return;
     
     if (type === 'images') {
         uploadInput.accept = 'image/jpeg,image/png,image/gif,image/webp';
-        uploadBtn.textContent = '+ Neues Bild hochladen';
+        if (dropzoneIcon) dropzoneIcon.textContent = '🖼️';
     } else {
         uploadInput.accept = '.pdf,.docx,.xlsx,.zip,.pptx,.txt';
-        uploadBtn.textContent = '+ Neue Datei hochladen';
+        if (dropzoneIcon) dropzoneIcon.textContent = '📄';
     }
 }
 
@@ -832,19 +875,48 @@ function selectFile(path) {
 }
 
 async function uploadFile(input) {
-    if (!input.files[0]) return;
+    if (!input || !input.files || !input.files[0]) return;
+    handleFileUpload(input.files[0]);
+    // Input zurücksetzen für erneuten Upload
+    input.value = '';
+}
+
+// Gemeinsame Upload-Logik für Input und Dropzone
+async function handleFileUpload(file) {
+    if (!file) return;
     
-    const action = currentFileType === 'images' ? 'upload_image' : 'upload_download';
+    // Dateivalidierung
+    const isImage = currentFileType === 'images';
+    const allowedImages = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const allowedDocs = ['.pdf', '.docx', '.xlsx', '.zip', '.pptx', '.txt'];
+    
+    if (isImage && !allowedImages.includes(file.type)) {
+        showToast('error', 'Nur Bilder erlaubt (JPG, PNG, GIF, WebP)');
+        return;
+    }
+    
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (!isImage && !allowedDocs.includes(ext)) {
+        showToast('error', 'Dateityp nicht erlaubt');
+        return;
+    }
+    
+    const action = isImage ? 'upload_image' : 'upload_download';
     
     const formData = new FormData();
     formData.append('action', action);
-    formData.append('file', input.files[0]);
+    formData.append('file', file);
+    
+    // Upload-Indikator
+    const dropzone = document.getElementById('fileDropzone');
+    if (dropzone) dropzone.classList.add('uploading');
     
     try {
         const result = await apiPostFormData(formData);
         
         if (result.success) {
-            // Datei direkt auswählen
+            // Dateiliste neu laden und dann Datei auswählen
+            await loadFiles(currentFileType);
             selectFile(result.path);
             showToast('success', 'Datei hochgeladen');
         } else {
@@ -853,10 +925,9 @@ async function uploadFile(input) {
     } catch (error) {
         console.error('Upload error:', error);
         showToast('error', 'Netzwerkfehler beim Upload');
+    } finally {
+        if (dropzone) dropzone.classList.remove('uploading');
     }
-    
-    // Input zurücksetzen für erneuten Upload
-    input.value = '';
 }
 
 // ===== Publish & Preview =====
@@ -1037,7 +1108,8 @@ function showSessionExpiryDialog() {
     dialog.innerHTML = `
         <div class="session-dialog">
             <h3>⏰ Session läuft ab</h3>
-            <p>Deine Session läuft in <strong id="sessionCountdown">${formatTime(countdown)}</strong> ab.</p>
+            <p>Deine Session läuft ab in</p>
+            <p> <strong id="sessionCountdown">${formatTime(countdown)}</strong></p>
             <p>Möchtest du eingeloggt bleiben?</p>
             <div class="session-dialog-actions">
                 <button class="btn btn-secondary" onclick="forceLogout()">Ausloggen</button>

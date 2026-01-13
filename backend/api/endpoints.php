@@ -26,6 +26,11 @@
 header('Content-Type: application/json; charset=utf-8');
 
 // Zentrale Konfiguration laden
+if (!file_exists(__DIR__ . '/../config.php')) {
+    http_response_code(503);
+    echo json_encode(['success' => false, 'error' => 'System nicht konfiguriert. Bitte Setup ausführen.']);
+    exit;
+}
 require_once __DIR__ . '/../config.php';
 
 // Error Handling
