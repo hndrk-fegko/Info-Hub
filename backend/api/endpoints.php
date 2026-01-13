@@ -121,6 +121,9 @@ try {
             
             if (!$result['success']) {
                 http_response_code(400);
+            } else {
+                // Alle Tiles mit zurückgeben für Quick-Edit-Sync
+                $result['tiles'] = $tileService->getTiles();
             }
             echo json_encode($result);
             break;

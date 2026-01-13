@@ -92,7 +92,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ],
             'theme' => [
                 'backgroundColor' => '#f5f5f5',
-                'primaryColor' => '#667eea'
+                'accentColor' => '#667eea',
+                'accentColor2' => '#48bb78',
+                'accentColor3' => '#ed8936'
             ],
             'auth' => [
                 'email' => $email

@@ -70,6 +70,7 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
         <header class="editor-header">
             <div class="header-left">
                 <h1>📝 Editor</h1>
+                <span class="site-name"><?= htmlspecialchars($settings['site']['title'] ?? 'Info-Hub') ?></span>
                 <?php if ($indexExists): ?>
                     <a href="../index.html" target="_blank" class="published-link" title="Veröffentlichte Seite öffnen">
                         🌐 Seite anzeigen
@@ -92,7 +93,7 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                 <button type="button" class="btn btn-secondary" onclick="openPreview()" title="Vorschau öffnen (P)">
                     👁️ Vorschau
                 </button>
-                <button type="button" class="btn btn-primary" onclick="publishSite()" title="Seite veröffentlichen (V)">
+                <button type="button" class="btn btn-primary" id="publishBtn" onclick="publishSite()" title="Seite veröffentlichen (V)">
                     🚀 Veröffentlichen
                 </button>
                 <button type="button" class="btn btn-icon" onclick="logout()" title="Abmelden">
@@ -108,23 +109,7 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
             </div>
             
             <div class="tiles-list" id="tilesList">
-                <?php foreach ($tiles as $tile): ?>
-                <div class="tile-card" data-id="<?= htmlspecialchars($tile['id']) ?>">
-                    <!-- Vorbereitung für Drag and Drop
-                    <div class="tile-drag-handle" title="Ziehen zum Sortieren">⋮⋮</div>
-                    -->
-                    <div class="tile-info">
-                        <span class="tile-type"><?= htmlspecialchars(ucfirst($tile['type'])) ?></span>
-                        <span class="tile-position">Pos: <?= htmlspecialchars($tile['position']) ?></span>
-                        <h3><?= htmlspecialchars($tile['data']['title'] ?? 'Ohne Titel') ?></h3>
-                    </div>
-                    <div class="tile-actions">
-                        <button type="button" class="btn-icon" onclick="duplicateTile('<?= htmlspecialchars($tile['id']) ?>')" title="Duplizieren">📋</button>
-                        <button type="button" class="btn-icon" onclick="editTile('<?= htmlspecialchars($tile['id']) ?>')" title="Bearbeiten">✏️</button>
-                        <button type="button" class="btn-icon" onclick="deleteTile('<?= htmlspecialchars($tile['id']) ?>')" title="Löschen">🗑️</button>
-                    </div>
-                </div>
-                <?php endforeach; ?>
+                <!-- Wird per JavaScript gerendert -->
             </div>
             
             <button type="button" class="add-tile-btn" onclick="openTileModal()" title="Neue Kachel hinzufügen (N)">
@@ -135,72 +120,45 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
     
     <!-- Tile Modal -->
     <div id="tileModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content modal-compact">
             <div class="modal-header">
                 <h2 id="tileModalTitle">Neue Kachel</h2>
                 <button type="button" class="modal-close" onclick="closeTileModal()">×</button>
             </div>
             <form id="tileForm" onsubmit="saveTile(event)">
                 <input type="hidden" name="id" id="tileId">
+                <input type="hidden" name="position" id="tilePosition" value="10">
+                <input type="hidden" name="size" id="tileSize" value="medium">
+                <input type="hidden" name="style" id="tileStyle" value="card">
+                <input type="hidden" name="colorScheme" id="tileColorScheme" value="default">
                 
-                <div class="form-group">
-                    <label for="tileType">Typ</label>
+                <div class="tile-type-selector">
+                    <label for="tileType">Kachel-Typ</label>
                     <select name="type" id="tileType" onchange="updateTileFields()" required>
-                        <option value="infobox">Infobox</option>
-                        <option value="download">Download</option>
-                        <option value="image">Bild</option>
-                        <option value="link">Link</option>
-                        <option value="iframe">Iframe</option>
+                        <option value="infobox">📋 Infobox</option>
+                        <option value="download">📥 Download</option>
+                        <option value="image">🖼️ Bild</option>
+                        <option value="link">🔗 Link</option>
+                        <option value="iframe">📺 Iframe</option>
                     </select>
                 </div>
                 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="tilePosition">Position</label>
-                        <input type="number" name="position" id="tilePosition" value="10" step="10" min="0">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="tileSize">Größe</label>
-                        <select name="size" id="tileSize">
-                            <option value="small">Klein (1 Spalte)</option>
-                            <option value="medium" selected>Mittel (2 Spalten)</option>
-                            <option value="large">Groß (3 Spalten)</option>
-                            <option value="full">Volle Breite</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="tileStyle">Stil</label>
-                        <select name="style" id="tileStyle" onchange="updateColorSchemeOptions()">
-                            <option value="flat">Flat (transparent)</option>
-                            <option value="card" selected>Card (mit Schatten)</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="tileColorScheme">Hintergrundfarbe</label>
-                        <select name="colorScheme" id="tileColorScheme">
-                            <option value="default">Standard (Hintergrund)</option>
-                            <option value="white">Weiß</option>
-                            <option value="accent1">Akzent 1 (Seitentitel)</option>
-                            <option value="accent2">Akzent 2</option>
-                            <option value="accent3">Akzent 3</option>
-                        </select>
-                    </div>
-                </div>
+                <div class="form-divider">Inhalt</div>
                 
                 <!-- Dynamische Felder je nach Typ -->
                 <div id="tileFields"></div>
                 
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeTileModal()">Abbrechen</button>
-                    <button type="submit" class="btn btn-primary">Speichern</button>
+                    <button type="submit" class="btn btn-primary">💾 Speichern</button>
                 </div>
             </form>
         </div>
+    </div>
+    
+    <!-- Context Menu für Quick-Edit -->
+    <div id="contextMenu" class="context-menu" style="display: none;">
+        <div class="context-menu-content"></div>
     </div>
     
     <!-- Settings Modal -->

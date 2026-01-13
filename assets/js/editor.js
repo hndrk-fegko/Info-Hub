@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTiles();
     startSessionTimer();
     initKeyboardShortcuts();
+    applyPublishButtonStyle();
 });
 
 // ===== Keyboard Shortcuts =====
@@ -219,16 +220,28 @@ function renderTileCard(tile) {
         }
     }
     
+    // Prüfe auf doppelte Positionen
+    const duplicatePos = tiles.filter(t => t.position === tile.position).length > 1;
+    const posClass = duplicatePos ? 'duplicate-pos' : '';
+    
     return `
         <div class="tile-card" data-id="${tile.id}">
-            <!-- Vorbereitung für Drag and Drop -->
-            <!-- <div class="tile-drag-handle" title="Ziehen zum Sortieren">⋮⋮</div> -->
             <div class="tile-info">
                 <div class="tile-title">${escapeHtml(title)}</div>
                 <div class="tile-meta">
                     <span class="tile-type-badge">${escapeHtml(typeInfo.name)}</span>
-                    <span>📍 Pos: ${tile.position}</span>
-                    <span>📐 ${getSizeLabel(tile.size)}</span>
+                    <button class="quick-edit-btn ${posClass}" onclick="showPositionEdit(event, '${tile.id}')" title="Position ändern">
+                        📍 ${tile.position}
+                    </button>
+                    <button class="quick-edit-btn" onclick="showSizeMenu(event, '${tile.id}')" title="Größe ändern">
+                        📐 ${getSizeLabel(tile.size)}
+                    </button>
+                    <button class="quick-edit-btn" onclick="showStyleMenu(event, '${tile.id}')" title="Stil ändern">
+                        ${tile.style === 'flat' ? '▭' : '▢'} ${tile.style === 'flat' ? 'Flat' : 'Card'}
+                    </button>
+                    <button class="quick-edit-btn" onclick="showColorMenu(event, '${tile.id}')" title="Farbe ändern">
+                        🎨 ${getColorLabel(tile.colorScheme)}
+                    </button>
                 </div>
             </div>
             <div class="tile-actions">
@@ -248,12 +261,243 @@ function renderTileCard(tile) {
 
 function getSizeLabel(size) {
     const labels = {
-        'small': 'Klein',
-        'medium': 'Mittel',
-        'large': 'Groß',
-        'full': 'Voll'
+        'small': '1/4',
+        'medium': '2/4',
+        'large': '3/4',
+        'full': '4/4'
     };
     return labels[size] || size;
+}
+
+function getColorLabel(color) {
+    const labels = {
+        'default': 'Standard',
+        'white': 'Weiß',
+        'accent1': 'Akzent 1',
+        'accent2': 'Akzent 2',
+        'accent3': 'Akzent 3'
+    };
+    return labels[color] || color || 'Standard';
+}
+
+// ===== Context Menu / Quick-Edit =====
+let activeContextMenu = null;
+
+function showContextMenu(event, content) {
+    event.stopPropagation();
+    hideContextMenu();
+    
+    const menu = document.getElementById('contextMenu');
+    menu.querySelector('.context-menu-content').innerHTML = content;
+    menu.style.display = 'block';
+    
+    // Position berechnen
+    const rect = event.target.getBoundingClientRect();
+    menu.style.top = `${rect.bottom + 5}px`;
+    menu.style.left = `${rect.left}px`;
+    
+    // Außerhalb-Klick Handler
+    activeContextMenu = menu;
+    setTimeout(() => {
+        document.addEventListener('click', hideContextMenu, { once: true });
+    }, 10);
+}
+
+// Persistentes Context-Menu (nur schließen bei explizitem Aufruf)
+function showContextMenuPersistent(event, content) {
+    event.stopPropagation();
+    hideContextMenu();
+    
+    const menu = document.getElementById('contextMenu');
+    menu.querySelector('.context-menu-content').innerHTML = content;
+    menu.style.display = 'block';
+    
+    // Position berechnen
+    const rect = event.target.getBoundingClientRect();
+    menu.style.top = `${rect.bottom + 5}px`;
+    menu.style.left = `${rect.left}px`;
+    
+    activeContextMenu = menu;
+    
+    // Klick außerhalb (aber nicht im Menü selbst) schließt
+    const closeOnOutsideClick = (e) => {
+        if (!menu.contains(e.target)) {
+            hideContextMenu();
+            document.removeEventListener('click', closeOnOutsideClick);
+        }
+    };
+    
+    setTimeout(() => {
+        document.addEventListener('click', closeOnOutsideClick);
+    }, 10);
+    
+    // ESC-Handler
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            hideContextMenu();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
+function hideContextMenu() {
+    const menu = document.getElementById('contextMenu');
+    if (menu) {
+        menu.style.display = 'none';
+    }
+    activeContextMenu = null;
+}
+
+function showPositionEdit(event, tileId) {
+    const tile = tiles.find(t => t.id === tileId);
+    if (!tile) return;
+    
+    showContextMenuPersistent(event, `
+        <div class="context-input-group">
+            <label>Position:</label>
+            <input type="number" id="posInput" value="${tile.position}" step="10" min="0" 
+                   onclick="event.stopPropagation();"
+                   onkeydown="if(event.key==='Enter'){updateTileProperty('${tileId}','position',this.value);hideContextMenu();}if(event.key==='Escape'){hideContextMenu();}">
+            <button class="btn btn-small btn-primary" onclick="updateTileProperty('${tileId}','position',document.getElementById('posInput').value);hideContextMenu();">
+                ✓
+            </button>
+        </div>
+    `);
+    
+    setTimeout(() => {
+        const input = document.getElementById('posInput');
+        if (input) {
+            input.focus();
+            input.select();
+        }
+    }, 50);
+}
+
+function showSizeMenu(event, tileId) {
+    const tile = tiles.find(t => t.id === tileId);
+    if (!tile) return;
+    
+    const sizes = [
+        { value: 'small', label: 'Klein (1/4)', short: 'S' },
+        { value: 'medium', label: 'Mittel (2/4)', short: 'M' },
+        { value: 'large', label: 'Groß (3/4)', short: 'L' },
+        { value: 'full', label: 'Voll (4/4)', short: 'Voll' }
+    ];
+    
+    showContextMenu(event, `
+        <div class="context-menu-list">
+            ${sizes.map(s => `
+                <button class="context-menu-item ${tile.size === s.value ? 'active' : ''}" 
+                        onclick="updateTileProperty('${tileId}','size','${s.value}');hideContextMenu();">
+                    ${s.label}
+                </button>
+            `).join('')}
+        </div>
+    `);
+}
+
+function showStyleMenu(event, tileId) {
+    const tile = tiles.find(t => t.id === tileId);
+    if (!tile) return;
+    
+    showContextMenu(event, `
+        <div class="context-menu-list">
+            <button class="context-menu-item ${tile.style === 'flat' ? 'active' : ''}" 
+                    onclick="updateTileStyle('${tileId}','flat');hideContextMenu();">
+                ▭ Flat (transparent)
+            </button>
+            <button class="context-menu-item ${tile.style === 'card' ? 'active' : ''}" 
+                    onclick="updateTileStyle('${tileId}','card');hideContextMenu();">
+                ▢ Card (mit Schatten)
+            </button>
+        </div>
+    `);
+}
+
+function showColorMenu(event, tileId) {
+    const tile = tiles.find(t => t.id === tileId);
+    if (!tile) return;
+    
+    const colors = [
+        { value: 'default', label: 'Standard (Hintergrund)' },
+        { value: 'white', label: 'Weiß' },
+        { value: 'accent1', label: 'Akzent 1 (Seitentitel)' },
+        { value: 'accent2', label: 'Akzent 2' },
+        { value: 'accent3', label: 'Akzent 3' }
+    ];
+    
+    // Bei Flat: Weiß ausblenden (macht keinen Sinn)
+    const availableColors = tile.style === 'flat' 
+        ? colors.filter(c => c.value !== 'white')
+        : colors;
+    
+    showContextMenu(event, `
+        <div class="context-menu-list">
+            ${availableColors.map(c => `
+                <button class="context-menu-item ${tile.colorScheme === c.value ? 'active' : ''}" 
+                        onclick="updateTileProperty('${tileId}','colorScheme','${c.value}');hideContextMenu();">
+                    ${c.label}
+                </button>
+            `).join('')}
+        </div>
+    `);
+}
+
+// Style ändern mit Logik für Farbe
+function updateTileStyle(tileId, newStyle) {
+    const tile = tiles.find(t => t.id === tileId);
+    if (!tile) return;
+    
+    // Wenn zu Flat wechseln und Farbe ist "weiß" → auf default setzen
+    if (newStyle === 'flat' && tile.colorScheme === 'white') {
+        updateTileProperties(tileId, { style: newStyle, colorScheme: 'default' });
+    } else {
+        updateTileProperty(tileId, 'style', newStyle);
+    }
+}
+
+// Einzelne Property schnell ändern
+async function updateTileProperty(tileId, property, value) {
+    const tile = tiles.find(t => t.id === tileId);
+    if (!tile) return;
+    
+    // Wert konvertieren
+    if (property === 'position') {
+        value = parseInt(value) || 0;
+    }
+    
+    tile[property] = value;
+    await quickSaveTile(tile);
+}
+
+// Mehrere Properties gleichzeitig ändern
+async function updateTileProperties(tileId, properties) {
+    const tile = tiles.find(t => t.id === tileId);
+    if (!tile) return;
+    
+    Object.assign(tile, properties);
+    await quickSaveTile(tile);
+}
+
+// Schnelles Speichern ohne Modal
+async function quickSaveTile(tile) {
+    try {
+        const result = await apiPost('save_tile', { tile: tile });
+        
+        if (result.success) {
+            // Tiles neu laden und sortieren
+            tiles = result.tiles || tiles;
+            tiles.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+            renderTiles();
+            refreshPreview();
+        } else {
+            showToast('error', result.error || 'Fehler beim Speichern');
+        }
+    } catch (error) {
+        console.error('Quick save error:', error);
+        showToast('error', 'Netzwerkfehler');
+    }
 }
 
 // ===== Tile Modal =====
@@ -345,32 +589,99 @@ function updateTileFields() {
     const typeInfo = tileTypes[type];
     
     let html = '';
+    let i = 0;
+    let processedFields = new Set();
     
-    fields.forEach(field => {
-        html += renderField(field, typeInfo);
-    });
+    while (i < fields.length) {
+        const field = fields[i];
+        
+        // Schon verarbeitet? Überspringen
+        if (processedFields.has(field)) {
+            i++;
+            continue;
+        }
+        
+        // Kombiniere title + showTitle in einer Zeile
+        if (field === 'title' && fields.includes('showTitle')) {
+            html += renderInlineFieldWithCheckbox('title', 'showTitle');
+            processedFields.add('title');
+            processedFields.add('showTitle');
+            i++;
+        }
+        // Kombiniere caption + lightbox
+        else if (field === 'caption' && fields.includes('lightbox')) {
+            html += renderInlineFieldWithCheckbox('caption', 'lightbox');
+            processedFields.add('caption');
+            processedFields.add('lightbox');
+            i++;
+        }
+        // Kombiniere link + external für ImageTile
+        else if (field === 'link' && fields.includes('external')) {
+            html += renderInlineFieldWithCheckbox('link', 'external');
+            processedFields.add('link');
+            processedFields.add('external');
+            i++;
+        }
+        // Kombiniere url + external für LinkTile
+        else if (field === 'url' && fields.includes('external') && type === 'link') {
+            html += renderInlineFieldWithCheckbox('url', 'external');
+            processedFields.add('url');
+            processedFields.add('external');
+            i++;
+        }
+        // Normale Felder rendern (wenn nicht schon verarbeitet)
+        else if (!processedFields.has(field)) {
+            html += renderField(field, typeInfo);
+            processedFields.add(field);
+            i++;
+        }
+        else {
+            i++;
+        }
+    }
     
     container.innerHTML = html || '<p class="hint">Dieser Typ hat keine zusätzlichen Felder.</p>';
 }
 
-function renderField(fieldName, typeInfo) {
-    // Standard-Feldkonfigurationen
-    const fieldConfigs = {
+// Feld mit Checkbox in einer Zeile
+function renderInlineFieldWithCheckbox(fieldName, checkboxName) {
+    const fieldConfigs = getFieldConfigs();
+    const fieldConfig = fieldConfigs[fieldName] || { type: 'text', label: fieldName };
+    const checkboxConfig = fieldConfigs[checkboxName] || { label: checkboxName, default: false };
+    
+    const required = fieldConfig.required ? 'required' : '';
+    const checked = checkboxConfig.default ? 'checked' : '';
+    
+    return `
+        <div class="form-field-inline">
+            <label for="data_${fieldName}">${fieldConfig.label}${fieldConfig.required ? ' *' : ''}:</label>
+            <input type="${fieldConfig.type === 'url' ? 'url' : 'text'}" name="data[${fieldName}]" id="data_${fieldName}" 
+                   ${required} placeholder="${fieldConfig.placeholder || ''}" value="${fieldConfig.default || ''}">
+            <label class="checkbox-label">
+                <input type="checkbox" name="data[${checkboxName}]" id="data_${checkboxName}" ${checked}>
+                ${checkboxConfig.label}
+            </label>
+        </div>
+    `;
+}
+
+function getFieldConfigs() {
+    return {
         title: { type: 'text', label: 'Titel', required: true },
-        showTitle: { type: 'checkbox', label: 'Titel auf Seite anzeigen', required: false, default: true },
+        showTitle: { type: 'checkbox', label: 'anzeigen', required: false, default: true },
         description: { type: 'textarea', label: 'Beschreibung', required: false },
         image: { type: 'image', label: 'Bild', required: true },
         file: { type: 'file', label: 'Datei', required: true },
         url: { type: 'url', label: 'URL', required: true },
+        link: { type: 'url', label: 'Link', required: false, placeholder: 'https://...' },
         linkText: { type: 'text', label: 'Link-Text', required: false, default: 'Mehr erfahren' },
         buttonText: { type: 'text', label: 'Button-Text', required: false, default: 'Download' },
-        caption: { type: 'text', label: 'Bildunterschrift', required: false },
-        lightbox: { type: 'checkbox', label: 'Lightbox aktivieren', required: false, default: true },
-        external: { type: 'checkbox', label: 'In neuem Tab öffnen', required: false, default: true },
+        caption: { type: 'text', label: 'Untertitel', required: false },
+        lightbox: { type: 'checkbox', label: 'Lightbox', required: false, default: true },
+        external: { type: 'checkbox', label: 'neuer Tab', required: false, default: true },
         name: { type: 'text', label: 'Name', required: true },
         email: { type: 'email', label: 'E-Mail', required: false },
         phone: { type: 'text', label: 'Telefon', required: false },
-        // Iframe-Felder
         displayMode: { 
             type: 'select', 
             label: 'Anzeigemodus', 
@@ -402,16 +713,21 @@ function renderField(fieldName, typeInfo) {
             hint: 'Nur bei benutzerdefinierter Höhe'
         }
     };
+}
+
+function renderField(fieldName, typeInfo) {
+    const fieldConfigs = getFieldConfigs();
     
     const config = fieldConfigs[fieldName] || { type: 'text', label: fieldName, required: false };
     const required = config.required ? 'required' : '';
     const defaultValue = config.default || '';
+    const reqMark = config.required ? ' *' : '';
     
     switch (config.type) {
         case 'textarea':
             return `
-                <div class="form-group">
-                    <label for="data_${fieldName}">${config.label}${config.required ? ' *' : ''}</label>
+                <div class="form-row-compact">
+                    <label for="data_${fieldName}">${config.label}${reqMark}:</label>
                     <textarea name="data[${fieldName}]" id="data_${fieldName}" ${required}
                               placeholder="${config.placeholder || ''}">${defaultValue}</textarea>
                 </div>
@@ -419,30 +735,30 @@ function renderField(fieldName, typeInfo) {
             
         case 'image':
             return `
-                <div class="form-group">
-                    <label for="data_${fieldName}">${config.label}${config.required ? ' *' : ''}</label>
-                    <div class="file-input-group">
+                <div class="form-row-compact">
+                    <label>${config.label}${reqMark}:</label>
+                    <div class="input-with-button">
                         <input type="text" name="data[${fieldName}]" id="data_${fieldName}" 
                                ${required} readonly placeholder="Bild auswählen...">
                         <button type="button" class="btn btn-small" 
                                 onclick="openFileBrowser('images', 'data_${fieldName}')">
-                            📷 Auswählen
+                            Auswählen
                         </button>
                     </div>
-                    <div class="image-preview" id="preview_${fieldName}"></div>
                 </div>
+                <div class="image-preview" id="preview_${fieldName}"></div>
             `;
             
         case 'file':
             return `
-                <div class="form-group">
-                    <label for="data_${fieldName}">${config.label}${config.required ? ' *' : ''}</label>
-                    <div class="file-input-group">
+                <div class="form-row-compact">
+                    <label>${config.label}${reqMark}:</label>
+                    <div class="input-with-button">
                         <input type="text" name="data[${fieldName}]" id="data_${fieldName}" 
                                ${required} readonly placeholder="Datei auswählen...">
                         <button type="button" class="btn btn-small" 
                                 onclick="openFileBrowser('downloads', 'data_${fieldName}')">
-                            📄 Auswählen
+                            Auswählen
                         </button>
                     </div>
                 </div>
@@ -451,8 +767,9 @@ function renderField(fieldName, typeInfo) {
         case 'checkbox':
             const checked = defaultValue ? 'checked' : '';
             return `
-                <div class="form-group">
-                    <label>
+                <div class="form-row-compact checkbox-only">
+                    <label></label>
+                    <label class="checkbox-label">
                         <input type="checkbox" name="data[${fieldName}]" id="data_${fieldName}" ${checked}>
                         ${config.label}
                     </label>
@@ -461,8 +778,8 @@ function renderField(fieldName, typeInfo) {
             
         case 'url':
             return `
-                <div class="form-group">
-                    <label for="data_${fieldName}">${config.label}${config.required ? ' *' : ''}</label>
+                <div class="form-row-compact">
+                    <label for="data_${fieldName}">${config.label}${reqMark}:</label>
                     <input type="url" name="data[${fieldName}]" id="data_${fieldName}" 
                            ${required} placeholder="https://example.com" value="${defaultValue}">
                 </div>
@@ -473,30 +790,30 @@ function renderField(fieldName, typeInfo) {
                 .map(([value, label]) => `<option value="${value}" ${value === defaultValue ? 'selected' : ''}>${label}</option>`)
                 .join('');
             return `
-                <div class="form-group">
-                    <label for="data_${fieldName}">${config.label}${config.required ? ' *' : ''}</label>
+                <div class="form-row-compact">
+                    <label for="data_${fieldName}">${config.label}${reqMark}:</label>
                     <select name="data[${fieldName}]" id="data_${fieldName}" ${required}>
                         ${options}
                     </select>
-                    ${config.hint ? `<small class="hint">${config.hint}</small>` : ''}
                 </div>
+                ${config.hint ? `<small class="hint">${config.hint}</small>` : ''}
             `;
             
         case 'number':
             return `
-                <div class="form-group">
-                    <label for="data_${fieldName}">${config.label}${config.required ? ' *' : ''}</label>
+                <div class="form-row-compact">
+                    <label for="data_${fieldName}">${config.label}${reqMark}:</label>
                     <input type="number" name="data[${fieldName}]" id="data_${fieldName}" 
                            ${required} placeholder="${config.placeholder || ''}" value="${defaultValue}"
                            min="${config.min || ''}" max="${config.max || ''}">
-                    ${config.hint ? `<small class="hint">${config.hint}</small>` : ''}
                 </div>
+                ${config.hint ? `<small class="hint">${config.hint}</small>` : ''}
             `;
             
         default:
             return `
-                <div class="form-group">
-                    <label for="data_${fieldName}">${config.label}${config.required ? ' *' : ''}</label>
+                <div class="form-row-compact">
+                    <label for="data_${fieldName}">${config.label}${reqMark}:</label>
                     <input type="${config.type}" name="data[${fieldName}]" id="data_${fieldName}" 
                            ${required} placeholder="${config.placeholder || ''}" value="${defaultValue}">
                 </div>
@@ -656,7 +973,7 @@ async function saveSettings(event) {
         },
         theme: {
             backgroundColor: formData.get('backgroundColor'),
-            primaryColor: formData.get('primaryColor'),
+            accentColor: formData.get('accentColor'),
             accentColor2: formData.get('accentColor2'),
             accentColor3: formData.get('accentColor3')
         }
@@ -672,6 +989,10 @@ async function saveSettings(event) {
             
             // Site-Name im Header aktualisieren
             document.querySelector('.site-name').textContent = settings.site?.title || '';
+            
+            // Publish-Button-Farbe aktualisieren
+            applyPublishButtonStyle();
+            
             refreshPreview();
         } else {
             showToast('error', result.error || 'Speichern fehlgeschlagen');
@@ -931,10 +1252,31 @@ async function handleFileUpload(file) {
 }
 
 // ===== Publish & Preview =====
+
+// Publish-Button mit Akzentfarbe und Kontrast-Text
+function applyPublishButtonStyle() {
+    const btn = document.getElementById('publishBtn');
+    if (!btn) return;
+    
+    // Akzentfarbe aus Settings holen (accentColor = Seitentitel-Farbe)
+    const accentColor = settings?.theme?.accentColor || '#667eea';
+    btn.style.background = accentColor;
+    btn.style.borderColor = accentColor;
+    
+    // Kontrast berechnen (YIQ-Formel)
+    const hex = accentColor.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    
+    btn.style.color = yiq >= 128 ? '#000000' : '#ffffff';
+}
+
 async function publishSite() {
     if (!confirm('Seite jetzt veröffentlichen? Die aktuelle Version wird überschrieben.')) return;
     
-    const btn = document.querySelector('[onclick="publishSite()"]');
+    const btn = document.getElementById('publishBtn');
     const originalText = btn.innerHTML;
     btn.innerHTML = '<span class="spinner"></span> Wird veröffentlicht...';
     btn.disabled = true;
@@ -982,6 +1324,13 @@ function refreshPreview() {
             // Cross-origin oder Window geschlossen
             previewWindow = null;
         }
+    }
+}
+
+// Logout
+function logout() {
+    if (confirm('Möchtest du dich abmelden?')) {
+        window.location.href = 'login.php?logout=1';
     }
 }
 

@@ -19,15 +19,23 @@ class TileService {
     }
     
     /**
-     * Gibt alle Tiles zurück (sortiert nach Position)
+     * Gibt alle Tiles zurück (sortiert nach Position, bei Gleichheit nach ID)
      * 
      * @return array Liste aller Tiles
      */
     public function getTiles(): array {
         $tiles = $this->storage->read();
         
-        // Nach Position sortieren
-        usort($tiles, fn($a, $b) => ($a['position'] ?? 0) <=> ($b['position'] ?? 0));
+        // Nach Position sortieren, bei Gleichheit nach ID
+        usort($tiles, function($a, $b) {
+            $posA = $a['position'] ?? 0;
+            $posB = $b['position'] ?? 0;
+            
+            if ($posA === $posB) {
+                return ($a['id'] ?? '') <=> ($b['id'] ?? '');
+            }
+            return $posA <=> $posB;
+        });
         
         return $tiles;
     }
@@ -118,8 +126,15 @@ class TileService {
             }
         }
         
-        // 7. Sortieren nach Position
-        usort($tiles, fn($a, $b) => ($a['position'] ?? 0) <=> ($b['position'] ?? 0));
+        // 7. Sortieren nach Position, bei Gleichheit nach ID
+        usort($tiles, function($a, $b) {
+            $posA = $a['position'] ?? 0;
+            $posB = $b['position'] ?? 0;
+            if ($posA === $posB) {
+                return ($a['id'] ?? '') <=> ($b['id'] ?? '');
+            }
+            return $posA <=> $posB;
+        });
         
         // 8. Speichern
         if (!$this->storage->write($tiles)) {
@@ -180,8 +195,15 @@ class TileService {
             }
         }
         
-        // Sortieren
-        usort($tiles, fn($a, $b) => ($a['position'] ?? 0) <=> ($b['position'] ?? 0));
+        // Sortieren nach Position, bei Gleichheit nach ID
+        usort($tiles, function($a, $b) {
+            $posA = $a['position'] ?? 0;
+            $posB = $b['position'] ?? 0;
+            if ($posA === $posB) {
+                return ($a['id'] ?? '') <=> ($b['id'] ?? '');
+            }
+            return $posA <=> $posB;
+        });
         
         if (!$this->storage->write($tiles)) {
             return ['success' => false, 'error' => 'Speichern fehlgeschlagen'];

@@ -123,7 +123,8 @@ class GeneratorService {
         $headerImage = $settings['site']['headerImage'] ?? null;
         $footerText = nl2br(htmlspecialchars($settings['site']['footerText'] ?? ''));
         $bgColor = htmlspecialchars($settings['theme']['backgroundColor'] ?? '#f5f5f5');
-        $primaryColor = htmlspecialchars($settings['theme']['primaryColor'] ?? '#667eea');
+        // primaryColor als Fallback für alte settings.json Dateien, accentColor ist der aktuelle Name
+        $accentColor = htmlspecialchars($settings['theme']['accentColor'] ?? $settings['theme']['primaryColor'] ?? '#667eea');
         $accentColor2 = htmlspecialchars($settings['theme']['accentColor2'] ?? '#48bb78');
         $accentColor3 = htmlspecialchars($settings['theme']['accentColor3'] ?? '#ed8936');
         
@@ -170,7 +171,7 @@ HTML;
     <style>
         :root {
             --bg-color: {$bgColor};
-            --primary-color: {$primaryColor};
+            --accent-color: {$accentColor};
             --accent-color-2: {$accentColor2};
             --accent-color-3: {$accentColor3};
             --text-color: #333;
@@ -232,7 +233,7 @@ HTML;
         
         .site-header--minimal {
             padding: 40px 20px;
-            background: var(--primary-color);
+            background: var(--accent-color);
         }
         
         .site-header--minimal .site-title {
@@ -242,10 +243,10 @@ HTML;
             text-shadow: none;
         }
         
-        /* Tile Grid */
+        /* Tile Grid - 4 Spalten */
         .tile-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(4, 1fr);
             gap: var(--spacing);
             max-width: var(--max-width);
             margin: 0 auto;
@@ -265,24 +266,46 @@ HTML;
             transform: translateY(-2px);
         }
         
-        /* Tile Sizes */
+        /* Tile Sizes - Desktop: 4 Spalten */
         .tile.size-small {
-            grid-column: span 1;
+            grid-column: span 1;  /* 1/4 */
         }
         
         .tile.size-medium {
-            grid-column: span 1;
+            grid-column: span 2;  /* 2/4 = 1/2 */
         }
         
         .tile.size-large {
-            grid-column: span 2;
+            grid-column: span 3;  /* 3/4 */
         }
         
         .tile.size-full {
-            grid-column: 1 / -1;
+            grid-column: 1 / -1;  /* 4/4 = volle Breite */
         }
         
+        /* Tablet: 2 Spalten */
+        @media (max-width: 900px) {
+            .tile-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .tile.size-small {
+                grid-column: span 1;  /* 1/2 */
+            }
+            .tile.size-medium {
+                grid-column: span 2;  /* 2/2 = voll */
+            }
+            .tile.size-large {
+                grid-column: span 2;  /* 2/2 = voll */
+            }
+        }
+        
+        /* Mobile: 1 Spalte */
         @media (max-width: 600px) {
+            .tile-grid {
+                grid-template-columns: 1fr;
+            }
+            .tile.size-small,
+            .tile.size-medium,
             .tile.size-large,
             .tile.size-full {
                 grid-column: span 1;
@@ -292,7 +315,8 @@ HTML;
         /* Tile Styles */
         .tile.style-flat {
             background: transparent;
-            padding: var(--spacing) 0;
+            border-radius: 0;
+            box-shadow: none;
         }
         
         .tile.style-card {
@@ -314,7 +338,7 @@ HTML;
         }
         
         .tile.color-accent1 {
-            background-color: var(--primary-color);
+            background-color: var(--accent-color);
         }
         
         .tile.color-accent2 {
@@ -346,7 +370,7 @@ HTML;
         }
         
         .tile a {
-            color: var(--primary-color);
+            color: var(--accent-color);
             text-decoration: none;
             font-weight: 500;
         }
@@ -360,7 +384,7 @@ HTML;
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background: var(--primary-color);
+            background: var(--accent-color);
             color: white;
             padding: 12px 24px;
             border-radius: 8px;
@@ -370,7 +394,7 @@ HTML;
         }
         
         .tile .download-btn:hover {
-            background: color-mix(in srgb, var(--primary-color) 85%, black);
+            background: color-mix(in srgb, var(--accent-color) 85%, black);
             text-decoration: none;
         }
         
@@ -465,7 +489,7 @@ HTML;
             gap: 8px;
             width: 100%;
             padding: 16px 24px;
-            background: var(--primary-color);
+            background: var(--accent-color);
             color: white;
             border: none;
             border-radius: 8px;
@@ -613,7 +637,7 @@ HTML;
                 let bgColor = '#ffffff';
                 
                 if (tile.classList.contains('color-accent1')) {
-                    bgColor = getCSSVar('--primary-color');
+                    bgColor = getCSSVar('--accent-color');
                 } else if (tile.classList.contains('color-accent2')) {
                     bgColor = getCSSVar('--accent-color-2');
                 } else if (tile.classList.contains('color-accent3')) {
