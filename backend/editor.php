@@ -98,7 +98,7 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
         <main class="editor-main">
             <div class="tiles-header">
                 <h2>Kacheln</h2>
-                <span class="tile-count"><?= count($tiles) ?> Kacheln</span>
+                <span class="tile-count" id="tileCount"><?= count($tiles) ?> Kacheln</span>
             </div>
             
             <div class="tiles-list" id="tilesList">

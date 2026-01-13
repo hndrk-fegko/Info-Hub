@@ -805,13 +805,23 @@ function showToast(type, message, duration = 4000) {
 }
 
 // ===== Session Timer mit Auto-Extend =====
-let sessionRemaining = window.INITIAL_DATA?.sessionExpiry || 3600;
 let sessionWarningShown = false;
 let sessionDialogActive = false;
 let lastActivity = Date.now();
 
 function startSessionTimer() {
-    const timerEl = document.getElementById('sessionTimer');
+    const timerEl = document.getElementById('sessionTimeDisplay');
+    
+    // Timeout-Werte aus CONFIG (in Sekunden)
+    const sessionTimeout = (CONFIG?.sessionTimeout || 60) * 60; // Standard: 60 Minuten
+    const warningBefore = (CONFIG?.sessionWarning || 5) * 60;   // Standard: 5 Minuten vorher
+    const warningAt = sessionTimeout - warningBefore;
+    
+    console.log('Session Timer gestartet:', {
+        timeout: sessionTimeout + 's',
+        warningAt: warningAt + 's',
+        warningBefore: warningBefore + 's'
+    });
     
     // Activity Tracking - bei jeder Aktivität Session-Timer zurücksetzen
     const activityEvents = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'];
@@ -829,19 +839,28 @@ function startSessionTimer() {
         // Prüfen ob kürzlich Aktivität war
         const inactiveSeconds = Math.floor((Date.now() - lastActivity) / 1000);
         
-        // Nach 55 Min Inaktivität: Warndialog
-        if (inactiveSeconds >= 3300 && !sessionDialogActive && !sessionWarningShown) {
+        // Warndialog anzeigen wenn Inaktivität den Warning-Threshold erreicht
+        if (inactiveSeconds >= warningAt && !sessionDialogActive && !sessionWarningShown) {
             showSessionExpiryDialog();
             sessionWarningShown = true;
         }
         
         // Timer-Anzeige aktualisieren (basierend auf Inaktivität)
-        const remainingFromInactivity = 3600 - inactiveSeconds;
+        const remainingFromInactivity = sessionTimeout - inactiveSeconds;
         const minutes = Math.max(0, Math.floor(remainingFromInactivity / 60));
-        timerEl.textContent = `${minutes}min`;
+        const seconds = Math.max(0, remainingFromInactivity % 60);
         
-        // Wenn inaktiv für > 1 Stunde und Dialog wurde ignoriert -> Logout
-        if (inactiveSeconds >= 3720 && sessionDialogActive) {
+        if (timerEl) {
+            // Unter 5 Minuten: auch Sekunden anzeigen
+            if (remainingFromInactivity <= 300 && remainingFromInactivity > 0) {
+                timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                timerEl.textContent = `${minutes}min`;
+            }
+        }
+        
+        // Wenn Session komplett abgelaufen (+ 2 Min Puffer) und Dialog wurde ignoriert -> Logout
+        if (inactiveSeconds >= sessionTimeout + 120 && sessionDialogActive) {
             forceLogout();
         }
     }, 1000);
