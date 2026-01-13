@@ -80,13 +80,13 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                 <div class="session-timer" id="sessionTimer" title="Verbleibende Session-Zeit">
                     🕐 <span id="sessionTimeDisplay">--</span>
                 </div>
-                <button type="button" class="btn btn-icon" onclick="openSettingsModal()" title="Einstellungen">
+                <button type="button" class="btn btn-icon" onclick="openSettingsModal()" title="Einstellungen (S)">
                     ⚙️
                 </button>
-                <button type="button" class="btn btn-secondary" onclick="openPreview()">
+                <button type="button" class="btn btn-secondary" onclick="openPreview()" title="Vorschau öffnen (P)">
                     👁️ Vorschau
                 </button>
-                <button type="button" class="btn btn-primary" onclick="publishSite()">
+                <button type="button" class="btn btn-primary" onclick="publishSite()" title="Seite veröffentlichen (V)">
                     🚀 Veröffentlichen
                 </button>
                 <button type="button" class="btn btn-icon" onclick="logout()" title="Abmelden">
@@ -121,7 +121,7 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                 <?php endforeach; ?>
             </div>
             
-            <button type="button" class="add-tile-btn" onclick="openTileModal()">
+            <button type="button" class="add-tile-btn" onclick="openTileModal()" title="Neue Kachel hinzufügen (N)">
                 + Neue Kachel hinzufügen
             </button>
         </main>
@@ -311,6 +311,7 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
     <div id="toastContainer" class="toast-container"></div>
     
     <script>
+        /*
         // Konfiguration aus PHP - DEBUG
         const CONFIG = {
             csrfToken: '<?= $csrfToken ?>',
@@ -324,6 +325,8 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
         console.log('CONFIG loaded:', CONFIG);
         console.log('Session timeout:', CONFIG.sessionTimeout, 'seconds');
         console.log('Session warning:', CONFIG.sessionWarning, 'seconds before');
+
+        */
     </script>
     <script src="../assets/js/editor.js"></script>
 </body>
