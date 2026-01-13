@@ -111,29 +111,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             json_encode([], JSON_PRETTY_PRINT)
         );
         
-        // .htaccess erstellen (für Security)
-        $htaccess = <<<HTACCESS
-# Info-Hub Security Rules
+        // config.php erstellen (falls nicht vorhanden)
+        $configFile = __DIR__ . '/config.php';
+        if (!file_exists($configFile)) {
+            $configExample = __DIR__ . '/config.example.php';
+            if (file_exists($configExample)) {
+                // Kopiere config.example.php als config.php
+                copy($configExample, $configFile);
+            } else {
+                // Fallback: config.php manuell erstellen
+                $configContent = <<<'CONFIG'
+<?php
+/**
+ * ZENTRALE KONFIGURATION - Info-Hub
+ * Automatisch erstellt durch Setup
+ */
 
-# Deny access to data directory
-<FilesMatch "^(data|logs|archive)">
-    Require all denied
-</FilesMatch>
+// DEBUG_MODE: false für Produktion, true für Entwicklung
+define('DEBUG_MODE', false);
 
-# Deny access to PHP files except allowed ones
-<FilesMatch "\.php$">
-    Require all denied
-</FilesMatch>
+if (DEBUG_MODE) {
+    error_reporting(E_ALL);
+    ini_set('display_errors', '1');
+} else {
+    error_reporting(0);
+    ini_set('display_errors', '0');
+}
 
-# Allow specific PHP files
-<FilesMatch "^(login|editor|setup)\.php$">
-    Require all granted
-</FilesMatch>
-
-# Allow API
-<FilesMatch "^api/">
-    Require all granted
-</FilesMatch>
+define('SESSION_TIMEOUT', 3600);
+define('SESSION_WARNING_BEFORE', 300);
+define('LOGIN_CODE_EXPIRY', 900);
+define('MAX_LOGIN_ATTEMPTS', 3);
+define('LOGIN_LOCKOUT_DURATION', 600);
+define('MAX_IMAGE_SIZE', 5 * 1024 * 1024);
+define('MAX_DOWNLOAD_SIZE', 50 * 1024 * 1024);
+define('ALLOWED_IMAGE_EXTENSIONS', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
+define('ALLOWED_DOWNLOAD_EXTENSIONS', ['pdf', 'docx', 'xlsx', 'zip', 'pptx']);
+CONFIG;
+                file_put_contents($configFile, $configContent);
+            }
+        }
+        
+        // .htaccess in /backend/ NICHT überschreiben wenn bereits vorhanden
+        // Die bestehende .htaccess ist besser konfiguriert
+        $htaccessFile = __DIR__ . '/.htaccess';
+        if (!file_exists($htaccessFile)) {
+            $htaccess = <<<'HTACCESS'
+# Info-Hub Backend Security Rules
 
 # Disable directory listing
 Options -Indexes
@@ -142,9 +166,19 @@ Options -Indexes
 <FilesMatch "^\.">
     Require all denied
 </FilesMatch>
+
+# Protect data, logs, archive directories
+<DirectoryMatch "(data|logs|archive|core|tiles|templates)">
+    Require all denied
+</DirectoryMatch>
+
+# Block direct access to sensitive files
+<FilesMatch "\.(json|log|bak)$">
+    Require all denied
+</FilesMatch>
 HTACCESS;
-        
-        file_put_contents(__DIR__ . '/.htaccess', $htaccess);
+            file_put_contents($htaccessFile, $htaccess);
+        }
         
         $success = true;
         
@@ -337,11 +371,15 @@ HTACCESS;
                     <h3>Was wurde erstellt:</h3>
                     <ul>
                         <li>Admin-Konto mit Email-Login</li>
+                        <li>Zentrale Konfiguration (config.php)</li>
                         <li>Verzeichnisstruktur für Uploads</li>
-                        <li>Sicherheits-Konfiguration (.htaccess)</li>
                         <li>Datenbank-Dateien (JSON)</li>
                     </ul>
                 </div>
+                
+                <p class="hint" style="margin-bottom: 15px;">
+                    💡 Tipp: Für Entwicklung DEBUG_MODE in <code>config.php</code> auf <code>true</code> setzen.
+                </p>
                 
                 <a href="login.php" class="btn btn-primary">
                     Zum Login →
