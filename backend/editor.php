@@ -311,22 +311,24 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
     <div id="toastContainer" class="toast-container"></div>
     
     <script>
-        /*
-        // Konfiguration aus PHP - DEBUG
+        // Konfiguration aus PHP
         const CONFIG = {
             csrfToken: '<?= $csrfToken ?>',
             apiUrl: 'api/endpoints.php',
             sessionTimeout: <?= $sessionTimeout ?>,
             sessionWarning: <?= $sessionWarning ?>,
             sessionRemaining: <?= $remainingTime ?>
+            debugMode: <?= (defined('DEBUG_MODE') && DEBUG_MODE) ? 'true' : 'false' ?>
         };
         
-        // Debug output
-        console.log('CONFIG loaded:', CONFIG);
-        console.log('Session timeout:', CONFIG.sessionTimeout, 'seconds');
-        console.log('Session warning:', CONFIG.sessionWarning, 'seconds before');
-
-        */
+        // Debug output nur wenn DEBUG_MODE aktiv ist
+        if (CONFIG.debugMode) {
+            console.log('DEBUG_MODE is active');
+            console.log('CONFIG loaded:', CONFIG);
+            console.log('Session timeout:', CONFIG.sessionTimeout, 'seconds');
+            console.log('Session warning:', CONFIG.sessionWarning, 'seconds before');
+        }
+        
     </script>
     <script src="../assets/js/editor.js"></script>
 </body>
