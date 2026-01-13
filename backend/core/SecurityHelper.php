@@ -3,12 +3,10 @@
  * SecurityHelper - Zentrale Sicherheitsprüfungen
  * 
  * Prüft auf unsichere Konfigurationen und gibt Warnungen aus.
+ * 
+ * HINWEIS: config.php muss VOR diesem Service geladen werden!
+ * Statische Methoden prüfen mit defined() für Robustheit.
  */
-
-// Config laden falls noch nicht geschehen
-if (!defined('DEBUG_MODE') && file_exists(__DIR__ . '/../config.php')) {
-    require_once __DIR__ . '/../config.php';
-}
 
 class SecurityHelper {
     

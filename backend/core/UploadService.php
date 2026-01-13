@@ -3,12 +3,10 @@
  * UploadService - Sichere Datei-Uploads
  * 
  * Validiert und speichert hochgeladene Dateien.
+ * 
+ * HINWEIS: config.php muss VOR diesem Service geladen werden!
+ * Fallback-Werte im Konstruktor für Robustheit.
  */
-
-// Config laden falls noch nicht geschehen
-if (!defined('MAX_IMAGE_SIZE') && file_exists(__DIR__ . '/../config.php')) {
-    require_once __DIR__ . '/../config.php';
-}
 
 require_once __DIR__ . '/LogService.php';
 

@@ -246,13 +246,29 @@ try {
             break;
             
         case 'delete_file':
-            $path = $_POST['path'] ?? '';
-            if (empty($path)) {
-                throw new InvalidArgumentException('Dateipfad erforderlich');
+            $type = $_POST['type'] ?? '';
+            $filename = $_POST['filename'] ?? '';
+            
+            // Alternativ: Pfad parsen falls nur path übergeben wird
+            if (empty($type) && !empty($_POST['path'])) {
+                $path = $_POST['path'];
+                // Pfad: /backend/media/images/filename.jpg
+                if (preg_match('#/backend/media/(images|downloads|header)/(.+)$#', $path, $matches)) {
+                    $type = $matches[1];
+                    $filename = $matches[2];
+                }
+            }
+            
+            if (empty($type) || empty($filename)) {
+                throw new InvalidArgumentException('Typ und Dateiname erforderlich');
+            }
+            
+            if (!in_array($type, ['images', 'downloads', 'header'])) {
+                throw new InvalidArgumentException('Ungültiger Dateityp');
             }
             
             $uploadService = new UploadService();
-            $success = $uploadService->delete($path);
+            $success = $uploadService->deleteFile($type, $filename);
             echo json_encode(['success' => $success]);
             break;
             

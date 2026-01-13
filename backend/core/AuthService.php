@@ -7,12 +7,11 @@
  * 2. 6-stelliger Code wird generiert und per mail() versendet
  * 3. User gibt Code ein
  * 4. Session wird aktiviert (konfigurierbare Dauer)
+ * 
+ * HINWEIS: config.php muss VOR diesem Service geladen werden!
+ * (Passiert automatisch durch login.php, editor.php, endpoints.php)
+ * Fallback-Werte im Konstruktor für Robustheit.
  */
-
-// Config laden falls noch nicht geschehen
-if (!defined('SESSION_TIMEOUT') && file_exists(__DIR__ . '/../config.php')) {
-    require_once __DIR__ . '/../config.php';
-}
 
 require_once __DIR__ . '/LogService.php';
 require_once __DIR__ . '/StorageService.php';
