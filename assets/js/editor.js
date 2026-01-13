@@ -809,18 +809,24 @@ let sessionWarningShown = false;
 let sessionDialogActive = false;
 let lastActivity = Date.now();
 
+// Globale Session-Konfiguration (wird in startSessionTimer gesetzt)
+let sessionConfig = {
+    timeout: 3600,      // Gesamt-Timeout in Sekunden
+    warningBefore: 300  // Warnung X Sekunden vor Ablauf
+};
+
 function startSessionTimer() {
     const timerEl = document.getElementById('sessionTimeDisplay');
     
     // Timeout-Werte aus CONFIG (bereits in Sekunden!)
-    const sessionTimeout = CONFIG?.sessionTimeout || 3600; // Standard: 3600s = 60 Minuten
-    const warningBefore = CONFIG?.sessionWarning || 300;   // Standard: 300s = 5 Minuten vorher
-    const warningAt = sessionTimeout - warningBefore;
+    sessionConfig.timeout = CONFIG?.sessionTimeout || 3600;      // Standard: 3600s = 60 Minuten
+    sessionConfig.warningBefore = CONFIG?.sessionWarning || 300; // Standard: 300s = 5 Minuten vorher
+    const warningAt = sessionConfig.timeout - sessionConfig.warningBefore;
     
     console.log('Session Timer gestartet:', {
-        timeout: sessionTimeout + 's',
+        timeout: sessionConfig.timeout + 's',
         warningAt: warningAt + 's',
-        warningBefore: warningBefore + 's'
+        warningBefore: sessionConfig.warningBefore + 's'
     });
     
     // Activity Tracking - bei jeder Aktivität Session-Timer zurücksetzen
@@ -846,7 +852,7 @@ function startSessionTimer() {
         }
         
         // Timer-Anzeige aktualisieren (basierend auf Inaktivität)
-        const remainingFromInactivity = sessionTimeout - inactiveSeconds;
+        const remainingFromInactivity = sessionConfig.timeout - inactiveSeconds;
         const minutes = Math.max(0, Math.floor(remainingFromInactivity / 60));
         const seconds = Math.max(0, remainingFromInactivity % 60);
         
@@ -857,11 +863,6 @@ function startSessionTimer() {
             } else {
                 timerEl.textContent = `${minutes}min`;
             }
-        }
-        
-        // Wenn Session komplett abgelaufen (+ 2 Min Puffer) und Dialog wurde ignoriert -> Logout
-        if (inactiveSeconds >= sessionTimeout + 120 && sessionDialogActive) {
-            forceLogout();
         }
     }, 1000);
 }
@@ -882,7 +883,16 @@ async function extendSessionIfNeeded() {
 
 function showSessionExpiryDialog() {
     sessionDialogActive = true;
-    let countdown = 120;
+    
+    // Countdown = konfigurierte Warnzeit (warningBefore)
+    let countdown = sessionConfig.warningBefore;
+    
+    // Formatierung für Anzeige
+    const formatTime = (secs) => {
+        const m = Math.floor(secs / 60);
+        const s = secs % 60;
+        return m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${secs}`;
+    };
     
     // Dialog erstellen
     const dialog = document.createElement('div');
@@ -890,7 +900,7 @@ function showSessionExpiryDialog() {
     dialog.innerHTML = `
         <div class="session-dialog">
             <h3>⏰ Session läuft ab</h3>
-            <p>Deine Session läuft in <strong id="sessionCountdown">${countdown}</strong> Sekunden ab.</p>
+            <p>Deine Session läuft in <strong id="sessionCountdown">${formatTime(countdown)}</strong> ab.</p>
             <p>Möchtest du eingeloggt bleiben?</p>
             <div class="session-dialog-actions">
                 <button class="btn btn-secondary" onclick="forceLogout()">Ausloggen</button>
@@ -904,7 +914,7 @@ function showSessionExpiryDialog() {
     const countdownEl = document.getElementById('sessionCountdown');
     const countdownInterval = setInterval(() => {
         countdown--;
-        countdownEl.textContent = countdown;
+        countdownEl.textContent = formatTime(countdown);
         
         if (countdown <= 0) {
             clearInterval(countdownInterval);
