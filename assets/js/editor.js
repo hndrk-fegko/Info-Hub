@@ -812,9 +812,9 @@ let lastActivity = Date.now();
 function startSessionTimer() {
     const timerEl = document.getElementById('sessionTimeDisplay');
     
-    // Timeout-Werte aus CONFIG (in Sekunden)
-    const sessionTimeout = (CONFIG?.sessionTimeout || 60) * 60; // Standard: 60 Minuten
-    const warningBefore = (CONFIG?.sessionWarning || 5) * 60;   // Standard: 5 Minuten vorher
+    // Timeout-Werte aus CONFIG (bereits in Sekunden!)
+    const sessionTimeout = CONFIG?.sessionTimeout || 3600; // Standard: 3600s = 60 Minuten
+    const warningBefore = CONFIG?.sessionWarning || 300;   // Standard: 300s = 5 Minuten vorher
     const warningAt = sessionTimeout - warningBefore;
     
     console.log('Session Timer gestartet:', {
