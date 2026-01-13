@@ -5,24 +5,26 @@
 ## 🔐 Authentifizierung
 
 ### Login-Flow
-- [ ] Login-Seite öffnen (`/backend/login.php`)
-- [ ] Security-Banner wird angezeigt (bei DEBUG_MODE oder fehlendem HTTPS)
-- [ ] Security-Banner kann geschlossen werden (×-Button)
-- [ ] Ungültige Email → Fehlermeldung
-- [ ] Falsche Email (nicht hinterlegte) → "Email-Adresse nicht berechtigt"
-- [ ] Richtige Email → Code wird gesendet / angezeigt (DEBUG_MODE)
-- [ ] Code-Eingabe-Feld erscheint
-- [ ] Falscher Code 3x → 10 Minuten Sperre
-- [ ] Richtiger Code → Redirect zu editor.php
+- [x] Login-Seite öffnen (`/backend/login.php`)
+- [x] Security-Banner wird angezeigt (bei DEBUG_MODE oder fehlendem HTTPS)
+- [x] Security-Banner kann geschlossen werden (×-Button)
+- [x] Ungültige Email → Fehlermeldung
+- [x] Falsche Email (nicht hinterlegte) → "Email-Adresse nicht berechtigt" (Fix Security: gleiche Meldung wie bei korrekter Email: Falls die Email korrekt ist, wurde ein Code versendet)
+- [x] Richtige Email → Code wird gesendet / angezeigt (DEBUG_MODE)
+- [x] Code-Eingabe-Feld erscheint
+- [x] Falscher Code 3x → 10 Minuten Sperre (off by one in der Anzeige gefixt)
+- [x] Richtiger Code → Redirect zu editor.php
+- [x] Auch ein neu generierter Code wird beim 10 Minuten Lockout abgelehnt (Rate limiting Bypas wird verhindert)
 
 ### Session-Management
-- [ ] Session-Timer im Header sichtbar
-- [ ] Timer zählt runter
+- [x] Session-Timer im Header sichtbar
+- [x] Timer zählt runter
 - [ ] Bei < 5 Minuten: Session-Dialog erscheint
 - [ ] "Session verlängern" → Timer reset auf 60min
 - [ ] "Abmelden" → Redirect zu login.php
 - [ ] Aktivität (Speichern) → Session automatisch verlängert
 - [ ] Nach Timeout → Redirect zu login.php mit "expired" Meldung
+- [x] Security-Meldung im Header wird angezeigt (bei DEBUG_MODE oder fehlendem HTTPS)
 
 ### Logout
 - [ ] Logout-Button funktioniert

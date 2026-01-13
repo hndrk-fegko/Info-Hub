@@ -6,7 +6,7 @@
  * 1. User gibt Email ein
  * 2. 6-stelliger Code wird generiert und per mail() versendet
  * 3. User gibt Code ein
- * 4. Session wird aktiviert (1 Stunde gültig)
+ * 4. Session wird aktiviert (konfigurierbare Dauer)
  */
 
 require_once __DIR__ . '/LogService.php';
@@ -15,14 +15,21 @@ require_once __DIR__ . '/SecurityHelper.php';
 
 class AuthService {
     
-    private const CODE_EXPIRY = 900;      // 15 Minuten
-    private const SESSION_EXPIRY = 3600;  // 1 Stunde
-    private const MAX_ATTEMPTS = 3;
-    private const LOCKOUT_TIME = 600;     // 10 Minuten
+    // Fallback-Werte falls config.php nicht geladen wurde
+    private int $codeExpiry;
+    private int $sessionExpiry;
+    private int $maxAttempts;
+    private int $lockoutTime;
     
     private StorageService $settingsStorage;
     
     public function __construct() {
+        // Werte aus config.php laden (mit Fallbacks)
+        $this->codeExpiry = defined('LOGIN_CODE_EXPIRY') ? LOGIN_CODE_EXPIRY : 900;
+        $this->sessionExpiry = defined('SESSION_TIMEOUT') ? SESSION_TIMEOUT : 3600;
+        $this->maxAttempts = defined('MAX_LOGIN_ATTEMPTS') ? MAX_LOGIN_ATTEMPTS : 3;
+        $this->lockoutTime = defined('LOGIN_LOCKOUT_DURATION') ? LOGIN_LOCKOUT_DURATION : 600;
+        
         $this->settingsStorage = new StorageService('settings.json');
         $this->ensureSession();
     }
@@ -54,7 +61,7 @@ class AuthService {
         
         // In Session speichern
         $_SESSION['auth_code'] = $code;
-        $_SESSION['auth_code_expires'] = time() + self::CODE_EXPIRY;
+        $_SESSION['auth_code_expires'] = time() + $this->codeExpiry;
         $_SESSION['auth_attempts'] = 0;
         $_SESSION['auth_email'] = $adminEmail;
         
@@ -64,7 +71,8 @@ class AuthService {
         
         // Email-Inhalt mit Sicherheitshinweisen
         $securityInfo = SecurityHelper::getEmailSecurityInfo();
-        $message = "Dein Login-Code: $code\n\nGültig für 15 Minuten.\n\nFalls du diesen Code nicht angefordert hast, ignoriere diese Email.{$securityInfo}";
+        $codeExpiryMinutes = ceil($this->codeExpiry / 60);
+        $message = "Dein Login-Code: $code\n\nGültig für {$codeExpiryMinutes} Minuten.\n\nFalls du diesen Code nicht angefordert hast, ignoriere diese Email.{$securityInfo}";
         
         $headers = "From: noreply@" . ($_SERVER['HTTP_HOST'] ?? 'localhost');
         
@@ -85,7 +93,7 @@ class AuthService {
         }
         
         LogService::info('AuthService', 'Login code sent', ['email' => $adminEmail]);
-        return ['success' => true, 'message' => 'Login-Code wurde versendet'];
+        return ['success' => true, 'message' => 'Falls die Email korrekt ist, wurde ein Code versendet'];
     }
     
     /**
@@ -121,12 +129,12 @@ class AuthService {
         if ($inputCode !== $_SESSION['auth_code']) {
             $_SESSION['auth_attempts'] = ($_SESSION['auth_attempts'] ?? 0) + 1;
             
-            if ($_SESSION['auth_attempts'] >= self::MAX_ATTEMPTS) {
-                $_SESSION['auth_lockout'] = time() + self::LOCKOUT_TIME;
+            if ($_SESSION['auth_attempts'] >= $this->maxAttempts) {
+                $_SESSION['auth_lockout'] = time() + $this->lockoutTime;
                 LogService::warning('AuthService', 'Account locked after max attempts');
             }
             
-            $remaining = self::MAX_ATTEMPTS - $_SESSION['auth_attempts'];
+            $remaining = $this->maxAttempts - $_SESSION['auth_attempts'] + 1;
             return [
                 'success' => false, 
                 'message' => "Falscher Code. Noch $remaining Versuche."
@@ -160,8 +168,8 @@ class AuthService {
             return false;
         }
         
-        // Session nach 1 Stunde ablaufen lassen
-        if (!isset($_SESSION['auth_time']) || time() - $_SESSION['auth_time'] > self::SESSION_EXPIRY) {
+        // Session ablaufen lassen nach konfigurierter Zeit
+        if (!isset($_SESSION['auth_time']) || time() - $_SESSION['auth_time'] > $this->sessionExpiry) {
             $this->logout();
             return false;
         }
@@ -212,6 +220,20 @@ class AuthService {
             return 0;
         }
         
-        return self::SESSION_EXPIRY - (time() - $_SESSION['auth_time']);
+        return $this->sessionExpiry - (time() - $_SESSION['auth_time']);
+    }
+    
+    /**
+     * Gibt Session-Timeout zurück (für JS)
+     */
+    public function getSessionTimeout(): int {
+        return $this->sessionExpiry;
+    }
+    
+    /**
+     * Gibt Warnung-Vorlauf zurück (für JS)
+     */
+    public function getSessionWarningBefore(): int {
+        return defined('SESSION_WARNING_BEFORE') ? SESSION_WARNING_BEFORE : 300;
     }
 }
