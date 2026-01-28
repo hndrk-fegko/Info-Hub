@@ -189,6 +189,11 @@ HTML;
             padding: 0;
         }
         
+        html {
+            background-color: var(--bg-color);
+            overscroll-behavior: none;
+        }
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             background-color: var(--bg-color);
@@ -248,6 +253,7 @@ HTML;
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: var(--spacing);
+            width: 100%;
             max-width: var(--max-width);
             margin: 0 auto;
             padding: var(--spacing);
