@@ -199,7 +199,7 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                     
                     <div class="form-group">
                         <label>Header-Bild</label>
-                        <div class="header-image-preview">
+                        <div class="header-image-preview" id="headerPreview">
                             <?php if (!empty($settings['site']['headerImage'])): ?>
                                 <img src="<?= htmlspecialchars($settings['site']['headerImage']) ?>" alt="Header">
                                 <button type="button" class="btn btn-small" onclick="removeHeaderImage()">Entfernen</button>
@@ -207,7 +207,8 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                                 <span class="no-image">Kein Header-Bild</span>
                             <?php endif; ?>
                         </div>
-                        <input type="file" name="headerImage" id="headerImage" accept="image/*">
+                        <input type="hidden" name="headerImage" id="headerImagePath" value="<?= htmlspecialchars($settings['site']['headerImage'] ?? '') ?>">
+                        <input type="file" name="headerImageFile" id="headerImageFile" accept="image/*" onchange="uploadHeaderImage(this)">
                     </div>
                 </div>
                 

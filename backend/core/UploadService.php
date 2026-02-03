@@ -105,9 +105,16 @@ class UploadService {
         // 6. Zielverzeichnis
         $targetDir = self::MEDIA_PATH . $type . '/';
         if (!is_dir($targetDir)) {
-            if (!mkdir($targetDir, 0755, true)) {
+            if (!mkdir($targetDir, 0777, true)) {
                 LogService::error('UploadService', 'Failed to create directory', ['dir' => $targetDir]);
-                return ['success' => false, 'error' => 'Upload-Verzeichnis konnte nicht erstellt werden'];
+                return [
+                    'success' => false, 
+                    'error' => 'Upload-Verzeichnis konnte nicht erstellt werden',
+                    'details' => [
+                        'dir' => $targetDir,
+                        'suggestion' => 'SSH-Terminal: mkdir -p backend/media/' . $type . ' && chmod 777 backend/media/' . $type
+                    ]
+                ];
             }
         }
         

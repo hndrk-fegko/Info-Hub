@@ -1011,22 +1011,33 @@ async function uploadHeaderImage(input) {
     formData.append('action', 'upload_header');
     formData.append('file', input.files[0]);
     
+    showToast('info', 'Header-Bild wird hochgeladen...');
+    
     try {
         const result = await apiPostFormData(formData);
         
         if (result.success) {
-            document.getElementById('headerImage').value = result.path;
+            // Pfad im Hidden-Field speichern
+            document.getElementById('headerImagePath').value = result.path;
+            
+            // Preview aktualisieren
             document.getElementById('headerPreview').innerHTML = 
-                `<img src="${result.path}" alt="Header Preview">`;
+                `<img src="${result.path}" alt="Header Preview">
+                 <button type="button" class="btn btn-small" onclick="removeHeaderImage()">Entfernen</button>`;
+            
             showToast('success', 'Header-Bild hochgeladen');
-            // Diagnose-Panel ausblenden wenn erfolgreich
             hideDiagnostics();
         } else {
             // Fehlerbehandlung mit Diagnostics
+            console.error('Upload failed:', result);
             showToast('error', result.error || 'Upload fehlgeschlagen');
             
-            // Wenn es ein Permission-Fehler ist, zeige Diagnose
-            if (result.error && result.error.includes('Schreibrechte')) {
+            // Wenn Details vorhanden sind (Permission-Probleme), zeige Diagnose
+            if (result.details || (result.error && (
+                result.error.includes('Schreibrechte') || 
+                result.error.includes('Berechtigungen') ||
+                result.error.includes('konnte nicht')
+            ))) {
                 showUploadDiagnostics(result);
             }
         }
@@ -1037,8 +1048,9 @@ async function uploadHeaderImage(input) {
 }
 
 function removeHeaderImage() {
-    document.getElementById('headerImage').value = '';
-    document.getElementById('headerPreview').innerHTML = '';
+    document.getElementById('headerImagePath').value = '';
+    document.getElementById('headerImageFile').value = '';
+    document.getElementById('headerPreview').innerHTML = '<span class="no-image">Kein Header-Bild</span>';
 }
 
 // ===== File Browser =====
@@ -1528,11 +1540,22 @@ async function showUploadDiagnostics(result) {
     
     // Detailstext mit Befehlen anzeigen
     let html = '<p><strong>Das Problem:</strong> Der Webserver hat keine Schreibrechte auf den Upload-Ordnern.</p>';
-    html += '<p><strong>Lösung (über SSH/Terminal):</strong></p>';
-    html += '<code style="display: block; padding: 8px; background: #222; color: #0f0; font-family: monospace; border-radius: 4px;">';
-    html += 'chmod 777 backend/media/images backend/media/downloads backend/media/header<br>';
-    html += 'chmod 777 backend/data backend/logs backend/archive';
-    html += '</code>';
+    
+    // API-spezifische Suggestion nutzen, falls vorhanden
+    if (result.details && result.details.suggestion) {
+        html += '<p><strong>Lösung (über SSH/Terminal):</strong></p>';
+        html += '<code style="display: block; padding: 8px; background: #222; color: #0f0; font-family: monospace; border-radius: 4px;">';
+        html += result.details.suggestion.replace(/\n/g, '<br>');
+        html += '</code>';
+    } else {
+        // Fallback zu Standard-Befehlen
+        html += '<p><strong>Lösung (über SSH/Terminal):</strong></p>';
+        html += '<code style="display: block; padding: 8px; background: #222; color: #0f0; font-family: monospace; border-radius: 4px;">';
+        html += 'chmod 777 backend/media/images backend/media/downloads backend/media/header<br>';
+        html += 'chmod 777 backend/data backend/logs backend/archive';
+        html += '</code>';
+    }
+    
     html += '<p><strong>Alternative (wenn Server-Admin verfügbar):</strong></p>';
     html += '<code style="display: block; padding: 8px; background: #222; color: #0f0; font-family: monospace; border-radius: 4px;">';
     html += 'chown -R www-data:www-data backend/<br>';
