@@ -1,0 +1,52 @@
+/* SeparatorTile - Trenner Styles */
+
+.tile-separator {
+    grid-column: 1 / -1 !important;  /* Immer volle Breite */
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.tile-separator:hover {
+    transform: none !important;
+}
+
+.separator-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+.separator-line {
+    border: none;
+    border-top: 1px solid var(--text-light);
+    opacity: 0.3;
+    margin: 0;
+}
+
+/* Linienbreiten */
+.separator-line.line-small {
+    width: 30%;
+}
+
+.separator-line.line-medium {
+    width: 60%;
+}
+
+.separator-line.line-large {
+    width: 100%;
+}
+
+/* Linienstile */
+.separator-line.style-solid {
+    border-top-style: solid;
+}
+
+.separator-line.style-dashed {
+    border-top-style: dashed;
+}
+
+.separator-line.style-dotted {
+    border-top-style: dotted;
+}

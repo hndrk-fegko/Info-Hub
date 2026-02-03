@@ -1,0 +1,212 @@
+/**
+ * QuoteTile Styles
+ * 
+ * Styling für Zitat/Bibelvers Kacheln:
+ * - Zitat: kursiv, größer, zentriert
+ * - Anführungszeichen: öffnend links oben, schließend rechts unten
+ * - Quelle: klein, rechtsausgerichtet mit Trennstrich
+ * - Optionaler Link: gesamte Kachel klickbar
+ * 
+ * Farblogik:
+ * - Weiß/Card: Akzentfarbe für Anführungszeichen, dunkler Text
+ * - Farbige Tiles: Kontrastierende Anführungszeichen
+ */
+
+/* =====================================================
+   QUOTE TILE - BASE
+   ===================================================== */
+
+.tile-quote {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 150px;
+    position: relative;
+}
+
+/* Dezenter linker Akzent-Rand für Card-Style (nur bei default/white) */
+.tile-quote.style-card.color-default,
+.tile-quote.style-card.color-white {
+    border-left: 4px solid var(--accent-color, #667eea);
+}
+
+/* =====================================================
+   TITEL
+   ===================================================== */
+
+.tile-quote .quote-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin: 0 0 1rem 0;
+    text-align: center;
+    opacity: 0.5;
+}
+
+/* =====================================================
+   LINK-WRAPPER
+   ===================================================== */
+
+.quote-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.quote-link:hover {
+    transform: scale(1.01);
+}
+
+.quote-link:focus {
+    outline: 2px solid currentColor;
+    outline-offset: 4px;
+    border-radius: 8px;
+}
+
+/* =====================================================
+   ZITAT-TEXT
+   ===================================================== */
+
+.quote-text {
+    font-size: 1.3rem;
+    font-style: italic;
+    line-height: 1.7;
+    text-align: center;
+    margin: 0;
+    padding: 0 2.5rem;  /* Platz für Anführungszeichen */
+    position: relative;
+}
+
+.quote-text p {
+    margin: 0;
+}
+
+/* =====================================================
+   ANFÜHRUNGSZEICHEN - Standard (weiß/card)
+   ===================================================== */
+
+/* Öffnendes Anführungszeichen links oben */
+.quote-text::before {
+    content: '"';
+    font-size: 3.5rem;
+    font-style: normal;
+    font-family: Georgia, 'Times New Roman', serif;
+    color: var(--accent-color, #667eea);
+    opacity: 0.4;
+    position: absolute;
+    top: -0.3rem;
+    left: 0;
+    line-height: 1;
+}
+
+/* Schließendes Anführungszeichen rechts unten */
+.quote-text::after {
+    content: '"';
+    font-size: 3.5rem;
+    font-style: normal;
+    font-family: Georgia, 'Times New Roman', serif;
+    color: var(--accent-color, #667eea);
+    opacity: 0.4;
+    position: absolute;
+    bottom: -1.5rem;
+    right: 0;
+    line-height: 1;
+}
+
+/* =====================================================
+   QUELLE
+   ===================================================== */
+
+.quote-source {
+    display: block;
+    font-size: 0.85rem;
+    font-style: normal;
+    font-weight: 500;
+    text-align: right;
+    margin-top: 1.2rem;
+    padding-right: 0.5rem;
+}
+
+/* Trennstrich vor der Quelle */
+.quote-source::before {
+    content: '— ';
+}
+
+/* =====================================================
+   FARBIGE TILES - Spezifische Anpassungen
+   ===================================================== */
+
+/* Akzent 1 (dunkelblau): Grüne Anführungszeichen (Akzent 2) für Kontrast */
+.tile-quote.color-accent1 .quote-text::before,
+.tile-quote.color-accent1 .quote-text::after {
+    color: var(--accent-color-2, #48bb78);
+    opacity: 0.6;
+}
+
+/* Akzent 2 (grün): Weiße Anführungszeichen */
+.tile-quote.color-accent2 .quote-text::before,
+.tile-quote.color-accent2 .quote-text::after {
+    color: white;
+    opacity: 0.4;
+}
+
+/* Akzent 3 (orange): Weiße Anführungszeichen */
+.tile-quote.color-accent3 .quote-text::before,
+.tile-quote.color-accent3 .quote-text::after {
+    color: white;
+    opacity: 0.4;
+}
+
+/* =====================================================
+   RESPONSIVE
+   ===================================================== */
+
+@media (max-width: 768px) {
+    .quote-text {
+        font-size: 1.15rem;
+        padding: 0 2rem;
+    }
+    
+    .quote-text::before,
+    .quote-text::after {
+        font-size: 2.5rem;
+    }
+    
+    .quote-text::after {
+        bottom: -1rem;
+    }
+    
+    .quote-source {
+        font-size: 0.8rem;
+    }
+}
+
+/* =====================================================
+   TILE SIZE VARIANTS
+   ===================================================== */
+
+/* Kleine Kachel: kompakteres Styling */
+.tile-quote.size-small .quote-text {
+    font-size: 1.1rem;
+    padding: 0 1.8rem;
+}
+
+.tile-quote.size-small .quote-text::before,
+.tile-quote.size-small .quote-text::after {
+    font-size: 2.2rem;
+}
+
+/* Große Kachel: mehr Platz */
+.tile-quote.size-large .quote-text,
+.tile-quote.size-full .quote-text {
+    font-size: 1.5rem;
+}
+
+.tile-quote.size-large .quote-text::before,
+.tile-quote.size-large .quote-text::after,
+.tile-quote.size-full .quote-text::before,
+.tile-quote.size-full .quote-text::after {
+    font-size: 4rem;
+}

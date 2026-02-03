@@ -1,0 +1,74 @@
+/* CountdownTile CSS */
+.tile-countdown .countdown-description {
+    color: var(--text-light);
+    margin-bottom: 12px;
+}
+
+.tile-countdown .countdown-display {
+    font-size: 1.1rem;
+}
+
+.tile-countdown .countdown-content {
+    line-height: 1.6;
+}
+
+.tile-countdown .countdown-value {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: var(--accent-color);
+}
+
+.tile-countdown .countdown-expired {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: var(--accent-color);
+    padding: 8px 0;
+}
+
+.tile-countdown .countdown-loading {
+    color: var(--text-light);
+    font-style: italic;
+}
+
+/* Timer-Modus */
+.tile-countdown .countdown-timer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.tile-countdown .countdown-segment {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 50px;
+}
+
+.tile-countdown .countdown-segment .countdown-value {
+    font-size: 2em;
+    line-height: 1.2;
+}
+
+.tile-countdown .countdown-segment .countdown-label {
+    font-size: 0.7rem;
+    color: var(--text-light);
+    text-transform: uppercase;
+}
+
+.tile-countdown .countdown-separator {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: var(--text-light);
+    margin-top: -16px;
+}
+
+@media (max-width: 600px) {
+    .tile-countdown .countdown-segment {
+        min-width: 40px;
+    }
+    .tile-countdown .countdown-segment .countdown-value {
+        font-size: 1.5em;
+    }
+}

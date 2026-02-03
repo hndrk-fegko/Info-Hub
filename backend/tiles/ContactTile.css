@@ -1,0 +1,100 @@
+/* ContactTile CSS */
+.tile-contact .contact-content {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.tile-contact .contact-image {
+    flex-shrink: 0;
+}
+
+.tile-contact .contact-image img {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--accent-color);
+}
+
+.tile-contact .contact-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.tile-contact .contact-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    color: var(--text-color);
+}
+
+.tile-contact .contact-role {
+    font-size: 0.95rem;
+    color: var(--text-light);
+    margin: 0 0 12px 0;
+}
+
+.tile-contact .contact-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tile-contact .contact-reveal-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.tile-contact .contact-reveal-btn:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
+.tile-contact .contact-revealed {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: #e8f5e9;
+    color: #2e7d32;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.tile-contact .contact-revealed:hover {
+    background: #c8e6c9;
+}
+
+.tile-contact .contact-icon {
+    font-size: 1.1em;
+}
+
+/* Contact Tile - ohne Bild */
+.tile-contact .contact-content:not(:has(.contact-image)) {
+    flex-direction: column;
+}
+
+/* Contact Tile - Mobile */
+@media (max-width: 600px) {
+    .tile-contact .contact-content {
+        flex-direction: column;
+        text-align: center;
+        align-items: center;
+    }
+    
+    .tile-contact .contact-actions {
+        justify-content: center;
+    }
+}

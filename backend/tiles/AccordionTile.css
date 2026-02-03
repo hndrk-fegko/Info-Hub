@@ -1,0 +1,233 @@
+/**
+ * AccordionTile Styles
+ * 
+ * Styling für Akkordeon mit auf-/zuklappbaren Bereichen
+ */
+
+/* =====================================================
+   FULL ROW OPTION
+   ===================================================== */
+
+.tile-full-row {
+    grid-column: 1 / -1 !important;
+}
+
+/* =====================================================
+   ACCORDION CONTAINER
+   ===================================================== */
+
+.tile-accordion {
+    display: flex;
+    flex-direction: column;
+}
+
+.accordion-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+    color: inherit;
+}
+
+.accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* =====================================================
+   ACCORDION ITEM
+   ===================================================== */
+
+.accordion-item {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.accordion-item:last-child {
+    border-bottom: none;
+}
+
+/* =====================================================
+   ACCORDION HEADER (Button)
+   ===================================================== */
+
+.accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 1rem 1.25rem;
+    background: rgba(0, 0, 0, 0.03);
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    font-size: 1rem;
+    font-weight: 500;
+    color: inherit;
+    transition: background-color 0.2s ease;
+}
+
+.accordion-header:hover {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+.accordion-header:focus {
+    outline: 2px solid var(--primary-color, #ff6b6b);
+    outline-offset: -2px;
+}
+
+.accordion-header-text {
+    flex: 1;
+    padding-right: 1rem;
+}
+
+/* =====================================================
+   ACCORDION ICON (Chevron)
+   ===================================================== */
+
+.accordion-icon {
+    width: 20px;
+    height: 20px;
+    position: relative;
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+}
+
+.accordion-icon::before,
+.accordion-icon::after {
+    content: '';
+    position: absolute;
+    background: currentColor;
+    border-radius: 2px;
+    transition: transform 0.3s ease;
+}
+
+/* Horizontaler Strich */
+.accordion-icon::before {
+    width: 12px;
+    height: 2px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Vertikaler Strich (wird bei open ausgeblendet) */
+.accordion-icon::after {
+    width: 2px;
+    height: 12px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Offener Zustand: Plus wird zu Minus */
+.accordion-item.open .accordion-icon::after {
+    transform: translate(-50%, -50%) rotate(90deg);
+    opacity: 0;
+}
+
+/* =====================================================
+   ACCORDION CONTENT
+   ===================================================== */
+
+.accordion-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+.accordion-item.open .accordion-content {
+    max-height: 2000px; /* Genug für langen Content */
+    transition: max-height 0.5s ease-in;
+}
+
+.accordion-content-inner {
+    padding: 1rem 1.25rem 1.25rem;
+    line-height: 1.6;
+    color: inherit;
+    opacity: 0.9;
+}
+
+/* =====================================================
+   DARK MODE / CARD STYLE ANPASSUNGEN
+   ===================================================== */
+
+.tile-card .accordion {
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+.tile-card .accordion-header {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.tile-card .accordion-header:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* Für dunkle Hintergründe */
+.tile-accordion[class*="color-accent"] .accordion {
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.tile-accordion[class*="color-accent"] .accordion-item {
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.tile-accordion[class*="color-accent"] .accordion-header {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tile-accordion[class*="color-accent"] .accordion-header:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* =====================================================
+   RESPONSIVE
+   ===================================================== */
+
+@media (max-width: 768px) {
+    .accordion-header {
+        padding: 0.875rem 1rem;
+        font-size: 0.95rem;
+    }
+    
+    .accordion-content-inner {
+        padding: 0.875rem 1rem 1rem;
+        font-size: 0.95rem;
+    }
+    
+    .accordion-icon {
+        width: 18px;
+        height: 18px;
+    }
+    
+    .accordion-icon::before {
+        width: 10px;
+    }
+    
+    .accordion-icon::after {
+        height: 10px;
+    }
+}
+
+/* =====================================================
+   ACCESSIBILITY
+   ===================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .accordion-content,
+    .accordion-icon,
+    .accordion-icon::before,
+    .accordion-icon::after {
+        transition: none;
+    }
+}
+
+/* Focus visible für Keyboard-Navigation */
+.accordion-header:focus-visible {
+    outline: 3px solid var(--primary-color, #ff6b6b);
+    outline-offset: -3px;
+    z-index: 1;
+}
