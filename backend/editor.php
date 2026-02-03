@@ -112,8 +112,6 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                     </details>
                 </div>
             </div>
-                </button>
-            </div>
         </header>
         
         <main class="editor-main">
