@@ -1,0 +1,120 @@
+/* IframeTile CSS */
+.tile-iframe .tile-iframe-container {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 8px;
+}
+
+.tile-iframe .tile-iframe-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.tile-iframe .iframe-modal-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 16px 24px;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.tile-iframe .iframe-modal-trigger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tile-iframe .iframe-modal-icon {
+    font-size: 1.2em;
+}
+
+.tile-iframe .tile-description {
+    color: var(--text-light);
+    margin-bottom: 16px;
+}
+
+.tile-iframe .tile-caption {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    margin-top: 8px;
+}
+
+/* Iframe Modal */
+.iframe-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 1001;
+    justify-content: center;
+    align-items: center;
+}
+
+.iframe-modal.active {
+    display: flex;
+}
+
+.iframe-modal-content {
+    position: relative;
+    width: 90%;
+    height: 85%;
+    max-width: 1200px;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.iframe-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.iframe-modal-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.iframe-modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #666;
+    line-height: 1;
+}
+
+.iframe-modal-close:hover {
+    color: #000;
+}
+
+.iframe-modal-body {
+    width: 100%;
+    height: calc(100% - 50px);
+}
+
+.iframe-modal-body iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}

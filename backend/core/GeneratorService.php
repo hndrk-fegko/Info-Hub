@@ -81,6 +81,69 @@ class GeneratorService {
     }
     
     /**
+     * Sammelt CSS von allen registrierten Tile-Typen
+     */
+    private function collectTileCSS(): string {
+        global $TILE_TYPES;
+        
+        $css = "\n        /* ===== TILE-SPEZIFISCHE STYLES ===== */\n";
+        
+        foreach ($TILE_TYPES as $type => $class) {
+            $instance = new $class();
+            $tileCSS = $instance->getCSS();
+            if (!empty($tileCSS)) {
+                $css .= $tileCSS;
+            }
+        }
+        
+        return $css;
+    }
+    
+    /**
+     * Sammelt JavaScript von allen registrierten Tile-Typen
+     */
+    private function collectTileJS(): string {
+        global $TILE_TYPES;
+        
+        $js = "\n        // ===== TILE-SPEZIFISCHES JAVASCRIPT =====\n";
+        
+        foreach ($TILE_TYPES as $type => $class) {
+            $instance = new $class();
+            $tileJS = $instance->getJS();
+            if (!empty($tileJS)) {
+                $js .= $tileJS;
+            }
+        }
+        
+        return $js;
+    }
+    
+    /**
+     * Sammelt Init-Funktionen von allen Tile-Typen für DOMContentLoaded
+     */
+    private function collectTileInitCalls(): string {
+        global $TILE_TYPES;
+        
+        $calls = [];
+        
+        foreach ($TILE_TYPES as $type => $class) {
+            $instance = new $class();
+            $initFn = $instance->getInitFunction();
+            if (!empty($initFn)) {
+                $calls[] = $initFn . '();';
+            }
+        }
+        
+        if (empty($calls)) {
+            return '';
+        }
+        
+        return "\n        // Tile-Init-Funktionen\n        document.addEventListener('DOMContentLoaded', function() {\n            " . 
+               implode("\n            ", $calls) . 
+               "\n        });\n";
+    }
+    
+    /**
      * Rendert alle Tiles
      */
     private function renderTiles(array $tiles): string {
@@ -89,6 +152,12 @@ class GeneratorService {
         $html = '';
         
         foreach ($tiles as $tile) {
+            // Manuell versteckte Tiles komplett überspringen (nicht im HTML)
+            if (isset($tile['visible']) && $tile['visible'] === false) {
+                LogService::debug('GeneratorService', 'Skipping hidden tile', ['id' => $tile['id'] ?? 'unknown']);
+                continue;
+            }
+            
             $type = $tile['type'] ?? '';
             
             if (!isset($TILE_TYPES[$type])) {
@@ -100,12 +169,26 @@ class GeneratorService {
             $instance = new $class();
             
             // Tile-Wrapper mit gemeinsamen Klassen
-            $size = htmlspecialchars($tile['size'] ?? 'medium');
+            // Separator-Tiles sind immer full-width für Umbruchschutz
+            $size = ($type === 'separator') ? 'full' : htmlspecialchars($tile['size'] ?? 'medium');
             $style = htmlspecialchars($tile['style'] ?? 'card');
             $colorScheme = htmlspecialchars($tile['colorScheme'] ?? 'default');
             $id = htmlspecialchars($tile['id'] ?? '');
             
-            $html .= "<div class=\"tile tile-{$type} size-{$size} style-{$style} color-{$colorScheme}\" data-tile-id=\"{$id}\">\n";
+            // Zusätzliche Klassen vom Tile (z.B. fullRow bei Akkordeon)
+            $extraClasses = '';
+            if (method_exists($instance, 'getWrapperClasses')) {
+                $wrapperClasses = $instance->getWrapperClasses($tile['data'] ?? []);
+                if (!empty($wrapperClasses)) {
+                    $extraClasses = ' ' . implode(' ', array_map('htmlspecialchars', $wrapperClasses));
+                }
+            }
+            
+            // Zeitsteuerungs-Attribute für clientseitige Steuerung
+            $scheduleAttrs = $this->getScheduleAttributes($tile);
+            $hiddenStyle = $scheduleAttrs ? ' style="display:none;"' : '';
+            
+            $html .= "<div class=\"tile tile-{$type} size-{$size} style-{$style} color-{$colorScheme}{$extraClasses}\"{$scheduleAttrs}{$hiddenStyle} data-tile-id=\"{$id}\">\n";
             $html .= $instance->render($tile['data'] ?? []);
             $html .= "</div>\n";
         }
@@ -114,13 +197,41 @@ class GeneratorService {
     }
     
     /**
+     * Generiert data-Attribute für Zeitsteuerung
+     */
+    private function getScheduleAttributes(array $tile): string {
+        if (!isset($tile['visibilitySchedule']) || empty($tile['visibilitySchedule'])) {
+            return '';
+        }
+        
+        $schedule = $tile['visibilitySchedule'];
+        $attrs = '';
+        
+        if (!empty($schedule['showFrom'])) {
+            $attrs .= ' data-show-from="' . htmlspecialchars($schedule['showFrom']) . '"';
+        }
+        
+        if (!empty($schedule['showUntil'])) {
+            $attrs .= ' data-show-until="' . htmlspecialchars($schedule['showUntil']) . '"';
+        }
+        
+        return $attrs;
+    }
+    
+    /**
      * Rendert die komplette Seite
      */
     private function renderPage(array $settings, string $tilesHtml): string {
+        // Tile-spezifisches CSS und JS sammeln
+        $tileCSS = $this->collectTileCSS();
+        $tileJS = $this->collectTileJS();
+        $tileInitCalls = $this->collectTileInitCalls();
+        
         // Defaults
         $siteTitle = htmlspecialchars($settings['site']['title'] ?? '');
         $siteTitleRaw = $settings['site']['title'] ?? '';
         $headerImage = $settings['site']['headerImage'] ?? null;
+        $headerFocusPoint = htmlspecialchars($settings['site']['headerFocusPoint'] ?? 'center center');
         $footerText = nl2br(htmlspecialchars($settings['site']['footerText'] ?? ''));
         $bgColor = htmlspecialchars($settings['theme']['backgroundColor'] ?? '#f5f5f5');
         // primaryColor als Fallback für alte settings.json Dateien, accentColor ist der aktuelle Name
@@ -140,7 +251,7 @@ class GeneratorService {
             $headerHtml = <<<HTML
     <header class="site-header">
         <div class="header-image">
-            <img src="{$headerImage}" alt="">
+            <img src="{$headerImage}" alt="" style="object-position: {$headerFocusPoint};">
         </div>
         {$titleHtml}
     </header>
@@ -404,29 +515,6 @@ HTML;
             text-decoration: none;
         }
         
-        /* Image Tile */
-        .tile-image .tile-image-container {
-            display: block;
-        }
-        
-        .tile-image .tile-image-lightbox {
-            cursor: pointer;
-        }
-        
-        .tile-image .tile-image-link {
-            cursor: pointer;
-            display: block;
-        }
-        
-        .tile-image .tile-image-link:hover img {
-            opacity: 0.9;
-        }
-        
-        .tile-image img {
-            width: 100%;
-            height: auto;
-        }
-        
         /* Footer - Sticky am unteren Rand */
         .site-footer {
             text-align: center;
@@ -436,161 +524,7 @@ HTML;
             font-size: 0.9rem;
             margin-top: 40px;
         }
-        
-        /* Lightbox */
-        .lightbox {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-        }
-        
-        .lightbox.active {
-            display: flex;
-        }
-        
-        .lightbox img {
-            max-width: 90%;
-            max-height: 90%;
-            object-fit: contain;
-        }
-        
-        .lightbox-close {
-            position: absolute;
-            top: 20px;
-            right: 30px;
-            color: white;
-            font-size: 40px;
-            cursor: pointer;
-        }
-        
-        /* Iframe Tile */
-        .tile-iframe .tile-iframe-container {
-            position: relative;
-            width: 100%;
-            overflow: hidden;
-            border-radius: 8px;
-        }
-        
-        .tile-iframe .tile-iframe-container iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-        
-        .tile-iframe .iframe-modal-trigger {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            width: 100%;
-            padding: 16px 24px;
-            background: var(--accent-color);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        
-        .tile-iframe .iframe-modal-trigger:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-        
-        .tile-iframe .iframe-modal-icon {
-            font-size: 1.2em;
-        }
-        
-        .tile-iframe .tile-description {
-            color: var(--text-light);
-            margin-bottom: 16px;
-        }
-        
-        .tile-iframe .tile-caption {
-            font-size: 0.85rem;
-            color: var(--text-light);
-            margin-top: 8px;
-        }
-        
-        /* Iframe Modal */
-        .iframe-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 1001;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        .iframe-modal.active {
-            display: flex;
-        }
-        
-        .iframe-modal-content {
-            position: relative;
-            width: 90%;
-            height: 85%;
-            max-width: 1200px;
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-        }
-        
-        .iframe-modal-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 20px;
-            background: #f5f5f5;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .iframe-modal-title {
-            margin: 0;
-            font-size: 1rem;
-            font-weight: 500;
-        }
-        
-        .iframe-modal-close {
-            background: none;
-            border: none;
-            font-size: 28px;
-            cursor: pointer;
-            color: #666;
-            line-height: 1;
-        }
-        
-        .iframe-modal-close:hover {
-            color: #000;
-        }
-        
-        .iframe-modal-body {
-            width: 100%;
-            height: calc(100% - 50px);
-        }
-        
-        .iframe-modal-body iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
+{$tileCSS}
     </style>
 </head>
 <body>
@@ -705,65 +639,79 @@ HTML;
                 adjustTextContrast();
             }
         });
-        
-        // Lightbox
-        function openLightbox(src) {
-            document.getElementById('lightbox-img').src = src;
-            document.getElementById('lightbox').classList.add('active');
-            document.body.style.overflow = 'hidden';
-        }
-        
-        function closeLightbox() {
-            document.getElementById('lightbox').classList.remove('active');
-            document.body.style.overflow = '';
-        }
-        
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeLightbox();
-                closeIframeModal();
+{$tileJS}
+        // ===== ZEITGESTEUERTE SICHTBARKEIT =====
+        function initScheduledVisibility() {
+            const scheduledTiles = document.querySelectorAll('[data-show-from], [data-show-until]');
+            
+            if (scheduledTiles.length === 0) return;
+            
+            function updateVisibility() {
+                const now = new Date();
+                
+                scheduledTiles.forEach(tile => {
+                    const showFrom = tile.dataset.showFrom ? new Date(tile.dataset.showFrom) : null;
+                    const showUntil = tile.dataset.showUntil ? new Date(tile.dataset.showUntil) : null;
+                    
+                    // Prüfen ob sichtbar sein sollte
+                    const afterStart = !showFrom || now >= showFrom;
+                    const beforeEnd = !showUntil || now <= showUntil;
+                    const shouldShow = afterStart && beforeEnd;
+                    
+                    tile.style.display = shouldShow ? '' : 'none';
+                });
             }
-        });
-        
-        // Iframe Modal
-        function openIframeModal(url, title) {
-            const titleEl = document.getElementById('iframe-modal-title');
-            if (title && title.trim() !== '') {
-                titleEl.textContent = title;
-                titleEl.style.display = '';
-            } else {
-                titleEl.textContent = '';
-                titleEl.style.display = 'none';
-            }
-            document.getElementById('iframe-modal-frame').src = url;
-            document.getElementById('iframe-modal').classList.add('active');
-            document.body.style.overflow = 'hidden';
+            
+            // Initial ausführen
+            updateVisibility();
+            
+            // Jede Minute aktualisieren (reicht für Minuten-genaue Steuerung)
+            setInterval(updateVisibility, 60000);
         }
         
-        function closeIframeModal() {
-            document.getElementById('iframe-modal').classList.remove('active');
-            document.getElementById('iframe-modal-frame').src = ''; // Stoppt Laden
-            document.body.style.overflow = '';
-        }
-        
-        // Click outside to close
-        document.getElementById('iframe-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'iframe-modal') {
-                closeIframeModal();
-            }
-        });
-        
-        // Email Reveal (Anti-Spam)
-        function revealEmail(user, domain) {
-            const email = user + '@' + domain;
-            window.location.href = 'mailto:' + email;
-        }
+        // Zeitsteuerung beim Laden initialisieren
+        document.addEventListener('DOMContentLoaded', initScheduledVisibility);
+{$tileInitCalls}
     </script>
 </body>
 </html>
 HTML;
         
         return $html;
+    }
+    
+    /**
+     * Prüft ob eine Tile nach Zeitplan sichtbar ist
+     * 
+     * @param array $tile Tile-Daten
+     * @return bool True wenn sichtbar
+     */
+    private function isTileVisibleBySchedule(array $tile): bool {
+        // Keine Zeitsteuerung = immer sichtbar
+        if (!isset($tile['visibilitySchedule']) || empty($tile['visibilitySchedule'])) {
+            return true;
+        }
+        
+        $schedule = $tile['visibilitySchedule'];
+        $now = time();
+        
+        // showFrom prüfen
+        if (!empty($schedule['showFrom'])) {
+            $showFrom = strtotime($schedule['showFrom']);
+            if ($showFrom !== false && $now < $showFrom) {
+                return false; // Noch nicht sichtbar
+            }
+        }
+        
+        // showUntil prüfen
+        if (!empty($schedule['showUntil'])) {
+            $showUntil = strtotime($schedule['showUntil']);
+            if ($showUntil !== false && $now > $showUntil) {
+                return false; // Nicht mehr sichtbar
+            }
+        }
+        
+        return true;
     }
     
     /**

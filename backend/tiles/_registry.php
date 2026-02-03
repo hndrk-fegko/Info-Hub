@@ -3,17 +3,12 @@
  * TILE REGISTRY - Auto-Import System
  * 
  * NEUE TILE-TYPEN HINZUFÜGEN:
- * 1. Neue Datei erstellen: XyzTile.php
- * 2. Von TileBase erben
- * 3. Abstrakte Methoden implementieren:
- *    - getName(): Anzeigename
- *    - getDescription(): Beschreibung
- *    - getFields(): Aktive Felder definieren
- *    - validate($data): Input validieren
- *    - render($data): HTML-Output generieren
- * 4. Diese Datei lädt automatisch alle *Tile.php
+ * Siehe ausführliche Anleitung in TileBase.php
  * 
- * KEINE manuelle Registrierung notwendig!
+ * Kurzfassung:
+ * 1. XyzTile.php erstellen (von TileBase erben)
+ * 2. Optional: XyzTile.css und XyzTile.js für Styling/Funktionalität
+ * 3. Fertig! Auto-Import, keine manuelle Registrierung nötig.
  */
 
 // Basis-Klasse zuerst laden

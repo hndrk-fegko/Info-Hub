@@ -6,7 +6,13 @@
  * 1. Neue Datei erstellen: XyzTile.php
  * 2. Von TileBase erben
  * 3. Abstrakte Methoden implementieren
- * 4. Fertig! Auto-Import durch _registry.php
+ * 4. Optional: XyzTile.css und/oder XyzTile.js erstellen
+ * 5. Fertig! Auto-Import durch _registry.php
+ * 
+ * MODULARE CSS/JS:
+ * - Lege XyzTile.css neben XyzTile.php für tile-spezifisches CSS
+ * - Lege XyzTile.js neben XyzTile.php für tile-spezifisches JavaScript
+ * - Diese werden automatisch beim Generieren der Seite eingebunden
  */
 
 abstract class TileBase {
@@ -43,6 +49,41 @@ abstract class TileBase {
      * @return string HTML-Output
      */
     abstract public function render(array $data): string;
+    
+    /**
+     * Lädt tile-spezifisches CSS aus XyzTile.css
+     * 
+     * @return string CSS-Code oder leer wenn keine Datei existiert
+     */
+    public function getCSS(): string {
+        $cssFile = __DIR__ . '/' . static::class . '.css';
+        if (file_exists($cssFile)) {
+            return "/* " . static::class . " */\n" . file_get_contents($cssFile) . "\n";
+        }
+        return '';
+    }
+    
+    /**
+     * Lädt tile-spezifisches JavaScript aus XyzTile.js
+     * 
+     * @return string JavaScript-Code oder leer wenn keine Datei existiert
+     */
+    public function getJS(): string {
+        $jsFile = __DIR__ . '/' . static::class . '.js';
+        if (file_exists($jsFile)) {
+            return "// === " . static::class . " ===\n" . file_get_contents($jsFile) . "\n";
+        }
+        return '';
+    }
+    
+    /**
+     * Gibt den Namen einer Init-Funktion zurück, die bei DOMContentLoaded aufgerufen werden soll
+     * 
+     * @return string|null Funktionsname oder null
+     */
+    public function getInitFunction(): ?string {
+        return null;
+    }
     
     /**
      * Hilfsmethode: HTML escapen
