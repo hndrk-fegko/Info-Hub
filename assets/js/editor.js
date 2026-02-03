@@ -209,6 +209,12 @@ function renderTiles() {
 
 function renderTileCard(tile) {
     const typeInfo = tileTypes[tile.type] || { name: tile.type };
+    
+    // Separator-Tiles bekommen eine spezielle Darstellung
+    if (tile.type === 'separator') {
+        return renderSeparatorCard(tile, typeInfo);
+    }
+    
     let title = tile.data?.title || tile.data?.name || 'Ohne Titel';
     
     // Bei Iframe ohne Titel: URL anzeigen
@@ -221,14 +227,39 @@ function renderTileCard(tile) {
         }
     }
     
+    // Countdown-Status prüfen
+    let countdownBadge = '';
+    if (tile.type === 'countdown' && tile.data?.targetDate) {
+        const targetDate = tile.data.targetDate;
+        const targetTime = tile.data.targetTime || '00:00';
+        const target = new Date(`${targetDate}T${targetTime}:00`);
+        const now = new Date();
+        
+        if (target <= now) {
+            const hideOnExpiry = tile.data.hideOnExpiry;
+            if (hideOnExpiry) {
+                countdownBadge = '<span class="countdown-status-badge expired-hidden" title="Countdown abgelaufen - wird ausgeblendet">⏱️ Abgelaufen & ausgeblendet</span>';
+            } else {
+                countdownBadge = '<span class="countdown-status-badge expired" title="Countdown abgelaufen">⏱️ Abgelaufen</span>';
+            }
+        }
+    }
+    
     // Prüfe auf doppelte Positionen
     const duplicatePos = tiles.filter(t => t.position === tile.position).length > 1;
     const posClass = duplicatePos ? 'duplicate-pos' : '';
     
+    // Visibility Status berechnen
+    const visStatus = getVisibilityStatus(tile);
+    const hiddenClass = visStatus.effectivelyHidden ? 'tile-hidden' : '';
+    
     return `
-        <div class="tile-card" data-id="${tile.id}">
+        <div class="tile-card ${hiddenClass}" data-id="${tile.id}">
             <div class="tile-info">
-                <div class="tile-title">${escapeHtml(title)}</div>
+                <div class="tile-title">
+                    ${escapeHtml(title)}
+                    ${countdownBadge}
+                </div>
                 <div class="tile-meta">
                     <span class="tile-type-badge">${escapeHtml(typeInfo.name)}</span>
                     <button class="quick-edit-btn ${posClass}" onclick="showPositionEdit(event, '${tile.id}')" title="Position ändern">
@@ -243,6 +274,15 @@ function renderTileCard(tile) {
                     <button class="quick-edit-btn" onclick="showColorMenu(event, '${tile.id}')" title="Farbe ändern">
                         🎨 ${getColorLabel(tile.colorScheme)}
                     </button>
+                    <div class="visibility-control">
+                        <button class="quick-edit-btn ${visStatus.btnClass}" onclick="toggleVisibility('${tile.id}')" title="${visStatus.tooltip}">
+                            ${visStatus.icon} ${visStatus.label}
+                        </button>
+                        <button class="quick-edit-btn visibility-dropdown-btn ${visStatus.hasSchedule ? 'has-schedule' : ''}" onclick="showVisibilitySchedule(event, '${tile.id}')" title="Zeitsteuerung">
+                            ▼
+                        </button>
+                    </div>
+                    ${visStatus.notExported ? '<span class="not-exported-badge" title="Diese Kachel wird beim Veröffentlichen NICHT exportiert">⛔ Nicht im Export</span>' : ''}
                 </div>
             </div>
             <div class="tile-actions">
@@ -258,6 +298,145 @@ function renderTileCard(tile) {
             </div>
         </div>
     `;
+}
+
+// Spezielle Darstellung für Separator-Tiles im Editor
+function renderSeparatorCard(tile, typeInfo) {
+    const height = tile.data?.height ?? 40;
+    const showLine = tile.data?.showLine ?? false;
+    const lineWidth = tile.data?.lineWidth ?? 'medium';
+    
+    // Prüfe auf doppelte Positionen
+    const duplicatePos = tiles.filter(t => t.position === tile.position).length > 1;
+    const posClass = duplicatePos ? 'duplicate-pos' : '';
+    
+    // Visibility Status
+    const visStatus = getVisibilityStatus(tile);
+    const hiddenClass = visStatus.effectivelyHidden ? 'tile-hidden' : '';
+    
+    // Beschreibung erstellen
+    let description = `${height}px`;
+    if (showLine) {
+        const widthLabels = { small: 'kurz', medium: 'mittel', large: 'voll' };
+        description += ` · Linie ${widthLabels[lineWidth] || lineWidth}`;
+    }
+    
+    return `
+        <div class="tile-card tile-card-separator ${hiddenClass}" data-id="${tile.id}">
+            <div class="tile-info">
+                <div class="tile-title separator-title">
+                    ─────── ${escapeHtml(typeInfo.name)} ───────
+                </div>
+                <div class="tile-meta">
+                    <span class="tile-type-badge">${escapeHtml(description)}</span>
+                    <button class="quick-edit-btn ${posClass}" onclick="showPositionEdit(event, '${tile.id}')" title="Position ändern">
+                        📍 ${tile.position}
+                    </button>
+                    <div class="visibility-control">
+                        <button class="quick-edit-btn ${visStatus.btnClass}" onclick="toggleVisibility('${tile.id}')" title="${visStatus.tooltip}">
+                            ${visStatus.icon} ${visStatus.label}
+                        </button>
+                    </div>
+                    ${visStatus.notExported ? '<span class="not-exported-badge" title="Dieser Trenner wird beim Veröffentlichen NICHT exportiert">⛔ Nicht im Export</span>' : ''}
+                </div>
+            </div>
+            <div class="tile-actions">
+                <button class="btn btn-icon" onclick="editTile('${tile.id}')" title="Bearbeiten">
+                    ✏️
+                </button>
+                <button class="btn btn-icon" onclick="deleteTile('${tile.id}')" title="Löschen">
+                    🗑️
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Berechnet den aktuellen Visibility-Status einer Tile
+function getVisibilityStatus(tile) {
+    const now = new Date();
+    const schedule = tile.visibilitySchedule || {};
+    const showFrom = schedule.showFrom ? new Date(schedule.showFrom) : null;
+    const showUntil = schedule.showUntil ? new Date(schedule.showUntil) : null;
+    const hasSchedule = showFrom || showUntil;
+    
+    // Manuell versteckt hat höchste Priorität - wird NICHT exportiert!
+    if (tile.visible === false) {
+        return {
+            effectivelyHidden: true,
+            icon: '⛔',
+            label: 'Versteckt',
+            btnClass: 'visibility-hidden',
+            tooltip: 'Manuell versteckt - wird NICHT exportiert! Klicken zum Einblenden.',
+            hasSchedule,
+            notExported: true
+        };
+    }
+    
+    // Zeitplan prüfen - diese werden exportiert, aber per JS gesteuert
+    if (showFrom && now < showFrom) {
+        const dateStr = formatDateShort(showFrom);
+        return {
+            effectivelyHidden: true,
+            icon: '🕐',
+            label: `Ab ${dateStr}`,
+            btnClass: 'visibility-scheduled',
+            tooltip: `Wird ab ${formatDateTime(showFrom)} sichtbar (im Export enthalten, per JS gesteuert)`,
+            hasSchedule: true,
+            notExported: false
+        };
+    }
+    
+    if (showUntil && now > showUntil) {
+        return {
+            effectivelyHidden: true,
+            icon: '⏱️',
+            label: 'Abgelaufen',
+            btnClass: 'visibility-expired',
+            tooltip: `War sichtbar bis ${formatDateTime(showUntil)} (im Export enthalten, per JS versteckt)`,
+            hasSchedule: true,
+            notExported: false
+        };
+    }
+    
+    // Sichtbar, aber mit aktivem Zeitplan
+    if (showUntil && now <= showUntil) {
+        const dateStr = formatDateShort(showUntil);
+        return {
+            effectivelyHidden: false,
+            icon: '👁️',
+            label: `Bis ${dateStr}`,
+            btnClass: 'visibility-until',
+            tooltip: `Sichtbar bis ${formatDateTime(showUntil)} (im Export enthalten)`,
+            hasSchedule: true,
+            notExported: false
+        };
+    }
+    
+    // Normal sichtbar
+    return {
+        effectivelyHidden: false,
+        icon: '👁️',
+        label: 'Sichtbar',
+        btnClass: '',
+        tooltip: 'Sichtbar - Klicken zum Verstecken',
+        hasSchedule,
+        notExported: false
+    };
+}
+
+function formatDateShort(date) {
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+}
+
+function formatDateTime(date) {
+    return date.toLocaleDateString('de-DE', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 }
 
 function getSizeLabel(size) {
@@ -445,6 +624,190 @@ function showColorMenu(event, tileId) {
     `);
 }
 
+// Visibility umschalten
+async function toggleVisibility(tileId) {
+    const tile = tiles.find(t => t.id === tileId);
+    if (!tile) return;
+    
+    // Toggle: undefined/true -> false, false -> true
+    const newVisibility = tile.visible === false ? true : false;
+    await updateTileProperty(tileId, 'visible', newVisibility);
+    
+    const status = newVisibility ? 'sichtbar' : 'versteckt';
+    showToast('info', `Kachel ist jetzt ${status}`);
+}
+
+// Visibility Schedule Dropdown anzeigen
+function showVisibilitySchedule(event, tileId) {
+    const tile = tiles.find(t => t.id === tileId);
+    if (!tile) return;
+    
+    const schedule = tile.visibilitySchedule || {};
+    const showFrom = schedule.showFrom || '';
+    const showUntil = schedule.showUntil || '';
+    
+    // Datetime-local Format: YYYY-MM-DDTHH:MM
+    const showFromValue = showFrom ? showFrom.substring(0, 16) : '';
+    const showUntilValue = showUntil ? showUntil.substring(0, 16) : '';
+    
+    showContextMenuPersistent(event, `
+        <div class="visibility-schedule-form">
+            <div class="schedule-row">
+                <label>📅 Einblenden ab:</label>
+                <div class="schedule-input-group">
+                    <input type="datetime-local" id="scheduleShowFrom" value="${showFromValue}" 
+                           onchange="updateVisibilitySchedule('${tileId}')">
+                    <button type="button" class="btn btn-icon btn-small" onclick="clearScheduleField('${tileId}', 'showFrom')" title="Löschen">
+                        🗑️
+                    </button>
+                </div>
+            </div>
+            <div class="schedule-row">
+                <label>📅 Ausblenden ab:</label>
+                <div class="schedule-input-group">
+                    <input type="datetime-local" id="scheduleShowUntil" value="${showUntilValue}"
+                           onchange="updateVisibilitySchedule('${tileId}')">
+                    <button type="button" class="btn btn-icon btn-small" onclick="clearScheduleField('${tileId}', 'showUntil')" title="Löschen">
+                        🗑️
+                    </button>
+                </div>
+            </div>
+            <div class="schedule-presets">
+                <button type="button" class="btn btn-small" onclick="setSchedulePreset('${tileId}', 'week')">+1 Woche</button>
+                <button type="button" class="btn btn-small" onclick="setSchedulePreset('${tileId}', 'month')">+1 Monat</button>
+                <button type="button" class="btn btn-small btn-secondary" onclick="clearAllSchedule('${tileId}')">Zeitplan löschen</button>
+            </div>
+            <div class="schedule-hint">
+                ⚠️ Zeitgesteuerte Inhalte bleiben im Quelltext sichtbar
+            </div>
+        </div>
+    `);
+}
+
+// Visibility Schedule aktualisieren
+async function updateVisibilitySchedule(tileId) {
+    const tile = tiles.find(t => t.id === tileId);
+    if (!tile) return;
+    
+    const showFrom = document.getElementById('scheduleShowFrom')?.value || null;
+    const showUntil = document.getElementById('scheduleShowUntil')?.value || null;
+    
+    // Validierung: showFrom sollte vor showUntil sein
+    if (showFrom && showUntil && new Date(showFrom) >= new Date(showUntil)) {
+        showToast('warning', 'Einblende-Datum muss vor Ausblende-Datum liegen');
+        return;
+    }
+    
+    // Prüfen ob erstmalig Zeitsteuerung aktiviert wird
+    const hadScheduleBefore = tile.visibilitySchedule && 
+        (tile.visibilitySchedule.showFrom || tile.visibilitySchedule.showUntil);
+    const hasScheduleNow = showFrom || showUntil;
+    
+    tile.visibilitySchedule = {};
+    if (showFrom) tile.visibilitySchedule.showFrom = showFrom;
+    if (showUntil) tile.visibilitySchedule.showUntil = showUntil;
+    
+    // Leeres Objekt entfernen
+    if (Object.keys(tile.visibilitySchedule).length === 0) {
+        delete tile.visibilitySchedule;
+    }
+    
+    await quickSaveTile(tile);
+    showToast('success', 'Zeitplan gespeichert');
+    
+    // Sicherheitshinweis anzeigen wenn erstmalig Zeitsteuerung aktiviert
+    if (!hadScheduleBefore && hasScheduleNow) {
+        showScheduleSecurityWarning();
+    }
+}
+
+// Sicherheitshinweis für Zeitsteuerung
+let scheduleWarningShown = false;
+function showScheduleSecurityWarning() {
+    // Nur einmal pro Session anzeigen
+    if (scheduleWarningShown) return;
+    scheduleWarningShown = true;
+    
+    showToast('warning', 
+        '⚠️ Hinweis: Zeitgesteuerte Inhalte sind im Quelltext der Seite sichtbar und können von versierten Nutzern oder Suchmaschinen gefunden werden. Keine sensiblen Daten in zeitgesteuerten Kacheln verwenden!',
+        10000  // 10 Sekunden anzeigen
+    );
+}
+
+// Einzelnes Schedule-Feld löschen
+async function clearScheduleField(tileId, field) {
+    const tile = tiles.find(t => t.id === tileId);
+    if (!tile) return;
+    
+    if (tile.visibilitySchedule) {
+        delete tile.visibilitySchedule[field];
+        
+        // Leeres Objekt entfernen
+        if (Object.keys(tile.visibilitySchedule).length === 0) {
+            delete tile.visibilitySchedule;
+        }
+    }
+    
+    // Input-Feld leeren
+    const inputId = field === 'showFrom' ? 'scheduleShowFrom' : 'scheduleShowUntil';
+    const input = document.getElementById(inputId);
+    if (input) input.value = '';
+    
+    await quickSaveTile(tile);
+    showToast('info', 'Zeitpunkt gelöscht');
+}
+
+// Alle Schedule-Einstellungen löschen
+async function clearAllSchedule(tileId) {
+    const tile = tiles.find(t => t.id === tileId);
+    if (!tile) return;
+    
+    delete tile.visibilitySchedule;
+    
+    // Input-Felder leeren
+    const showFromInput = document.getElementById('scheduleShowFrom');
+    const showUntilInput = document.getElementById('scheduleShowUntil');
+    if (showFromInput) showFromInput.value = '';
+    if (showUntilInput) showUntilInput.value = '';
+    
+    await quickSaveTile(tile);
+    hideContextMenu();
+    showToast('info', 'Zeitplan gelöscht');
+}
+
+// Preset-Zeiträume setzen
+async function setSchedulePreset(tileId, preset) {
+    const tile = tiles.find(t => t.id === tileId);
+    if (!tile) return;
+    
+    const now = new Date();
+    let showUntil;
+    
+    switch (preset) {
+        case 'week':
+            showUntil = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            break;
+        case 'month':
+            showUntil = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate(), now.getHours(), now.getMinutes());
+            break;
+        default:
+            return;
+    }
+    
+    // Format für datetime-local
+    const showUntilStr = showUntil.toISOString().substring(0, 16);
+    
+    tile.visibilitySchedule = tile.visibilitySchedule || {};
+    tile.visibilitySchedule.showUntil = showUntilStr;
+    
+    // Input-Feld aktualisieren
+    const input = document.getElementById('scheduleShowUntil');
+    if (input) input.value = showUntilStr;
+    
+    await quickSaveTile(tile);
+    showToast('success', `Sichtbar bis ${formatDateTime(showUntil)}`);
+}
+
 // Style ändern mit Logik für Farbe
 function updateTileStyle(tileId, newStyle) {
     const tile = tiles.find(t => t.id === tileId);
@@ -630,6 +993,21 @@ function updateTileFields() {
             processedFields.add('external');
             i++;
         }
+        // Akkordeon-Sections spezielle Behandlung
+        else if (field.startsWith('section1_heading') && type === 'accordion') {
+            html += renderAccordionSections();
+            // Alle section-Felder als verarbeitet markieren
+            for (let s = 1; s <= 10; s++) {
+                processedFields.add(`section${s}_heading`);
+                processedFields.add(`section${s}_content`);
+            }
+            i++;
+        }
+        // Section-Felder überspringen (werden von renderAccordionSections behandelt)
+        else if (field.match(/^section\d+_(heading|content)$/) && type === 'accordion') {
+            processedFields.add(field);
+            i++;
+        }
         // Normale Felder rendern (wenn nicht schon verarbeitet)
         else if (!processedFields.has(field)) {
             html += renderField(field, typeInfo);
@@ -642,7 +1020,245 @@ function updateTileFields() {
     }
     
     container.innerHTML = html || '<p class="hint">Dieser Typ hat keine zusätzlichen Felder.</p>';
+    
+    // Accordion-Sections initialisieren
+    if (type === 'accordion') {
+        initAccordionEditor();
+    }
 }
+
+// ===== Akkordeon-Editor Funktionen =====
+
+function renderAccordionSections() {
+    let html = '<div class="accordion-editor" id="accordionEditor">';
+    html += '<label class="form-label">Bereiche:</label>';
+    html += '<div class="accordion-sections" id="accordionSections">';
+    
+    // 10 Sections rendern (erste sichtbar, Rest hidden)
+    for (let i = 1; i <= 10; i++) {
+        const hidden = i > 1 ? ' hidden' : '';
+        const required = i === 1 ? 'required' : '';
+        
+        html += `
+            <div class="accordion-section${hidden}" id="accordionSection${i}" data-section="${i}">
+                <div class="accordion-section-header">
+                    <span class="accordion-section-number">Bereich ${i}</span>
+                    <div class="accordion-section-actions">
+                        <button type="button" class="btn btn-small btn-icon" onclick="moveAccordionSection(${i}, -1)" title="Nach oben" data-move="up">⬆️</button>
+                        <button type="button" class="btn btn-small btn-icon" onclick="moveAccordionSection(${i}, 1)" title="Nach unten" data-move="down">⬇️</button>
+                        ${i > 1 ? `<button type="button" class="btn btn-small btn-danger" onclick="removeAccordionSection(${i})" title="Bereich entfernen">🗑️</button>` : ''}
+                    </div>
+                </div>
+                <div class="form-row-compact">
+                    <label for="data_section${i}_heading">Überschrift${i === 1 ? ' *' : ''}:</label>
+                    <input type="text" name="data[section${i}_heading]" id="data_section${i}_heading" 
+                           placeholder="Überschrift..." ${required}>
+                </div>
+                <div class="form-row-compact">
+                    <label for="data_section${i}_content">Inhalt${i === 1 ? ' *' : ''}:</label>
+                    <textarea name="data[section${i}_content]" id="data_section${i}_content" 
+                              placeholder="Inhalt..." rows="3" ${required}></textarea>
+                </div>
+            </div>
+        `;
+    }
+    
+    html += '</div>'; // accordion-sections
+    
+    // Add-Button
+    html += `
+        <button type="button" class="btn btn-secondary accordion-add-btn" id="addAccordionSectionBtn" onclick="addAccordionSection()">
+            ➕ Weiteren Bereich hinzufügen
+        </button>
+    `;
+    
+    html += '</div>'; // accordion-editor
+    
+    return html;
+}
+
+function initAccordionEditor() {
+    // Sichtbarkeit basierend auf gefüllten Daten aktualisieren
+    setTimeout(() => {
+        let lastFilledSection = 1;
+        
+        for (let i = 1; i <= 10; i++) {
+            const heading = document.getElementById(`data_section${i}_heading`);
+            const content = document.getElementById(`data_section${i}_content`);
+            
+            if (heading && content && (heading.value.trim() || content.value.trim())) {
+                lastFilledSection = i;
+            }
+        }
+        
+        // Alle gefüllten Sections + 1 leere anzeigen
+        for (let i = 1; i <= Math.min(lastFilledSection + 1, 10); i++) {
+            showAccordionSection(i);
+        }
+        
+        updateAddButtonVisibility();
+        updateMoveButtonStates();
+        updateFullRowHint();
+    }, 100);
+}
+
+function showAccordionSection(index) {
+    const section = document.getElementById(`accordionSection${index}`);
+    if (section) {
+        section.classList.remove('hidden');
+    }
+}
+
+function addAccordionSection() {
+    // Finde erste versteckte Section
+    for (let i = 2; i <= 10; i++) {
+        const section = document.getElementById(`accordionSection${i}`);
+        if (section && section.classList.contains('hidden')) {
+            section.classList.remove('hidden');
+            section.querySelector('input')?.focus();
+            updateAddButtonVisibility();
+            updateMoveButtonStates();
+            return;
+        }
+    }
+}
+
+function removeAccordionSection(index) {
+    const section = document.getElementById(`accordionSection${index}`);
+    if (!section) return;
+    
+    // Felder leeren
+    const heading = document.getElementById(`data_section${index}_heading`);
+    const content = document.getElementById(`data_section${index}_content`);
+    if (heading) heading.value = '';
+    if (content) content.value = '';
+    
+    // Verstecken
+    section.classList.add('hidden');
+    
+    updateAddButtonVisibility();
+    updateMoveButtonStates();
+}
+
+function moveAccordionSection(index, direction) {
+    // Sichtbare Sections ermitteln
+    const visibleSections = getVisibleAccordionSections();
+    const currentPos = visibleSections.indexOf(index);
+    
+    if (currentPos === -1) return;
+    
+    const targetPos = currentPos + direction;
+    if (targetPos < 0 || targetPos >= visibleSections.length) return;
+    
+    const targetIndex = visibleSections[targetPos];
+    
+    // Werte tauschen
+    swapAccordionSectionValues(index, targetIndex);
+    
+    // Button-States aktualisieren
+    updateMoveButtonStates();
+}
+
+function swapAccordionSectionValues(indexA, indexB) {
+    const headingA = document.getElementById(`data_section${indexA}_heading`);
+    const contentA = document.getElementById(`data_section${indexA}_content`);
+    const headingB = document.getElementById(`data_section${indexB}_heading`);
+    const contentB = document.getElementById(`data_section${indexB}_content`);
+    
+    if (!headingA || !contentA || !headingB || !contentB) return;
+    
+    // Temporär speichern
+    const tempHeading = headingA.value;
+    const tempContent = contentA.value;
+    
+    // Tauschen
+    headingA.value = headingB.value;
+    contentA.value = contentB.value;
+    headingB.value = tempHeading;
+    contentB.value = tempContent;
+}
+
+function getVisibleAccordionSections() {
+    const visible = [];
+    for (let i = 1; i <= 10; i++) {
+        const section = document.getElementById(`accordionSection${i}`);
+        if (section && !section.classList.contains('hidden')) {
+            visible.push(i);
+        }
+    }
+    return visible;
+}
+
+function updateMoveButtonStates() {
+    const visibleSections = getVisibleAccordionSections();
+    
+    for (let i = 1; i <= 10; i++) {
+        const section = document.getElementById(`accordionSection${i}`);
+        if (!section) continue;
+        
+        const upBtn = section.querySelector('[data-move="up"]');
+        const downBtn = section.querySelector('[data-move="down"]');
+        
+        if (!upBtn || !downBtn) continue;
+        
+        const posInVisible = visibleSections.indexOf(i);
+        const isFirst = posInVisible === 0;
+        const isLast = posInVisible === visibleSections.length - 1;
+        
+        // Disable/Enable Buttons
+        upBtn.disabled = isFirst;
+        downBtn.disabled = isLast;
+        
+        // Visuelles Feedback
+        upBtn.style.opacity = isFirst ? '0.3' : '1';
+        downBtn.style.opacity = isLast ? '0.3' : '1';
+    }
+}
+
+function updateAddButtonVisibility() {
+    const addBtn = document.getElementById('addAccordionSectionBtn');
+    if (!addBtn) return;
+    
+    // Prüfen ob noch versteckte Sections vorhanden
+    let hasHidden = false;
+    for (let i = 2; i <= 10; i++) {
+        const section = document.getElementById(`accordionSection${i}`);
+        if (section && section.classList.contains('hidden')) {
+            hasHidden = true;
+            break;
+        }
+    }
+    
+    addBtn.style.display = hasHidden ? '' : 'none';
+}
+
+function updateFullRowHint() {
+    const singleOpenCheckbox = document.getElementById('data_singleOpen');
+    const fullRowCheckbox = document.getElementById('data_fullRow');
+    
+    if (!singleOpenCheckbox || !fullRowCheckbox) return;
+    
+    // Hinweis anzeigen wenn singleOpen=false und fullRow=false
+    const showHint = !singleOpenCheckbox.checked && !fullRowCheckbox.checked;
+    
+    let hint = document.getElementById('fullRowHint');
+    if (showHint && !hint) {
+        hint = document.createElement('div');
+        hint.id = 'fullRowHint';
+        hint.className = 'field-hint warning';
+        hint.textContent = '⚠️ Bei mehreren offenen Bereichen wird "Volle Zeile im Grid" empfohlen.';
+        fullRowCheckbox.parentElement.appendChild(hint);
+    } else if (!showHint && hint) {
+        hint.remove();
+    }
+}
+
+// ===== Ende Akkordeon-Editor Funktionen =====
+
+// Akkordeon-Funktionen global verfügbar machen (für onclick-Handler)
+window.addAccordionSection = addAccordionSection;
+window.removeAccordionSection = removeAccordionSection;
+window.moveAccordionSection = moveAccordionSection;
 
 // Feld mit Checkbox in einer Zeile
 function renderInlineFieldWithCheckbox(fieldName, checkboxName) {
@@ -712,6 +1328,138 @@ function getFieldConfigs() {
             default: 500,
             placeholder: '500',
             hint: 'Nur bei benutzerdefinierter Höhe'
+        },
+        // Countdown-Felder
+        targetDate: {
+            type: 'date',
+            label: 'Zieldatum',
+            required: true
+        },
+        targetTime: {
+            type: 'time',
+            label: 'Uhrzeit',
+            required: false,
+            default: '00:00'
+        },
+        countMode: {
+            type: 'select',
+            label: 'Anzeigemodus',
+            required: false,
+            default: 'dynamic',
+            options: {
+                'dynamic': 'Dynamisch (passt sich an)',
+                'days': 'Tage (noch X Tage)',
+                'hours': 'Stunden (noch X Stunden)',
+                'timer': 'Timer (DD:HH:MM:SS)'
+            }
+        },
+        expiredText: {
+            type: 'text',
+            label: 'Text nach Ablauf',
+            required: false,
+            default: 'Abgelaufen',
+            placeholder: 'z.B. Jetzt anmelden!'
+        },
+        hideOnExpiry: {
+            type: 'checkbox',
+            label: 'Nach Ablauf ausblenden',
+            required: false,
+            default: false
+        },
+        // Quote-Felder
+        quote: {
+            type: 'textarea',
+            label: 'Zitat / Bibelvers',
+            required: true,
+            placeholder: 'Denn also hat Gott die Welt geliebt...'
+        },
+        source: {
+            type: 'text',
+            label: 'Quelle',
+            required: false,
+            placeholder: 'z.B. "Johannes 3,16" oder "Martin Luther"'
+        },
+        // Separator-Felder
+        height: {
+            type: 'number',
+            label: 'Höhe (px)',
+            required: false,
+            default: 40,
+            placeholder: '40'
+        },
+        showLine: {
+            type: 'checkbox',
+            label: 'Linie anzeigen',
+            required: false,
+            default: false
+        },
+        lineWidth: {
+            type: 'select',
+            label: 'Linienbreite',
+            required: false,
+            default: 'medium',
+            options: {
+                'small': 'Kurz (30%)',
+                'medium': 'Mittel (60%)',
+                'large': 'Voll (100%)'
+            }
+        },
+        lineStyle: {
+            type: 'select',
+            label: 'Linienstil',
+            required: false,
+            default: 'solid',
+            options: {
+                'solid': 'Durchgezogen',
+                'dashed': 'Gestrichelt',
+                'dotted': 'Gepunktet'
+            }
+        },
+        // Link-Tile Felder
+        showDomain: {
+            type: 'checkbox',
+            label: 'Link-Vorschau anzeigen',
+            required: false,
+            default: true
+        },
+        // Accordion-Felder
+        singleOpen: {
+            type: 'checkbox',
+            label: 'Nur ein Bereich gleichzeitig offen',
+            required: false,
+            default: true
+        },
+        autoScroll: {
+            type: 'select',
+            label: 'Auto-Scroll zum geöffneten Bereich',
+            required: false,
+            default: 'mobile',
+            options: {
+                'always': 'Immer',
+                'mobile': 'Nur auf Mobilgeräten',
+                'never': 'Nie'
+            }
+        },
+        defaultOpen: {
+            type: 'select',
+            label: 'Initial geöffneter Bereich',
+            required: false,
+            default: '-1',
+            options: {
+                '-1': 'Alle geschlossen',
+                '0': 'Bereich 1',
+                '1': 'Bereich 2',
+                '2': 'Bereich 3',
+                '3': 'Bereich 4',
+                '4': 'Bereich 5'
+            }
+        },
+        fullRow: {
+            type: 'checkbox',
+            label: 'Volle Zeile im Grid',
+            required: false,
+            default: false,
+            hint: 'Empfohlen wenn mehrere Bereiche gleichzeitig offen sein können'
         }
     };
 }
@@ -811,6 +1559,26 @@ function renderField(fieldName, typeInfo) {
                 ${config.hint ? `<small class="hint">${config.hint}</small>` : ''}
             `;
             
+        case 'date':
+            return `
+                <div class="form-row-compact">
+                    <label for="data_${fieldName}">${config.label}${reqMark}:</label>
+                    <input type="date" name="data[${fieldName}]" id="data_${fieldName}" 
+                           ${required} value="${defaultValue}">
+                </div>
+                ${config.hint ? `<small class="hint">${config.hint}</small>` : ''}
+            `;
+            
+        case 'time':
+            return `
+                <div class="form-row-compact">
+                    <label for="data_${fieldName}">${config.label}${reqMark}:</label>
+                    <input type="time" name="data[${fieldName}]" id="data_${fieldName}" 
+                           ${required} value="${defaultValue}">
+                </div>
+                ${config.hint ? `<small class="hint">${config.hint}</small>` : ''}
+            `;
+            
         default:
             return `
                 <div class="form-row-compact">
@@ -830,13 +1598,21 @@ async function saveTile(event) {
     const formData = new FormData(form);
     
     // Tile-Daten zusammenstellen
+    const existingTile = formData.get('id') ? tiles.find(t => t.id === formData.get('id')) : null;
+    const tileType = formData.get('type');
+    
+    // Separator-Tiles bekommen immer size "full" und style "flat"
+    const isSeparator = tileType === 'separator';
+    
     const tileData = {
         id: formData.get('id') || null,
-        type: formData.get('type'),
+        type: tileType,
         position: parseInt(formData.get('position')) || 10,
-        size: formData.get('size') || 'medium',
-        style: formData.get('style') || 'card',
-        colorScheme: formData.get('colorScheme') || 'default',
+        size: isSeparator ? 'full' : (formData.get('size') || 'medium'),
+        style: isSeparator ? 'flat' : (formData.get('style') || 'card'),
+        colorScheme: isSeparator ? 'default' : (formData.get('colorScheme') || 'default'),
+        visible: existingTile?.visible ?? true,  // Bestehendes visible-Feld behalten, neue Tiles sind sichtbar
+        visibilitySchedule: existingTile?.visibilitySchedule || undefined,  // Zeitsteuerung beibehalten
         data: {}
     };
     
@@ -896,13 +1672,15 @@ async function duplicateTile(id) {
     const originalTile = tiles.find(t => t.id === id);
     if (!originalTile) return;
     
-    // Neue Tile-Daten erstellen
+    // Neue Tile-Daten erstellen (ohne Zeitsteuerung - Duplikat startet frisch)
     const duplicatedTile = {
         type: originalTile.type,
         position: (originalTile.position || 0) + 10,
         size: originalTile.size || 'medium',
         style: originalTile.style || 'card',
         colorScheme: originalTile.colorScheme || 'default',
+        visible: originalTile.visible ?? true,  // Sichtbarkeit mitkopieren
+        // visibilitySchedule bewusst NICHT kopieren - Duplikat startet ohne Zeitsteuerung
         data: { ...originalTile.data }
     };
     
@@ -973,6 +1751,7 @@ async function saveSettings(event) {
         site: {
             title: formData.get('title') || '',
             headerImage: headerImagePath || null,
+            headerFocusPoint: formData.get('headerFocusPoint') || 'center center',
             footerText: formData.get('footerText') || ''
         },
         theme: {

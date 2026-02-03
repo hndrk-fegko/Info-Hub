@@ -1,0 +1,223 @@
+/**
+ * LinkTile Styles
+ * 
+ * Klickbare Link-Kachel mit Preview-Card Design
+ * - Gesamte Kachel ist klickbar
+ * - Titel + Icon im Kreis (Header)
+ * - Beschreibung + CTA-Button
+ * - Domain-Vorschau oder "öffnet in neuem Tab" Hinweis
+ */
+
+/* =====================================================
+   LINK CARD - Gesamte Kachel als Link
+   ===================================================== */
+
+.tile-link .link-card {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    color: inherit;
+    height: 100%;
+}
+
+.link-card {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none !important;
+    color: inherit;
+    transition: transform 0.2s ease;
+}
+
+.link-card:hover {
+    transform: translateY(-2px);
+}
+
+/* =====================================================
+   HEADER - Titel + Icon
+   ===================================================== */
+
+.link-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.link-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+    color: inherit;
+    flex: 1;
+}
+
+/* Icon im Kreis */
+.link-icon-circle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--accent-color, #667eea);
+    color: white;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.link-card:hover .link-icon-circle {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* =====================================================
+   CONTENT
+   ===================================================== */
+
+.link-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.link-description {
+    font-size: 0.95rem;
+    opacity: 0.85;
+    margin: 0 0 1rem 0;
+    line-height: 1.5;
+}
+
+/* =====================================================
+   CTA BUTTON
+   ===================================================== */
+
+.link-cta {
+    display: inline-flex;
+    align-items: center;
+    align-self: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: color-mix(in srgb, var(--accent-color, #667eea) 15%, transparent);
+    color: var(--accent-color, #667eea);
+    border: 1px solid var(--accent-color, #667eea);
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.link-card:hover .link-cta {
+    background: var(--accent-color, #667eea);
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.external-icon {
+    font-size: 0.85em;
+    opacity: 0.8;
+}
+
+/* =====================================================
+   DOMAIN / HINT (Footer)
+   ===================================================== */
+
+.link-domain,
+.link-hint {
+    display: block;
+    margin-top: auto;
+    padding-top: 0.75rem;
+    font-size: 0.8rem;
+    opacity: 0.5;
+    font-style: italic;
+    text-align: center;
+}
+
+.link-hint {
+    opacity: 0.6;
+}
+
+/* =====================================================
+   FLAT STYLE
+   ===================================================== */
+
+.tile.style-flat .link-cta {
+    background: transparent;
+    color: var(--accent-color, #667eea);
+    border: 2px solid var(--accent-color, #667eea);
+    padding: 6px 14px;
+}
+
+.tile.style-flat .link-card:hover .link-cta {
+    background: var(--accent-color, #667eea);
+    color: white;
+}
+
+/* =====================================================
+   FARBIGE TILES
+   ===================================================== */
+
+/* Akzent-1: Button & Icon = Akzent-2 */
+.tile.color-accent1 .link-cta {
+    background: color-mix(in srgb, var(--accent-color-2, #a855f7) 20%, transparent);
+    color: white;
+    border-color: var(--accent-color-2, #a855f7);
+}
+
+.tile.color-accent1 .link-card:hover .link-cta {
+    background: var(--accent-color-2, #a855f7);
+}
+
+.tile.color-accent1 .link-icon-circle {
+    background: var(--accent-color-2, #a855f7);
+}
+
+/* Akzent-2: Button & Icon = Akzent-1 */
+.tile.color-accent2 .link-cta {
+    background: color-mix(in srgb, var(--accent-color, #667eea) 20%, transparent);
+    color: white;
+    border-color: var(--accent-color, #667eea);
+}
+
+.tile.color-accent2 .link-card:hover .link-cta {
+    background: var(--accent-color, #667eea);
+}
+
+.tile.color-accent2 .link-icon-circle {
+    background: var(--accent-color, #667eea);
+}
+
+/* Akzent-3: Button & Icon = Akzent-1 */
+.tile.color-accent3 .link-cta {
+    background: color-mix(in srgb, var(--accent-color, #667eea) 20%, transparent);
+    color: white;
+    border-color: var(--accent-color, #667eea);
+}
+
+.tile.color-accent3 .link-card:hover .link-cta {
+    background: var(--accent-color, #667eea);
+}
+
+.tile.color-accent3 .link-icon-circle {
+    background: var(--accent-color, #667eea);
+}
+
+/* =====================================================
+   RESPONSIVE
+   ===================================================== */
+
+@media (max-width: 600px) {
+    .link-title {
+        font-size: 1.1rem;
+    }
+    
+    .link-description {
+        font-size: 0.9rem;
+    }
+    
+    .link-cta {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+    }
+}

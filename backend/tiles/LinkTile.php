@@ -21,7 +21,7 @@ class LinkTile extends TileBase {
     }
     
     public function getFields(): array {
-        return ['title', 'showTitle', 'description', 'url', 'linkText', 'external'];
+        return ['title', 'showTitle', 'description', 'url', 'linkText', 'external', 'showDomain'];
     }
     
     public function getFieldMeta(): array {
@@ -62,6 +62,12 @@ class LinkTile extends TileBase {
                 'label' => 'In neuem Tab öffnen',
                 'required' => false,
                 'default' => true
+            ],
+            'showDomain' => [
+                'type' => 'checkbox',
+                'label' => 'Link-Vorschau anzeigen',
+                'required' => false,
+                'default' => true
             ]
         ];
     }
@@ -94,23 +100,55 @@ class LinkTile extends TileBase {
         $description = nl2br($this->esc($data['description'] ?? ''));
         $url = $this->esc($data['url'] ?? '#');
         $linkText = $this->esc($data['linkText'] ?? 'Mehr erfahren');
+        $showDomain = $data['showDomain'] ?? true;
         
         // Externe Links automatisch erkennen wenn nicht gesetzt
         $isExternal = $data['external'] ?? $this->isExternalUrl($data['url'] ?? '');
         $target = $isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
-        $externalIcon = $isExternal ? ' ↗' : '';
+        $externalIcon = $isExternal ? '<span class="external-icon">↗</span>' : '';
+        $externalClass = $isExternal ? ' link-external' : '';
         
-        $html = '';
+        // Domain für URL-Preview extrahieren
+        $domain = '';
+        if (preg_match('/^https?:\/\/([^\/]+)/', $data['url'] ?? '', $matches)) {
+            $domain = $matches[1];
+        }
+        
+        // Gesamte Kachel als Link-Container
+        $html = "<a href=\"{$url}\"{$target} class=\"link-card{$externalClass}\">\n";
+        
+        // Header: Titel + Icon im Kreis
+        $html .= "<div class=\"link-header\">\n";
         
         if ($showTitle && !empty($title)) {
-            $html .= "<h3>{$title}</h3>\n";
+            $html .= "    <h3 class=\"link-title\">{$title}</h3>\n";
         }
+        
+        // Icon im Kreis (rechts)
+        $html .= "    <span class=\"link-icon-circle\">🔗</span>\n";
+        
+        $html .= "</div>\n";
+        
+        // Content
+        $html .= "<div class=\"link-content\">\n";
         
         if (!empty($description)) {
-            $html .= "<p>{$description}</p>\n";
+            $html .= "    <p class=\"link-description\">{$description}</p>\n";
         }
         
-        $html .= "<a href=\"{$url}\"{$target} class=\"tile-link\">{$linkText}{$externalIcon}</a>\n";
+        // CTA Button
+        $html .= "    <span class=\"link-cta\">→ {$linkText}{$externalIcon}</span>\n";
+        
+        $html .= "</div>\n";
+        
+        // URL Preview oder "öffnet in neuem Tab" Hinweis
+        if ($showDomain && !empty($domain)) {
+            $html .= "<span class=\"link-domain\">{$domain}</span>\n";
+        } elseif ($isExternal && !$showDomain) {
+            $html .= "<span class=\"link-hint\">öffnet in neuem Tab →</span>\n";
+        }
+        
+        $html .= "</a>\n";
         
         return $html;
     }
