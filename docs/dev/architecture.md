@@ -22,19 +22,40 @@ Info-Hub ist ein file-based CMS ohne Datenbank. Die Architektur folgt dem Prinzi
 
 ## Modulares Tile-System
 
-Neue Tile-Typen werden durch einfaches Hinzufügen einer Datei in /backend/tiles/ registriert:
+Neue Tile-Typen werden durch einfaches Hinzufügen von Dateien in `/backend/tiles/` registriert:
 
-`
+```
 /backend/tiles/
- _registry.php     # Auto-Import
- TileBase.php      # Abstrakte Basis
- InfoboxTile.php
- DownloadTile.php
- ImageTile.php
- LinkTile.php
- IframeTile.php    # Für Formulare & Widgets
- [NeuerTile].php   # Einfach hinzufügen!
-`
+├── _registry.php      # Auto-Import
+├── TileBase.php       # Abstrakte Basis (siehe Anleitung dort!)
+├── XyzTile.php        # Tile-Logik (Pflicht)
+├── XyzTile.css        # Tile-spezifisches CSS (Optional)
+└── XyzTile.js         # Tile-spezifisches JavaScript (Optional)
+```
+
+### Neuen Tile-Typ erstellen
+
+1. **XyzTile.php** erstellen - von TileBase erben, abstrakte Methoden implementieren
+2. **XyzTile.css** erstellen (optional) - wird automatisch in `<style>` eingebunden
+3. **XyzTile.js** erstellen (optional) - wird automatisch in `<script>` eingebunden
+4. Falls JS eine Init-Funktion braucht: `getInitFunction()` überschreiben
+
+Siehe ausführliche Dokumentation in `TileBase.php`.
+
+### Vorhandene Tile-Typen
+
+| Tile | CSS | JS | Beschreibung |
+|------|-----|----|--------------|
+| InfoboxTile | - | - | Text mit Titel |
+| DownloadTile | - | - | Datei-Download |
+| ImageTile | ✓ | ✓ | Bild mit Lightbox |
+| LinkTile | - | - | Externer Link |
+| IframeTile | ✓ | ✓ | Eingebettete Formulare |
+| CountdownTile | ✓ | ✓ | Countdown zu Datum |
+| ContactTile | ✓ | ✓ | Kontakt mit Anti-Spam |
+| QuoteTile | ✓ | - | Zitat/Bibelvers |
+| AccordionTile | ✓ | ✓ | Auf-/zuklappbare Bereiche |
+| QuoteTile | ✓ | - | Zitat/Bibelvers |
 
 ## Services
 
@@ -70,8 +91,10 @@ Zentrale Klasse für Sicherheitsprüfungen:
 - isHttps() - Prüft SSL-Verbindung
 - isLocalhost() - Prüft lokale Entwicklung
 - getSecurityStatus() - Sammelt alle Warnungen
-- enderSecurityBadge() - Badge für Editor-Header
-- enderSecurityBanner() - Banner für Login-Seite
+- 
+enderSecurityBadge() - Badge für Editor-Header
+- 
+enderSecurityBanner() - Banner für Login-Seite
 - getEmailSecurityInfo() - Text für Login-Emails
 
 ## Datenfluss

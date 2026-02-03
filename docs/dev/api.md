@@ -58,8 +58,13 @@ Löscht eine Tile.
 | **Infobox** | title | showTitle, description |
 | **Download** | title | showTitle, description, file, buttonText |
 | **Bild** | title | showTitle, image, caption, lightbox, link |
-| **Link** | title, url | showTitle, description, linkText, external |
+| **Link** | title, url | showTitle, description, linkText, external, showDomain |
 | **Iframe** | title, url | showTitle, description, displayMode, aspectRatio |
+| **Countdown** | title, targetDate | showTitle, description, targetTime, countMode, expiredText, hideOnExpiry |
+| **Kontakt** | title, name | role, image, email, phone, showEmailButton, showPhoneButton |
+| **Zitat** | quote | title, showTitle, source, link |
+| **Akkordeon** | title, sections | singleOpen, autoScroll, defaultOpen, fullRow |
+| **Separator** | - | height, showLine, lineWidth, lineStyle |
 
 ---
 

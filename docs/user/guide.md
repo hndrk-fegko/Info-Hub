@@ -29,6 +29,11 @@ Falls oben auf der Seite ein gelbes Banner erscheint, zeigt es Sicherheitshinwei
    - **Bild** - Für Fotos mit Lightbox
    - **Link** - Für externe Verlinkungen
    - **Iframe** - Für eingebettete Formulare/Widgets
+   - **Zitat** - Für Zitate oder Bibelverse
+   - **Kontakt** - Für Kontaktpersonen (mit Spam-Schutz)
+   - **Countdown** - Countdown zu einem Datum
+   - **Akkordeon** - Auf-/zuklappbare Bereiche
+   - **Separator** - Optischer Trenner zwischen Bereichen
 3. Fülle die Felder aus
 4. Wähle **Position** (10, 20, 30... für Sortierung)
 5. Wähle **Größe** (1x1, 1x2, 2x2...)
@@ -100,6 +105,7 @@ Klicke auf **[ Settings]** um zu ändern:
 
 - **Seiten-Titel** - Erscheint im Header
 - **Header-Bild** - Großes Bild oben (oder keins)
+- **Header-Fokuspunkt** - Welcher Teil des Bildes sichtbar bleibt (z.B. "oben mitte")
 - **Hintergrundfarbe** - Farbe der Seite
 - **Akzentfarben** (4 Stück) - Für Buttons, Links und Farbschemata
 - **Footer-Text** - Text am Seitenende (mehrzeilig möglich)

@@ -24,8 +24,19 @@
 | **Infobox** | Texte & Ankündigungen | title, showTitle, description |
 | **Download** | Datei-Downloads | title, showTitle, description, file, buttonText |
 | **Bild** | Fotos mit Lightbox/Link | title, showTitle, image, caption, lightbox, link |
-| **Link** | Externe Verlinkungen | title, showTitle, description, url, linkText, external |
+| **Link** | Externe Verlinkungen | title, showTitle, description, url, linkText, external, showDomain |
 | **Iframe** | Eingebettete Formulare | title, showTitle, url, description, displayMode, aspectRatio |
+| **Countdown** | Countdown zu Datum | title, showTitle, description, targetDate, targetTime, countMode, expiredText, hideOnExpiry |
+| **Kontakt** | Kontaktperson (Anti-Spam) | title, name, role, image, email, phone, showEmailButton, showPhoneButton |
+| **Zitat** | Zitat oder Bibelvers | title, showTitle, quote, source, link |
+| **Separator** | Optischer Trenner | height, showLine, lineWidth, lineStyle |
+| **Akkordeon** | Auf-/zuklappbare Bereiche | title, sections (1-10), singleOpen, autoScroll, defaultOpen, fullRow |
+
+### Visibility-Steuerung
+
+Alle Tiles unterstützen:
+- **Manuelles Verstecken** - Tile wird NICHT exportiert
+- **Zeitsteuerung** - `showFrom` / `showUntil` für automatisches Ein-/Ausblenden
 
 ## 🎨 Design-Features
 
@@ -132,7 +143,9 @@ Info-Hub/
 │   │   ├── DownloadTile.php
 │   │   ├── ImageTile.php
 │   │   ├── LinkTile.php
-│   │   └── IframeTile.php
+│   │   ├── IframeTile.php
+│   │   ├── CountdownTile.php
+│   │   └── ContactTile.php
 │   │
 │   ├── data/               # JSON-Speicher
 │   ├── media/              # Uploads

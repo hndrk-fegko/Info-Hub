@@ -5,7 +5,9 @@
 ## 🎯 Aktuelle Version: v1.0 MVP
 
 Basis-Funktionalität abgeschlossen:
-- ✅ 5 Tile-Typen (Infobox, Download, Bild, Link, Iframe)
+- ✅ 6 Tile-Typen (Infobox, Download, Bild, Link, Iframe, Countdown)
+- ✅ Contact-Tile mit Crawler-Schutz (XOR-Verschleierung)
+- ✅ Visibility-Toggle & Zeitsteuerung für Tiles
 - ✅ Email-Code-Authentifizierung
 - ✅ CSRF-Schutz & Session-Management
 - ✅ Visueller Editor mit Live-Preview
@@ -15,59 +17,40 @@ Basis-Funktionalität abgeschlossen:
 
 ---
 
-## 🚀 Geplante Features
+## ✅ Implementierte Features
 
 ### v1.1 - Visibility & Countdown
 
-#### 🔘 Visibility-Toggle für Tiles
-**Priorität:** Hoch
+#### ✅ Visibility-Toggle für Tiles
 
 Ein Button zum schnellen Ein-/Ausblenden von Tiles ohne Löschung.
 
-**Überlegungen:**
-- ⚠️ **Layout-Änderung**: Unsichtbare Tiles verschieben die Anordnung anderer Tiles
-- 💡 **Lösung**: Kombinieren mit "Volle Breite"-Tiles, die als Bereichs-Trenner fungieren
-- 📋 **Empfehlung**: Abschnitte mit full-width Tiles erstellen, dann sind Änderungen innerhalb eines Abschnitts isoliert
+**Features:**
+- Manuell versteckte Tiles werden **NICHT** exportiert (Badge "⛔ Nicht im Export" im Editor)
+- Zeitgesteuerte Sichtbarkeit mit `showFrom` / `showUntil` (wird exportiert, clientseitig gesteuert)
+- Security-Warnung im Editor für zeitgesteuerte Inhalte
+
+#### ✅ Countdown-Tile
+
+Zählt Tage/Stunden bis zu einem Datum herunter.
+
+**Features:**
+- 4 Anzeigemodi: Dynamisch, nur Tage, nur Stunden, Timer (DD:HH:MM:SS)
+- Ablauftext konfigurierbar
+- Option: nach Ablauf automatisch ausblenden
+
+---
+
+### v1.2 - Scheduled Visibility & Contact-Tile
+
+#### ✅ Scheduled Visibility
+
+Tiles können zeitgesteuert ein-/ausgeblendet werden.
 
 **Implementation:**
 ```json
 {
-  "id": "tile_123",
-  "visible": true,  // NEU: boolean
-  "position": 10,
-  ...
-}
-```
-
-#### ⏱️ Countdown-Tile
-**Priorität:** Mittel
-
-Zählt Tage/Stunden bis zu einem Datum herunter.
-
-**Felder:**
-- `title` - Überschrift
-- `targetDate` - Zieldatum (ISO 8601)
-- `targetTime` - Optionale Uhrzeit
-- `expiredText` - Text nach Ablauf ("Jetzt anmelden!")
-- `hideAfterExpiry` - Optional: Tile nach Ablauf ausblenden
-
-**Use-Case:**
-> "Anmeldung startet in 5 Tagen, 3 Stunden, 12 Minuten"
-
----
-
-### v1.2 - Geplante Sichtbarkeit
-
-#### 📅 Scheduled Visibility
-**Priorität:** Mittel
-
-Tiles können zeitgesteuert ein-/ausgeblendet werden.
-
-**Felder:**
-```json
-{
-  "visibility": {
-    "type": "scheduled",      // "always" | "scheduled" | "manual"
+  "visibilitySchedule": {
     "showFrom": "2026-01-20T00:00:00",
     "showUntil": "2026-02-28T23:59:59"
   }
@@ -75,60 +58,25 @@ Tiles können zeitgesteuert ein-/ausgeblendet werden.
 ```
 
 **Use-Case: Countdown + Anmeldung**
-1. **Countdown-Tile**: Zeigt "Anmeldung startet in X Tagen"
-   - `showUntil: "2026-01-20"`
-2. **Iframe-Tile**: Anmeldeformular
-   - `showFrom: "2026-01-20"`
+1. **Countdown-Tile**: Zeigt "Anmeldung startet in X Tagen" → `showUntil: "2026-01-20"`
+2. **Iframe-Tile**: Anmeldeformular → `showFrom: "2026-01-20"`
 
-→ Countdown zählt runter, wird am Stichtag unsichtbar, Formular erscheint.
+→ Countdown zählt runter, wird am Stichtag unsichtbar, Formular erscheint automatisch.
 
-**⚠️ Sicherheitsüberlegung:**
-
-> Die Visibility wird clientseitig (JavaScript) geprüft. Ein technisch versierter User könnte:
-> - Den Browser-Timestamp manipulieren
-> - Das HTML inspizieren und versteckte Tiles finden
-> - Die Tiles.json direkt abrufen (falls nicht geschützt)
-
-**Empfehlungen:**
-1. **Keine sensiblen Daten** in zeitgesteuerten Tiles hinterlegen
-2. Für sensible Inhalte: Serverseitiges Rendering mit PHP-Check
-3. Hinweis in der Dokumentation/Editor-UI
-
-**Optional (v2.0):** Serverseitige Visibility-Prüfung bei der HTML-Generierung
-
----
-
-### v1.3 - Contact-Tile
-
-#### 👤 Contact-Tile
-**Priorität:** Mittel
+#### ✅ Contact-Tile
 
 Kontaktdaten mit Crawler-Schutz anzeigen.
 
 **Felder:**
 - `name` - Name der Person
 - `role` - Funktion/Rolle
-- `image` - Profilbild (optional)
-- `email` - Email (wird verschlüsselt gespeichert)
-- `phone` - Telefon (wird verschlüsselt gespeichert)
-- `showEmail` - Button "Email anzeigen"
-- `showPhone` - Button "Telefon anzeigen"
+- `image` - Profilbild (optional, rund mit Akzent-Rahmen)
+- `email` - Email (XOR+Base64 verschleiert)
+- `phone` - Telefon (XOR+Base64 verschleiert)
+- `showEmailButton` - "Email anzeigen" Button
+- `showPhoneButton` - "Telefon anzeigen" Button
 
-**Anti-Spam-Konzept:**
-```javascript
-// Kontaktdaten werden erst bei Klick entschlüsselt
-<button onclick="revealContact('email', 'base64encodedData')">
-    📧 Email anzeigen
-</button>
-
-// Nach Klick wird angezeigt:
-<a href="mailto:name@example.com">name@example.com</a>
-```
-
-**Verschlüsselung:**
-- Base64 + einfache XOR-Verschleierung (kein echtes Crypto nötig)
-- Reicht gegen automatische Crawler
-- Kein JavaScript = keine Kontaktdaten im HTML
+**Anti-Spam:** Kontaktdaten erst bei Klick clientseitig entschlüsselt. Ohne JavaScript keine lesbaren Daten im HTML.
 
 ---
 
