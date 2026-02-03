@@ -1750,6 +1750,7 @@ async function saveSettings(event) {
     const newSettings = {
         site: {
             title: formData.get('title') || '',
+            pageTitle: formData.get('pageTitle') || '',
             headerImage: headerImagePath || null,
             headerFocusPoint: formData.get('headerFocusPoint') || 'center center',
             footerText: formData.get('footerText') || ''

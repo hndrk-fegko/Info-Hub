@@ -239,8 +239,15 @@ class GeneratorService {
         $accentColor2 = htmlspecialchars($settings['theme']['accentColor2'] ?? '#48bb78');
         $accentColor3 = htmlspecialchars($settings['theme']['accentColor3'] ?? '#ed8936');
         
-        // Title für <title>-Tag (Fallback wenn leer)
-        $pageTitle = !empty($siteTitleRaw) ? $siteTitle : 'Info-Hub';
+        // Title für <title>-Tag (pageTitle hat Priorität, dann title, dann Fallback)
+        $pageTitleRaw = $settings['site']['pageTitle'] ?? '';
+        if (!empty($pageTitleRaw)) {
+            $pageTitle = htmlspecialchars($pageTitleRaw);
+        } elseif (!empty($siteTitleRaw)) {
+            $pageTitle = $siteTitle;
+        } else {
+            $pageTitle = 'Info-Hub';
+        }
         
         // Header HTML - Titel nur wenn nicht leer
         $headerHtml = '';
@@ -279,6 +286,7 @@ HTML;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{$pageTitle}</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📌</text></svg>">
     <style>
         :root {
             --bg-color: {$bgColor};

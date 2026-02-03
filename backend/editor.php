@@ -223,7 +223,13 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                     <div class="form-group">
                         <label for="siteTitle">Seitentitel</label>
                         <input type="text" name="title" id="siteTitle" value="<?= htmlspecialchars($settings['site']['title'] ?? '') ?>">
-                        <small>Leer lassen, um nur das Header-Bild anzuzeigen</small>
+                        <small>Wird im Header angezeigt. Leer lassen für nur Header-Bild.</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="pageTitle">Browser-Tab Titel</label>
+                        <input type="text" name="pageTitle" id="pageTitle" value="<?= htmlspecialchars($settings['site']['pageTitle'] ?? '') ?>" placeholder="<?= htmlspecialchars($settings['site']['title'] ?? 'Info-Hub') ?>">
+                        <small>Titel im Browser-Tab. Leer = Seitentitel wird verwendet.</small>
                     </div>
                     
                     <div class="form-group">
