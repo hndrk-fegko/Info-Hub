@@ -1559,8 +1559,9 @@ function hideDiagnostics() {
 async function checkPermissionsOnLoad() {
     try {
         const result = await apiPost('check_permissions');
+        console.log('Permission check result:', result);
         
-        if (!result.success) {
+        if (!result.success && result.permissions) {
             showUploadDiagnostics({
                 error: result.permissions?.issues?.length 
                     ? `${result.permissions.issues.length} Verzeichnis(se) mit Problemen` 

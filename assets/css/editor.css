@@ -164,6 +164,12 @@ kbd {
     color: var(--text-muted);
 }
 
+.last-generated {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    margin-left: 10px;
+}
+
 .not-published {
     color: var(--warning);
     font-size: 0.8rem;
@@ -1270,8 +1276,7 @@ hr {
 
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
-    .editor-header {
-        padding: 0 15px;
+    .header-top {
         flex-wrap: wrap;
         height: auto;
         padding: 10px 15px;
@@ -1282,13 +1287,17 @@ hr {
         margin-bottom: 10px;
     }
     
-    .header-right {
+    .header-actions {
         width: 100%;
         justify-content: flex-end;
     }
     
     .site-name {
         display: none;
+    }
+    
+    .diagnostics-info {
+        padding: 10px 15px;
     }
     
     .modal-content {
