@@ -137,7 +137,94 @@ define('DEBUG_MODE', false);  // true für Development
 
 ---
 
-## Embedding
+## Troubleshooting
+
+### Problem: Header-Bild Upload funktioniert nicht
+
+**Symptom:** "Keine Schreibrechte im Upload-Verzeichnis" oder "Datei konnte nicht gespeichert werden"
+
+**Ursache:** Der Webserver hat keine Schreibrechte auf `/backend/media/`
+
+**Lösung:**
+
+1. **Im Editor**: Ein Warnbanner wird angezeigt mit der Lösungsanleitung
+2. **über SSH/Terminal**:
+
+```bash
+# Option A: Maximale Rechte (einfach, aber weniger sicher)
+chmod 777 backend/media/images
+chmod 777 backend/media/downloads
+chmod 777 backend/media/header
+chmod 777 backend/data
+chmod 777 backend/logs
+chmod 777 backend/archive
+
+# Option B: Korrekte Eigentümerschaft (sicherer)
+# Ersetze 'www-data' mit dem aktuellen Webserver-User (apache, www-data, nginx, etc.)
+chown -R www-data:www-data backend/
+chmod 755 backend/media/images
+chmod 755 backend/media/downloads
+chmod 755 backend/media/header
+chmod 755 backend/data
+```
+
+3. **Den aktuellen Webserver-User finden**:
+```bash
+ps aux | grep -E 'apache|nginx|www-data' | head -1
+```
+
+### Problem: Logs zeigen "Permission denied"
+
+Das System versucht in `/backend/logs/app.log` zu schreiben, hat aber keine Rechte.
+
+```bash
+chmod 777 backend/logs
+```
+
+### Problem: Berechtigungen nach mkdir() nicht korrekt
+
+Das System setzt beim Erstellen neuer Ordner standardmäßig `0777` (maximale Rechte).
+Falls das nicht funktioniert, kann es an der `umask`-Einstellung liegen.
+
+```bash
+# In der Shell prüfen
+umask
+# Falls zu restriktiv (z.B. 0077), manuell vor PHP ausführen anpassen
+# ODER: Direct chmod nach mkdir nutzen
+```
+
+### Problem: Setup schlägt fehl bei Verzeichnis-Erstellung
+
+**Fehler:** "Verzeichnis konnte nicht erstellt werden"
+
+1. Prüfe ob der Parent-Ordner `/backend/` existiert und schreibbar ist
+2. Manuell erstellen und Rechte setzen:
+
+```bash
+mkdir -p backend/{data,logs,archive,media/{images,downloads,header}}
+chmod 777 backend/data backend/logs backend/archive
+chmod 777 backend/media/images backend/media/downloads backend/media/header
+```
+
+3. Setup erneut ausführen
+
+### Problem: Email-Code wird nicht versendet
+
+Prüfe ob `mail()` auf dem Server funktioniert:
+
+```bash
+# Im Editor: Logs prüfen
+tail -f backend/logs/app.log | grep AuthService
+
+# Oder Test-Script:
+php -r "mail('test@example.com', 'Test', 'Test Mail'); echo 'Mail sent';"
+```
+
+Falls das nicht funktioniert:
+- Kontaktiere den Hosting-Provider
+- Oder nutze einen externen SMTP-Service (erfordert Änderung in `AuthService.php`)
+
+---
 
 Die generierte Seite kann in andere Websites eingebettet werden:
 

@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     startSessionTimer();
     initKeyboardShortcuts();
     applyPublishButtonStyle();
+    checkPermissionsOnLoad();  // Permission-Check beim Load
 });
 
 // ===== Keyboard Shortcuts =====
@@ -1018,8 +1019,16 @@ async function uploadHeaderImage(input) {
             document.getElementById('headerPreview').innerHTML = 
                 `<img src="${result.path}" alt="Header Preview">`;
             showToast('success', 'Header-Bild hochgeladen');
+            // Diagnose-Panel ausblenden wenn erfolgreich
+            hideDiagnostics();
         } else {
+            // Fehlerbehandlung mit Diagnostics
             showToast('error', result.error || 'Upload fehlgeschlagen');
+            
+            // Wenn es ein Permission-Fehler ist, zeige Diagnose
+            if (result.error && result.error.includes('Schreibrechte')) {
+                showUploadDiagnostics(result);
+            }
         }
     } catch (error) {
         console.error('Upload error:', error);
@@ -1380,12 +1389,15 @@ function startSessionTimer() {
     sessionConfig.warningBefore = CONFIG?.sessionWarning || 300; // Standard: 300s = 5 Minuten vorher
     const warningAt = sessionConfig.timeout - sessionConfig.warningBefore;
     
-    console.log('Session Timer gestartet:', {
-        timeout: sessionConfig.timeout + 's',
-        warningAt: warningAt + 's',
-        warningBefore: sessionConfig.warningBefore + 's'
-    });
-    
+    // Debug-Info ausgeben, wenn Debug-Modus aktiv
+    if (CONFIG?.debugMode) {
+            console.log('Session Timer gestartet:', {
+            timeout: sessionConfig.timeout + 's',
+            warningAt: warningAt + 's',
+            warningBefore: sessionConfig.warningBefore + 's'
+        });
+    }
+
     // Activity Tracking - bei jeder Aktivität Session-Timer zurücksetzen
     const activityEvents = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'];
     activityEvents.forEach(event => {
@@ -1498,6 +1510,67 @@ function continueSession() {
 
 function forceLogout() {
     window.location.href = 'login.php?expired=1';
+}
+
+// ===== DIAGNOSTICS & PERMISSION CHECKS =====
+
+/**
+ * Zeigt Upload-Diagnose Panel
+ */
+async function showUploadDiagnostics(result) {
+    const infoPanel = document.getElementById('diagnosticsInfo');
+    const msgEl = document.getElementById('diagnosticsMessage');
+    const detailsEl = document.getElementById('diagnosticsDetails');
+    
+    if (!infoPanel) return;
+    
+    msgEl.textContent = result.error || 'Unbekannter Upload-Fehler';
+    
+    // Detailstext mit Befehlen anzeigen
+    let html = '<p><strong>Das Problem:</strong> Der Webserver hat keine Schreibrechte auf den Upload-Ordnern.</p>';
+    html += '<p><strong>Lösung (über SSH/Terminal):</strong></p>';
+    html += '<code style="display: block; padding: 8px; background: #222; color: #0f0; font-family: monospace; border-radius: 4px;">';
+    html += 'chmod 777 backend/media/images backend/media/downloads backend/media/header<br>';
+    html += 'chmod 777 backend/data backend/logs backend/archive';
+    html += '</code>';
+    html += '<p><strong>Alternative (wenn Server-Admin verfügbar):</strong></p>';
+    html += '<code style="display: block; padding: 8px; background: #222; color: #0f0; font-family: monospace; border-radius: 4px;">';
+    html += 'chown -R www-data:www-data backend/<br>';
+    html += 'chmod 755 backend/media backend/data backend/logs backend/archive';
+    html += '</code>';
+    
+    detailsEl.innerHTML = html;
+    infoPanel.style.display = 'block';
+}
+
+/**
+ * Versteckt Diagnose-Panel
+ */
+function hideDiagnostics() {
+    const infoPanel = document.getElementById('diagnosticsInfo');
+    if (infoPanel) {
+        infoPanel.style.display = 'none';
+    }
+}
+
+/**
+ * Prüft Schreibrechte beim Page-Load
+ */
+async function checkPermissionsOnLoad() {
+    try {
+        const result = await apiPost('check_permissions');
+        
+        if (!result.success) {
+            showUploadDiagnostics({
+                error: result.permissions?.issues?.length 
+                    ? `${result.permissions.issues.length} Verzeichnis(se) mit Problemen` 
+                    : 'Schreibrechte-Problem erkannt'
+            });
+        }
+    } catch (err) {
+        // Stille Exception - nicht kritisch
+        console.log('Permission check failed:', err);
+    }
 }
 
 // ===== Utilities =====

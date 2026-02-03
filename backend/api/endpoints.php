@@ -323,6 +323,16 @@ try {
             echo json_encode(['success' => true, 'message' => 'Session verlängert']);
             break;
         
+        case 'check_permissions':
+            // Diagnose-Check für Admin - Schreibrechte prüfen
+            require_once __DIR__ . '/../core/SecurityHelper.php';
+            $perms = SecurityHelper::checkMediaDirectoryPermissions();
+            echo json_encode([
+                'success' => $perms['writable'],
+                'permissions' => $perms
+            ]);
+            break;
+        
         // ===== DEFAULT =====
         
         default:

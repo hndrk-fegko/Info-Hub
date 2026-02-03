@@ -68,36 +68,50 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
 <body>
     <div class="editor">
         <header class="editor-header">
-            <div class="header-left">
-                <h1>📝 Editor</h1>
-                <span class="site-name"><?= htmlspecialchars($settings['site']['title'] ?? 'Info-Hub') ?></span>
-                <?php if ($indexExists): ?>
-                    <a href="../index.html" target="_blank" class="published-link" title="Veröffentlichte Seite öffnen">
-                        🌐 Seite anzeigen
-                    </a>
-                    <span class="last-generated">
-                        Zuletzt: <?= date('d.m. H:i', $lastGenerated) ?>
-                    </span>
-                <?php else: ?>
-                    <span class="not-published">⚠️ Noch nicht veröffentlicht</span>
-                <?php endif; ?>
-            </div>
-            <div class="header-actions">
-                <?= SecurityHelper::renderSecurityBadge() ?>
-                <div class="session-timer" id="sessionTimer" title="Verbleibende Session-Zeit">
-                    🕐 <span id="sessionTimeDisplay">--</span>
+            <div class="header-top">
+                <div class="header-left">
+                    <h1>📝 Editor</h1>
+                    <span class="site-name"><?= htmlspecialchars($settings['site']['title'] ?? 'Info-Hub') ?></span>
+                    <?php if ($indexExists): ?>
+                        <a href="../index.html" target="_blank" class="published-link" title="Veröffentlichte Seite öffnen">
+                            🌐 Seite anzeigen
+                        </a>
+                        <span class="last-generated">
+                            Zuletzt: <?= date('d.m. H:i', $lastGenerated) ?>
+                        </span>
+                    <?php else: ?>
+                        <span class="not-published">⚠️ Noch nicht veröffentlicht</span>
+                    <?php endif; ?>
                 </div>
-                <button type="button" class="btn btn-icon" onclick="openSettingsModal()" title="Einstellungen (S)">
-                    ⚙️
-                </button>
-                <button type="button" class="btn btn-secondary" onclick="openPreview()" title="Vorschau öffnen (P)">
-                    👁️ Vorschau
-                </button>
-                <button type="button" class="btn btn-primary" id="publishBtn" onclick="publishSite()" title="Seite veröffentlichen (V)">
-                    🚀 Veröffentlichen
-                </button>
-                <button type="button" class="btn btn-icon" onclick="logout()" title="Abmelden">
-                    🚪
+                <div class="header-actions">
+                    <?= SecurityHelper::renderSecurityBadge() ?>
+                    <div class="session-timer" id="sessionTimer" title="Verbleibende Session-Zeit">
+                        🕐 <span id="sessionTimeDisplay">--</span>
+                    </div>
+                    <button type="button" class="btn btn-icon" onclick="openSettingsModal()" title="Einstellungen (S)">
+                        ⚙️
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="openPreview()" title="Vorschau öffnen (P)">
+                        👁️ Vorschau
+                    </button>
+                    <button type="button" class="btn btn-primary" id="publishBtn" onclick="publishSite()" title="Seite veröffentlichen (V)">
+                        🚀 Veröffentlichen
+                    </button>
+                    <button type="button" class="btn btn-icon" onclick="logout()" title="Abmelden">
+                        🚪
+                    </button>
+                </div>
+            </div>
+            <div class="diagnostics-info" id="diagnosticsInfo" style="display: none;">
+                <div class="diag-banner diag-warning">
+                    <strong>⚠️ Upload-Problem erkannt:</strong> 
+                    <span id="diagnosticsMessage"></span>
+                    <details style="margin-top: 8px;">
+                        <summary>Lösung anzeigen</summary>
+                        <div id="diagnosticsDetails" style="margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.1); border-radius: 4px; font-size: 0.9em;"></div>
+                    </details>
+                </div>
+            </div>
                 </button>
             </div>
         </header>

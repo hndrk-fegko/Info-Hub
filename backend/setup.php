@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if (empty($errors)) {
-        // Verzeichnisse erstellen
+        // Verzeichnisse erstellen mit Fehlerprüfung
         $dirs = [
             __DIR__ . '/data',
             __DIR__ . '/logs',
@@ -63,10 +63,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             __DIR__ . '/media/header'
         ];
         
+        $permissionWarnings = [];
         foreach ($dirs as $dir) {
             if (!is_dir($dir)) {
-                mkdir($dir, 0755, true);
+                if (!mkdir($dir, 0777, true)) {  // 0777 statt 0755 für bessere Kompatibilität
+                    $errors[] = "Verzeichnis konnte nicht erstellt werden: " . basename($dir);
+                    continue;
+                }
             }
+            
+            // Nach Erstellung prüfen ob schreibbar
+            if (!is_writable($dir)) {
+                $permissionWarnings[] = basename($dir) . " (chmod 777 erforderlich)";
+            }
+        }
+        
+        // Warnung anzeigen (aber Setup nicht blockieren)
+        $permissionWarning = '';
+        if (!empty($permissionWarnings)) {
+            $permissionWarning = "⚠️ Schreibrechte-Problem erkannt. Bitte nach Setup ausführen:<br>" .
+                       "<code style='background:#333;color:#0f0;padding:8px;display:block;margin-top:8px;border-radius:4px;'>" .
+                       "chmod 777 backend/" . implode(" backend/", $permissionWarnings) .
+                       "</code>";
         }
         
         // Header-Bild verarbeiten
@@ -305,6 +323,25 @@ HTACCESS;
             border: 1px solid #fcc;
         }
         
+        .alert-warning {
+            background: rgba(251, 146, 60, 0.1);
+            color: #ea580c;
+            border: 1px solid rgba(251, 146, 60, 0.3);
+            border-left: 4px solid #fb923c;
+        }
+        
+        .alert-warning code {
+            display: block;
+            margin-top: 8px;
+            padding: 8px;
+            background: #1a1a1a;
+            color: #0f0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+        }
+        
         .alert-error ul {
             margin: 10px 0 0 20px;
         }
@@ -368,6 +405,12 @@ HTACCESS;
                 <div class="icon">🎉</div>
                 <h2>Setup erfolgreich!</h2>
                 <p>Dein Info-Hub ist bereit zur Verwendung.</p>
+                
+                <?php if (!empty($permissionWarning)): ?>
+                    <div class="alert alert-warning" style="margin: 20px 0; text-align: left;">
+                        <?= $permissionWarning ?>
+                    </div>
+                <?php endif; ?>
                 
                 <div class="checklist">
                     <h3>Was wurde erstellt:</h3>

@@ -105,7 +105,26 @@ class UploadService {
         // 6. Zielverzeichnis
         $targetDir = self::MEDIA_PATH . $type . '/';
         if (!is_dir($targetDir)) {
-            mkdir($targetDir, 0755, true);
+            if (!mkdir($targetDir, 0755, true)) {
+                LogService::error('UploadService', 'Failed to create directory', ['dir' => $targetDir]);
+                return ['success' => false, 'error' => 'Upload-Verzeichnis konnte nicht erstellt werden'];
+            }
+        }
+        
+        // Prüfe Schreibrechte
+        if (!is_writable($targetDir)) {
+            LogService::error('UploadService', 'Directory not writable', [
+                'dir' => $targetDir,
+                'perms' => substr(sprintf('%o', fileperms($targetDir)), -4)
+            ]);
+            return [
+                'success' => false, 
+                'error' => 'Keine Schreibrechte im Upload-Verzeichnis. Server-Admin muss Berechtigungen prüfen.',
+                'details' => [
+                    'dir' => $targetDir,
+                    'suggestion' => 'SSH-Terminal: chmod 777 ' . str_replace(__DIR__ . '/../', 'backend/', $targetDir)
+                ]
+            ];
         }
         
         $targetPath = $targetDir . $filename;
@@ -113,7 +132,14 @@ class UploadService {
         // 7. Datei verschieben
         if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
             LogService::error('UploadService', 'Failed to move file', ['target' => $targetPath]);
-            return ['success' => false, 'error' => 'Speichern fehlgeschlagen'];
+            return [
+                'success' => false, 
+                'error' => 'Datei konnte nicht gespeichert werden. Prüfe Server-Berechtigungen.',
+                'details' => [
+                    'path' => $targetPath,
+                    'suggestion' => 'SSH-Terminal: chmod 777 ' . str_replace(__DIR__ . '/../', 'backend/', $targetDir)
+                ]
+            ];
         }
         
         LogService::success('UploadService', 'File uploaded', [

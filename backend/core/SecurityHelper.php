@@ -157,4 +157,47 @@ class SecurityHelper {
         
         return $html;
     }
+    
+    /**
+     * Prüft Schreibrechte für alle kritischen Verzeichnisse
+     */
+    public static function checkMediaDirectoryPermissions(): array {
+        $issues = [];
+        $recommendations = [];
+        
+        $dirs = [
+            __DIR__ . '/../media/images',
+            __DIR__ . '/../media/downloads',
+            __DIR__ . '/../media/header',
+            __DIR__ . '/../data',
+            __DIR__ . '/../logs',
+            __DIR__ . '/../archive'
+        ];
+        
+        foreach ($dirs as $dir) {
+            $isDir = is_dir($dir);
+            $isReadable = is_readable($dir);
+            $isWritable = is_writable($dir);
+            
+            if (!$isDir || !$isReadable || !$isWritable) {
+                $issues[] = [
+                    'dir' => str_replace(__DIR__ . '/../', '', $dir),
+                    'exists' => $isDir,
+                    'readable' => $isReadable,
+                    'writable' => $isWritable
+                ];
+            }
+        }
+        
+        if (!empty($issues)) {
+            $recommendations[] = "Schreibrechte setzen: chmod 777 backend/media/images backend/media/downloads backend/media/header backend/data backend/logs backend/archive";
+            $recommendations[] = "Oder mit Webserver-Eigentümer (z.B. www-data): chown -R www-data:www-data backend/ && chmod 755 backend/media backend/data backend/logs";
+        }
+        
+        return [
+            'writable' => empty($issues),
+            'issues' => $issues,
+            'recommendations' => $recommendations
+        ];
+    }
 }
