@@ -966,11 +966,14 @@ async function saveSettings(event) {
     const form = document.getElementById('settingsForm');
     const formData = new FormData(form);
     
+    // headerImage aus dem Hidden-Field lesen (nicht aus dem File-Input!)
+    const headerImagePath = document.getElementById('headerImagePath')?.value || null;
+    
     const newSettings = {
         site: {
-            title: formData.get('title'),
-            headerImage: formData.get('headerImage') || null,
-            footerText: formData.get('footerText')
+            title: formData.get('title') || '',
+            headerImage: headerImagePath || null,
+            footerText: formData.get('footerText') || ''
         },
         theme: {
             backgroundColor: formData.get('backgroundColor'),

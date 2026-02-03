@@ -37,6 +37,13 @@ $tiles = $tileService->getTiles();
 $settingsStorage = new StorageService('settings.json');
 $settings = $settingsStorage->read();
 
+// Daten-Bereinigung: headerImage muss String oder null sein
+if (isset($settings['site']['headerImage']) && !is_string($settings['site']['headerImage'])) {
+    $settings['site']['headerImage'] = null;
+    // Korrigierte Settings speichern
+    $settingsStorage->write($settings);
+}
+
 // Session-Werte für JavaScript - DIREKT aus AuthService holen
 $sessionTimeout = $auth->getSessionTimeout();
 $sessionWarning = $auth->getSessionWarningBefore();
@@ -198,14 +205,19 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                     <div class="form-group">
                         <label>Header-Bild</label>
                         <div class="header-image-preview" id="headerPreview">
-                            <?php if (!empty($settings['site']['headerImage'])): ?>
-                                <img src="<?= htmlspecialchars($settings['site']['headerImage']) ?>" alt="Header">
+                            <?php 
+                            $headerImg = $settings['site']['headerImage'] ?? null;
+                            // Sicherstellen dass es ein String ist (nicht Array oder Object)
+                            if (!is_string($headerImg)) $headerImg = null;
+                            ?>
+                            <?php if (!empty($headerImg)): ?>
+                                <img src="<?= htmlspecialchars($headerImg) ?>" alt="Header">
                                 <button type="button" class="btn btn-small" onclick="removeHeaderImage()">Entfernen</button>
                             <?php else: ?>
                                 <span class="no-image">Kein Header-Bild</span>
                             <?php endif; ?>
                         </div>
-                        <input type="hidden" name="headerImage" id="headerImagePath" value="<?= htmlspecialchars($settings['site']['headerImage'] ?? '') ?>">
+                        <input type="hidden" name="headerImage" id="headerImagePath" value="<?= htmlspecialchars($headerImg ?? '') ?>">
                         <input type="file" name="headerImageFile" id="headerImageFile" accept="image/*" onchange="uploadHeaderImage(this)">
                     </div>
                 </div>
