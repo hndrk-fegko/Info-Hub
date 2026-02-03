@@ -134,6 +134,35 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
             <button type="button" class="add-tile-btn" onclick="openTileModal()" title="Neue Kachel hinzufügen (N)">
                 + Neue Kachel hinzufügen
             </button>
+            
+            <!-- Tipps & Tricks Panel -->
+            <details class="tips-panel">
+                <summary class="tips-toggle">
+                    💡 Tipps & Tricks
+                </summary>
+                <div class="tips-content">
+                    <div class="tip">
+                        <strong>📐 Unsichtbare Platzhalter</strong>
+                        <p>Nutze <em>Infobox</em>-Kacheln mit Style "Flat", ohne Titel und Inhalt, um leere Bereiche zu erzeugen.</p>
+                    </div>
+                    <div class="tip">
+                        <strong>📏 Zeilenumbruch erzwingen</strong>
+                        <p>Ein <em>Trenner</em> mit Höhe 0 erzwingt einen sauberen Umbruch - perfekt für Abschnitte.</p>
+                    </div>
+                    <div class="tip">
+                        <strong>🎨 Visuelle Hierarchie</strong>
+                        <p>Verwende die Akzentfarben für wichtige Infoboxen (z.B. Überschriften), um Bereiche zu gliedern.</p>
+                    </div>
+                    <div class="tip">
+                        <strong>📱 Responsive Design</strong>
+                        <p>Kleine Kacheln werden auf dem Handy übereinander angezeigt - teste mit der Vorschau!</p>
+                    </div>
+                    <div class="tip">
+                        <strong>⏰ Zeitsteuerung</strong>
+                        <p>Nutze "Ab/Bis"-Zeiten für saisonale Inhalte. Die Kacheln werden automatisch ein-/ausgeblendet.</p>
+                    </div>
+                </div>
+            </details>
         </main>
     </div>
     
@@ -154,11 +183,12 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                 <div class="tile-type-selector">
                     <label for="tileType">Kachel-Typ</label>
                     <select name="type" id="tileType" onchange="updateTileFields()" required>
-                        <option value="infobox">📋 Infobox</option>
-                        <option value="download">📥 Download</option>
-                        <option value="image">🖼️ Bild</option>
-                        <option value="link">🔗 Link</option>
-                        <option value="iframe">📺 Iframe</option>
+                        <option value="">-- Typ wählen --</option>
+                        <?php foreach ($tileService->getAvailableTypes() as $type => $info): ?>
+                            <option value="<?= htmlspecialchars($type) ?>">
+                                <?= htmlspecialchars($info['name']) ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
                 
@@ -220,25 +250,41 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                         <input type="hidden" name="headerImage" id="headerImagePath" value="<?= htmlspecialchars($headerImg ?? '') ?>">
                         <input type="file" name="headerImageFile" id="headerImageFile" accept="image/*" onchange="uploadHeaderImage(this)">
                     </div>
+                    
+                    <div class="form-group">
+                        <label for="headerFocusPoint">Bild-Fokuspunkt</label>
+                        <select name="headerFocusPoint" id="headerFocusPoint">
+                            <option value="center center" <?= ($settings['site']['headerFocusPoint'] ?? 'center center') === 'center center' ? 'selected' : '' ?>>Mitte</option>
+                            <option value="center top" <?= ($settings['site']['headerFocusPoint'] ?? '') === 'center top' ? 'selected' : '' ?>>Oben</option>
+                            <option value="center bottom" <?= ($settings['site']['headerFocusPoint'] ?? '') === 'center bottom' ? 'selected' : '' ?>>Unten</option>
+                            <option value="left center" <?= ($settings['site']['headerFocusPoint'] ?? '') === 'left center' ? 'selected' : '' ?>>Links</option>
+                            <option value="right center" <?= ($settings['site']['headerFocusPoint'] ?? '') === 'right center' ? 'selected' : '' ?>>Rechts</option>
+                            <option value="left top" <?= ($settings['site']['headerFocusPoint'] ?? '') === 'left top' ? 'selected' : '' ?>>Oben Links</option>
+                            <option value="right top" <?= ($settings['site']['headerFocusPoint'] ?? '') === 'right top' ? 'selected' : '' ?>>Oben Rechts</option>
+                            <option value="left bottom" <?= ($settings['site']['headerFocusPoint'] ?? '') === 'left bottom' ? 'selected' : '' ?>>Unten Links</option>
+                            <option value="right bottom" <?= ($settings['site']['headerFocusPoint'] ?? '') === 'right bottom' ? 'selected' : '' ?>>Unten Rechts</option>
+                        </select>
+                        <small>Bestimmt, welcher Bildbereich beim Zuschneiden sichtbar bleibt</small>
+                    </div>
                 </div>
                 
                 <div class="settings-section">
                     <h3>Farben</h3>
-                    <div class="form-row">
+                    <div class="form-row color-row">
                         <div class="form-group">
-                            <label for="backgroundColor">Hintergrund</label>
+                            <label for="backgroundColor">Hintergrund:</label>
                             <input type="color" name="backgroundColor" id="backgroundColor" value="<?= htmlspecialchars($settings['theme']['backgroundColor'] ?? '#f5f5f5') ?>">
                         </div>
                         <div class="form-group">
-                            <label for="accentColor">Akzent 1 (Seitentitel)</label>
+                            <label for="accentColor">Akzent 1:</label>
                             <input type="color" name="accentColor" id="accentColor" value="<?= htmlspecialchars($settings['theme']['accentColor'] ?? '#667eea') ?>">
                         </div>
                         <div class="form-group">
-                            <label for="accentColor2">Akzent 2</label>
+                            <label for="accentColor2">Akzent 2:</label>
                             <input type="color" name="accentColor2" id="accentColor2" value="<?= htmlspecialchars($settings['theme']['accentColor2'] ?? '#48bb78') ?>">
                         </div>
                         <div class="form-group">
-                            <label for="accentColor3">Akzent 3</label>
+                            <label for="accentColor3">Akzent 3:</label>
                             <input type="color" name="accentColor3" id="accentColor3" value="<?= htmlspecialchars($settings['theme']['accentColor3'] ?? '#ed8936') ?>">
                         </div>
                     </div>
@@ -310,6 +356,6 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
         }
         
     </script>
-    <script src="../assets/js/editor.js"></script>
+    <script src="../assets/js/editor.js?v=<?= filemtime(__DIR__ . '/../assets/js/editor.js') ?>_<?= time() ?>"></script>
 </body>
 </html>

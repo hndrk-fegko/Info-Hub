@@ -388,6 +388,50 @@ kbd {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Countdown Status Badge */
+.countdown-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    border-radius: 4px;
+    font-weight: normal;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.countdown-status-badge.expired {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffc107;
+}
+
+.countdown-status-badge.expired-hidden {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Not Exported Badge - für manuell versteckte Tiles */
+.not-exported-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    font-size: 0.7rem;
+    border-radius: 4px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+    background: #dc3545;
+    color: white;
+    margin-left: 10px;
 }
 
 .tile-meta {
@@ -445,6 +489,180 @@ kbd {
     color: #000;
 }
 
+/* Visibility Button States */
+.quick-edit-btn.visibility-hidden {
+    background: #e9ecef;
+    border-color: #adb5bd;
+    color: #6c757d;
+}
+
+.quick-edit-btn.visibility-hidden:hover {
+    background: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+/* Visibility Control Group */
+.visibility-control {
+    display: inline-flex;
+    gap: 0;
+}
+
+.visibility-control .quick-edit-btn:first-child {
+    border-radius: 4px 0 0 4px;
+    border-right: none;
+}
+
+.visibility-control .visibility-dropdown-btn {
+    border-radius: 0 4px 4px 0;
+    padding: 3px 6px;
+    min-width: auto;
+}
+
+.visibility-control .visibility-dropdown-btn.has-schedule {
+    background: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+}
+
+/* Scheduled States */
+.quick-edit-btn.visibility-scheduled {
+    background: #cce5ff;
+    border-color: #007bff;
+    color: #004085;
+}
+
+.quick-edit-btn.visibility-scheduled:hover {
+    background: #007bff;
+    color: white;
+}
+
+.quick-edit-btn.visibility-expired {
+    background: #f8d7da;
+    border-color: #dc3545;
+    color: #721c24;
+}
+
+.quick-edit-btn.visibility-expired:hover {
+    background: #dc3545;
+    color: white;
+}
+
+.quick-edit-btn.visibility-until {
+    background: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+}
+
+.quick-edit-btn.visibility-until:hover {
+    background: #28a745;
+    color: white;
+}
+
+/* Visibility Schedule Dropdown */
+.visibility-schedule-form {
+    padding: 8px 0;
+    min-width: 280px;
+}
+
+.schedule-row {
+    padding: 8px 12px;
+}
+
+.schedule-row label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.schedule-input-group {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.schedule-input-group input[type="datetime-local"] {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.schedule-input-group .btn-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+    padding: 0;
+}
+
+.schedule-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+}
+
+.schedule-presets .btn {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+}
+
+.schedule-hint {
+    padding: 8px 12px;
+    margin-top: 8px;
+    background: #fff3cd;
+    border-top: 1px solid #ffc107;
+    font-size: 0.7rem;
+    color: #856404;
+    line-height: 1.4;
+}
+
+/* Hidden Tile Card Style */
+.tile-card.tile-hidden {
+    opacity: 0.5;
+    background: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 10px,
+        rgba(0, 0, 0, 0.03) 10px,
+        rgba(0, 0, 0, 0.03) 20px
+    );
+}
+
+.tile-card.tile-hidden:hover {
+    opacity: 0.8;
+}
+
+.tile-card.tile-hidden .tile-title {
+    color: var(--text-muted);
+}
+
+/* Separator Tile Card - kompakte Darstellung */
+.tile-card-separator {
+    padding: 10px 20px;
+    background: var(--bg);
+}
+
+.tile-card-separator .separator-title {
+    text-align: center;
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 0.85rem;
+    letter-spacing: 2px;
+}
+
+.tile-card-separator .tile-info {
+    margin: 0 10px;
+}
+
+.tile-card-separator .tile-meta {
+    justify-content: center;
+}
+
 .tile-actions {
     display: flex;
     gap: 8px;
@@ -482,6 +700,67 @@ kbd {
 .add-tile-btn .btn-icon {
     font-size: 24px;
     font-weight: 300;
+}
+
+/* ===== Tipps & Tricks Panel ===== */
+.tips-panel {
+    margin: 20px;
+    border-radius: var(--radius);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+    border: 1px solid var(--border);
+}
+
+.tips-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-muted);
+    user-select: none;
+    transition: color var(--transition);
+}
+
+.tips-toggle:hover {
+    color: var(--primary);
+}
+
+.tips-panel[open] .tips-toggle {
+    color: var(--primary);
+    border-bottom: 1px solid var(--border);
+}
+
+.tips-content {
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+}
+
+.tip {
+    padding: 12px;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    border-left: 3px solid var(--primary);
+}
+
+.tip strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.9rem;
+}
+
+.tip p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-light);
+    line-height: 1.5;
+}
+
+.tip em {
+    color: var(--primary);
+    font-style: normal;
+    font-weight: 500;
 }
 
 /* ===== Modals ===== */
@@ -1008,6 +1287,61 @@ hr {
     border-bottom: 1px solid var(--border);
 }
 
+/* Header Image Preview im Settings Dialog */
+.header-image-preview {
+    margin: 10px 0;
+    text-align: center;
+}
+
+.header-image-preview img {
+    max-width: 100%;
+    max-height: 200px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+
+.header-image-preview .no-image {
+    display: block;
+    padding: 30px;
+    background: var(--bg);
+    border-radius: var(--radius);
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.header-image-preview .btn-small {
+    margin-top: 10px;
+}
+
+/* Farbfelder inline mit Label */
+.form-row.color-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-end;
+}
+
+.form-row.color-row .form-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0;
+}
+
+.form-row.color-row .form-group label {
+    margin-bottom: 0;
+    white-space: nowrap;
+    font-size: 0.85rem;
+}
+
+.form-row.color-row .form-group input[type="color"] {
+    width: 50px;
+    height: 36px;
+}
+
 /* ===== File Browser ===== */
 .file-browser {
     padding: 20px;
@@ -1359,4 +1693,111 @@ hr {
     gap: 15px;
     justify-content: center;
     margin-top: 20px;
+}
+
+/* ===== Accordion Editor ===== */
+.accordion-editor {
+    margin-bottom: 12px;
+}
+
+.accordion-editor > .form-label {
+    display: block;
+    font-weight: 600;
+    color: var(--text-light);
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+}
+
+.accordion-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.accordion-section {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.accordion-section.hidden {
+    display: none;
+}
+
+.accordion-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.accordion-section-number {
+    font-weight: 600;
+    color: var(--primary);
+    font-size: 0.85rem;
+}
+
+.accordion-section-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.accordion-section-actions .btn-icon {
+    padding: 4px 8px;
+    min-width: auto;
+    font-size: 0.9rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.accordion-section-actions .btn-icon:hover:not(:disabled) {
+    background: var(--bg-dark);
+}
+
+.accordion-section-actions .btn-icon:disabled {
+    cursor: not-allowed;
+}
+
+.accordion-section .form-row-compact {
+    margin-bottom: 8px;
+}
+
+.accordion-section .form-row-compact:last-child {
+    margin-bottom: 0;
+}
+
+.accordion-section textarea {
+    min-height: 60px;
+}
+
+.accordion-add-btn {
+    width: 100%;
+    padding: 10px;
+    border: 2px dashed var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: var(--radius);
+    transition: all var(--transition);
+}
+
+.accordion-add-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(102, 126, 234, 0.05);
+}
+
+/* Field hint warning */
+.field-hint.warning {
+    display: block;
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: rgba(245, 158, 11, 0.1);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: var(--warning);
 }
