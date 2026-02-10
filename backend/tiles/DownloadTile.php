@@ -86,7 +86,7 @@ class DownloadTile extends TileBase {
         $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
         $icon = $this->getFileIcon($ext);
         
-        $html = '';
+        $html = '<div class="download-content">';
         
         if ($showTitle && !empty($title)) {
             $html .= "<h3>{$title}</h3>\n";
@@ -96,11 +96,16 @@ class DownloadTile extends TileBase {
             $html .= "<p>{$description}</p>\n";
         }
         
+        $html .= '</div>';
+        
+        $safeFile = $this->safeHref($data['file'] ?? '');
         $html .= <<<HTML
-<a href="{$file}" class="download-btn" download>
+<div class="download-action">
+<a href="{$safeFile}" class="download-btn" download>
     <span class="download-icon">{$icon}</span>
     <span>{$buttonText}</span>
 </a>
+</div>
 HTML;
         
         return $html;

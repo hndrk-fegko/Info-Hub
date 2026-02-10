@@ -1,4 +1,8 @@
 /* IframeTile CSS */
+.tile-iframe {
+    align-items: stretch;
+}
+
 .tile-iframe .tile-iframe-container {
     position: relative;
     width: 100%;
@@ -25,16 +29,16 @@
     background: var(--accent-color);
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 1rem;
     font-weight: 500;
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: filter 0.2s ease, transform 0.2s ease;
 }
 
 .tile-iframe .iframe-modal-trigger:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    filter: brightness(0.9);
+    transform: translateY(-1px);
 }
 
 .tile-iframe .iframe-modal-icon {
@@ -76,17 +80,18 @@
     height: 85%;
     max-width: 1200px;
     background: white;
-    border-radius: 12px;
+    border-radius: 14px;
     overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.3);
 }
 
 .iframe-modal-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 20px;
-    background: #f5f5f5;
-    border-bottom: 1px solid #e0e0e0;
+    padding: 14px 20px;
+    background: #fafafa;
+    border-bottom: 1px solid #eee;
 }
 
 .iframe-modal-title {

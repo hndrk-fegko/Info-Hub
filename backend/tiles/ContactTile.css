@@ -2,7 +2,8 @@
 .tile-contact .contact-content {
     display: flex;
     gap: 20px;
-    align-items: flex-start;
+    align-items: center;
+    width: 100%;
 }
 
 .tile-contact .contact-image {
@@ -10,11 +11,12 @@
 }
 
 .tile-contact .contact-image img {
-    width: 100px;
-    height: 100px;
+    width: 96px;
+    height: 96px;
     border-radius: 50%;
     object-fit: cover;
     border: 3px solid var(--accent-color);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .tile-contact .contact-info {
@@ -23,16 +25,16 @@
 }
 
 .tile-contact .contact-name {
-    font-size: 1.25rem;
+    font-size: 1.15rem;
     font-weight: 600;
-    margin: 0 0 4px 0;
+    margin: 0 0 2px 0;
     color: var(--text-color);
 }
 
 .tile-contact .contact-role {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     color: var(--text-light);
-    margin: 0 0 12px 0;
+    margin: 0 0 14px 0;
 }
 
 .tile-contact .contact-actions {
@@ -45,14 +47,14 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 14px;
+    padding: 8px 16px;
     background: var(--accent-color);
     color: white;
     border: none;
-    border-radius: 6px;
-    font-size: 0.9rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
     cursor: pointer;
-    transition: background 0.2s, transform 0.2s;
+    transition: filter 0.2s, transform 0.2s;
 }
 
 .tile-contact .contact-reveal-btn:hover {
@@ -64,17 +66,18 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 14px;
+    padding: 8px 16px;
     background: #e8f5e9;
     color: #2e7d32;
     text-decoration: none;
-    border-radius: 6px;
-    font-size: 0.9rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
     transition: background 0.2s;
 }
 
 .tile-contact .contact-revealed:hover {
     background: #c8e6c9;
+    text-decoration: none;
 }
 
 .tile-contact .contact-icon {

@@ -1,6 +1,12 @@
 /* ImageTile CSS */
+.tile-image {
+    justify-content: flex-start !important;
+}
+
 .tile-image .tile-image-container {
     display: block;
+    overflow: hidden;
+    border-radius: 8px;
 }
 
 .tile-image .tile-image-lightbox {
@@ -12,13 +18,22 @@
     display: block;
 }
 
-.tile-image .tile-image-link:hover img {
-    opacity: 0.9;
+.tile-image .tile-image-container:hover img {
+    transform: scale(1.02);
 }
 
 .tile-image img {
     width: 100%;
     height: auto;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.tile-image .tile-caption {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    margin-top: 10px;
+    text-align: center;
 }
 
 /* Lightbox (gehört zu ImageTile) */
@@ -29,7 +44,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(0, 0, 0, 0.92);
     z-index: 1000;
     justify-content: center;
     align-items: center;
@@ -44,13 +59,26 @@
     max-width: 90%;
     max-height: 90%;
     object-fit: contain;
+    border-radius: 4px;
 }
 
 .lightbox-close {
     position: absolute;
-    top: 20px;
-    right: 30px;
-    color: white;
-    font-size: 40px;
+    top: 16px;
+    right: 24px;
+    color: rgba(255,255,255,0.8);
+    font-size: 36px;
     cursor: pointer;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s ease;
+}
+
+.lightbox-close:hover {
+    background: rgba(255,255,255,0.1);
+    color: white;
 }

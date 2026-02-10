@@ -787,6 +787,7 @@ kbd {
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
+    -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px);
 }
 
@@ -1340,6 +1341,49 @@ hr {
 .form-row.color-row .form-group input[type="color"] {
     width: 50px;
     height: 36px;
+}
+
+/* ===== Admin Emails ===== */
+.admin-email-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 10px 0 14px;
+}
+
+.admin-email-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--card-bg);
+    font-size: 0.85rem;
+}
+
+.admin-email-item.pending {
+    opacity: 0.6;
+    font-style: italic;
+}
+
+.admin-email-item .admin-remove {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.admin-email-item .admin-remove:disabled {
+    cursor: not-allowed;
+    opacity: 0.3;
+}
+
+.admin-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 6px;
 }
 
 /* ===== File Browser ===== */
