@@ -66,12 +66,24 @@ class StorageService {
             return false;
         }
         
-        $result = file_put_contents($this->filePath, $json, LOCK_EX);
+        // Atomares Schreiben: temp-Datei + rename verhindert Datenverlust bei Crash
+        $tempFile = $this->filePath . '.tmp.' . getmypid();
+        $result = file_put_contents($tempFile, $json, LOCK_EX);
         
         if ($result === false) {
-            LogService::error('StorageService', 'Failed to write file', [
-                'file' => $this->filePath
+            LogService::error('StorageService', 'Failed to write temp file', [
+                'file' => $tempFile
             ]);
+            @unlink($tempFile);
+            return false;
+        }
+        
+        if (!rename($tempFile, $this->filePath)) {
+            LogService::error('StorageService', 'Failed to rename temp file', [
+                'temp' => $tempFile,
+                'target' => $this->filePath
+            ]);
+            @unlink($tempFile);
             return false;
         }
         

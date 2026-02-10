@@ -25,17 +25,7 @@ class TileService {
      */
     public function getTiles(): array {
         $tiles = $this->storage->read();
-        
-        // Nach Position sortieren, bei Gleichheit nach ID
-        usort($tiles, function($a, $b) {
-            $posA = $a['position'] ?? 0;
-            $posB = $b['position'] ?? 0;
-            
-            if ($posA === $posB) {
-                return ($a['id'] ?? '') <=> ($b['id'] ?? '');
-            }
-            return $posA <=> $posB;
-        });
+        $this->sortTiles($tiles);
         
         return $tiles;
     }
@@ -126,15 +116,8 @@ class TileService {
             }
         }
         
-        // 7. Sortieren nach Position, bei Gleichheit nach ID
-        usort($tiles, function($a, $b) {
-            $posA = $a['position'] ?? 0;
-            $posB = $b['position'] ?? 0;
-            if ($posA === $posB) {
-                return ($a['id'] ?? '') <=> ($b['id'] ?? '');
-            }
-            return $posA <=> $posB;
-        });
+        // 7. Sortieren
+        $this->sortTiles($tiles);
         
         // 8. Speichern
         if (!$this->storage->write($tiles)) {
@@ -195,15 +178,8 @@ class TileService {
             }
         }
         
-        // Sortieren nach Position, bei Gleichheit nach ID
-        usort($tiles, function($a, $b) {
-            $posA = $a['position'] ?? 0;
-            $posB = $b['position'] ?? 0;
-            if ($posA === $posB) {
-                return ($a['id'] ?? '') <=> ($b['id'] ?? '');
-            }
-            return $posA <=> $posB;
-        });
+        // Sortieren
+        $this->sortTiles($tiles);
         
         if (!$this->storage->write($tiles)) {
             return ['success' => false, 'error' => 'Speichern fehlgeschlagen'];
@@ -219,6 +195,20 @@ class TileService {
      */
     public function backup(): string|false {
         return $this->storage->backup();
+    }
+    
+    /**
+     * Sortiert Tiles nach Position (aufsteigend), bei Gleichheit nach ID
+     */
+    private function sortTiles(array &$tiles): void {
+        usort($tiles, function($a, $b) {
+            $posA = $a['position'] ?? 0;
+            $posB = $b['position'] ?? 0;
+            if ($posA === $posB) {
+                return ($a['id'] ?? '') <=> ($b['id'] ?? '');
+            }
+            return $posA <=> $posB;
+        });
     }
     
     /**
