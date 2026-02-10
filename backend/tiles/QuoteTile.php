@@ -108,9 +108,10 @@ class QuoteTile extends TileBase {
             $html .= "<h3 class=\"quote-title\">{$title}</h3>\n";
         }
         
-        // Content-Wrapper (für Link)
+        // Content-Wrapper (für Link, safeHref blockiert javascript: etc.)
         if (!empty($link)) {
-            $html .= "<a href=\"{$link}\" class=\"quote-link\" target=\"_blank\" rel=\"noopener\">\n";
+            $safeLink = $this->safeHref($data['link'] ?? '');
+            $html .= "<a href=\"{$safeLink}\" class=\"quote-link\" target=\"_blank\" rel=\"noopener\">\n";
         }
         
         // Zitat

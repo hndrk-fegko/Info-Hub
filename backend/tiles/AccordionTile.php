@@ -170,7 +170,9 @@ class AccordionTile extends TileBase {
         $title = $this->esc($data['title'] ?? '');
         $showTitle = $data['showTitle'] ?? true;
         $singleOpen = $data['singleOpen'] ?? true;
-        $autoScroll = $data['autoScroll'] ?? 'mobile';
+        // Whitelist-Validierung + Escape für sicheres Attribut
+        $autoScrollRaw = $data['autoScroll'] ?? 'mobile';
+        $autoScroll = in_array($autoScrollRaw, ['always', 'mobile', 'never']) ? $autoScrollRaw : 'mobile';
         $defaultOpen = (int)($data['defaultOpen'] ?? -1);
         $fullRow = $data['fullRow'] ?? false;
         

@@ -137,9 +137,9 @@ class ContactTile extends TileBase {
         $showEmailButton = $data['showEmailButton'] ?? true;
         $showPhoneButton = $data['showPhoneButton'] ?? true;
         
-        // Verschleierte Daten für Frontend
-        $emailEncoded = !empty($email) ? $this->encodeData($email) : '';
-        $phoneEncoded = !empty($phone) ? $this->encodeData($phone) : '';
+        // Verschleierte Daten für Frontend (esc() für defense-in-depth)
+        $emailEncoded = !empty($email) ? $this->esc($this->encodeData($email)) : '';
+        $phoneEncoded = !empty($phone) ? $this->esc($this->encodeData($phone)) : '';
         
         $html = '<div class="contact-content">';
         

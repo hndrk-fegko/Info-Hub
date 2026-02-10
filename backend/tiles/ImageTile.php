@@ -106,15 +106,17 @@ class ImageTile extends TileBase {
         // Bild (mit Lightbox, Link, oder einfach)
         if ($lightbox) {
             // Lightbox hat Priorität - Link wird ignoriert
+            // data-Attribut statt onclick (sicher gegen HTML-decode → JS breakout)
             $html .= <<<HTML
-<div class="tile-image-container tile-image-lightbox" onclick="openLightbox('{$image}')">
+<div class="tile-image-container tile-image-lightbox" data-lightbox-src="{$image}" role="button" tabindex="0">
     <img src="{$image}" alt="{$title}" loading="lazy">
 </div>
 HTML;
         } elseif (!empty($link)) {
             // Link-Funktion (nur wenn Lightbox deaktiviert)
+            $safeLink = $this->safeHref($data['link'] ?? '');
             $html .= <<<HTML
-<a href="{$link}" class="tile-image-container tile-image-link" target="_blank" rel="noopener">
+<a href="{$safeLink}" class="tile-image-container tile-image-link" target="_blank" rel="noopener">
     <img src="{$image}" alt="{$title}" loading="lazy">
 </a>
 HTML;

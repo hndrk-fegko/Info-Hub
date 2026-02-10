@@ -111,11 +111,12 @@ class LinkTile extends TileBase {
         // Domain für URL-Preview extrahieren
         $domain = '';
         if (preg_match('/^https?:\/\/([^\/]+)/', $data['url'] ?? '', $matches)) {
-            $domain = $matches[1];
+            $domain = $this->esc($matches[1]);
         }
         
-        // Gesamte Kachel als Link-Container
-        $html = "<a href=\"{$url}\"{$target} class=\"link-card{$externalClass}\">\n";
+        // Gesamte Kachel als Link-Container (safeHref blockiert javascript: etc.)
+        $safeUrl = $this->safeHref($data['url'] ?? '#');
+        $html = "<a href=\"{$safeUrl}\"{$target} class=\"link-card{$externalClass}\">\n";
         
         // Header: Titel + Icon im Kreis
         $html .= "<div class=\"link-header\">\n";

@@ -100,6 +100,19 @@ abstract class TileBase {
     }
     
     /**
+     * Hilfsmethode: Sichere href-Ausgabe (blockiert javascript: etc.)
+     * Erlaubt nur http(s) und relative Pfade
+     */
+    protected function safeHref(string $url): string {
+        $url = trim($url);
+        // Nur http(s):// und relative Pfade (/...) erlauben
+        if (preg_match('#^https?://#i', $url) || preg_match('#^/[a-zA-Z0-9]#', $url)) {
+            return $this->esc($url);
+        }
+        return '#';
+    }
+    
+    /**
      * Hilfsmethode: Relativen Pfad validieren
      */
     protected function isValidPath(string $path): bool {

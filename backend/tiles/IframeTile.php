@@ -135,10 +135,10 @@ class IframeTile extends TileBase {
         
         if ($displayMode === 'modal') {
             // Modal-Mode: Button zum Öffnen
-            // Wenn showTitle deaktiviert ist, übergebe leeren Titel ans Modal
+            // data-Attribute statt onclick (sicher gegen HTML-decode → JS breakout)
             $modalTitle = $showTitle ? $title : '';
             $html .= <<<HTML
-<button class="iframe-modal-trigger" onclick="openIframeModal('{$url}', '{$modalTitle}')">
+<button class="iframe-modal-trigger" data-iframe-url="{$url}" data-iframe-title="{$modalTitle}">
     <span class="iframe-modal-icon">↗️</span>
     <span>Formular öffnen</span>
 </button>

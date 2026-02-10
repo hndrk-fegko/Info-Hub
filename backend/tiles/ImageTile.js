@@ -11,6 +11,25 @@ function closeLightbox() {
     document.body.style.overflow = '';
 }
 
+// Event-Delegation für data-lightbox-src Elemente (statt inline onclick)
+document.addEventListener('click', (e) => {
+    const trigger = e.target.closest('[data-lightbox-src]');
+    if (trigger) {
+        openLightbox(trigger.dataset.lightboxSrc);
+    }
+});
+
+// Keyboard-Support: Enter/Space öffnet Lightbox
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+        const trigger = e.target.closest('[data-lightbox-src]');
+        if (trigger) {
+            e.preventDefault();
+            openLightbox(trigger.dataset.lightboxSrc);
+        }
+    }
+});
+
 // Escape-Taste schließt Lightbox
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {

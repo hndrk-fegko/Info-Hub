@@ -20,6 +20,14 @@ function closeIframeModal() {
     document.body.style.overflow = '';
 }
 
+// Event-Delegation für data-iframe-url Elemente (statt inline onclick)
+document.addEventListener('click', (e) => {
+    const trigger = e.target.closest('[data-iframe-url]');
+    if (trigger) {
+        openIframeModal(trigger.dataset.iframeUrl, trigger.dataset.iframeTitle || '');
+    }
+});
+
 // Click outside to close
 document.getElementById('iframe-modal')?.addEventListener('click', (e) => {
     if (e.target.id === 'iframe-modal') {
