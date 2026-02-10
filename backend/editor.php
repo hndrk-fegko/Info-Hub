@@ -69,6 +69,7 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'none';">
     <title>Editor - <?= htmlspecialchars($settings['site']['title'] ?? 'Info-Hub') ?></title>
     <link rel="stylesheet" href="../assets/css/editor.css">
 </head>
@@ -273,6 +274,17 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                         <small>Bestimmt, welcher Bildbereich beim Zuschneiden sichtbar bleibt</small>
                     </div>
                 </div>
+
+                <div class="settings-section">
+                    <h3>Admin-Benutzer</h3>
+                    <div id="adminEmailList" class="admin-email-list"></div>
+                    <div class="admin-actions">
+                        <button type="button" class="btn btn-secondary" onclick="openInviteAdminModal()">
+                            Neuen Admin einladen
+                        </button>
+                    </div>
+                    <small>Ausstehende Einladungen laufen nach 60 Minuten ab. Die letzte Admin-Adresse kann nicht gelöscht werden.</small>
+                </div>
                 
                 <div class="settings-section">
                     <h3>Farben</h3>
@@ -299,6 +311,27 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Invite Admin Modal -->
+    <div id="inviteAdminModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Neuen Admin einladen</h2>
+                <button type="button" class="modal-close" onclick="closeInviteAdminModal()">×</button>
+            </div>
+            <form id="inviteAdminForm" onsubmit="submitInviteAdmin(event)">
+                <div class="form-group">
+                    <label for="inviteEmail">Email-Adresse</label>
+                    <input type="email" id="inviteEmail" name="inviteEmail" placeholder="name@example.com" required>
+                    <small>Der eingeladene Admin muss sich innerhalb von 60 Minuten anmelden.</small>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeInviteAdminModal()">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Einladung senden</button>
                 </div>
             </form>
         </div>
@@ -362,6 +395,14 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
         }
         
     </script>
-    <script src="../assets/js/editor.js?v=<?= filemtime(__DIR__ . '/../assets/js/editor.js') ?>_<?= time() ?>"></script>
+    <!-- Editor Module (Reihenfolge wichtig: core → tiles → modals → settings → session → init) -->
+    <?php
+    $editorModules = ['editor-core', 'editor-tiles', 'editor-modals', 'editor-settings', 'editor-session', 'editor-init'];
+    foreach ($editorModules as $module):
+        $filePath = __DIR__ . "/../assets/js/{$module}.js";
+        $version = file_exists($filePath) ? filemtime($filePath) : time();
+    ?>
+    <script src="../assets/js/<?= $module ?>.js?v=<?= $version ?>"></script>
+    <?php endforeach; ?>
 </body>
 </html>

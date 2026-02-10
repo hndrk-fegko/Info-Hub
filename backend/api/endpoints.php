@@ -54,7 +54,7 @@ try {
     
     // Auth prüfen (außer für bestimmte Actions)
     $auth = new AuthService();
-    $publicActions = ['preview'];  // Actions die ohne Auth erlaubt sind
+    $publicActions = [];  // Alle Actions erfordern Authentifizierung
     $getActions = ['get_tiles', 'get_tile', 'get_settings', 'get_tile_types', 'list_files', 'preview'];  // GET erlaubt
     
     // Action ermitteln
@@ -172,6 +172,14 @@ try {
                 $masked = '***' . substr($email, -10);
                 $settings['auth']['emailMasked'] = $masked;
             }
+            if (isset($settings['auth']['emails']) && is_array($settings['auth']['emails'])) {
+                $settings['auth']['emailsMasked'] = array_map(function($email) {
+                    return '***' . substr($email, -10);
+                }, $settings['auth']['emails']);
+            }
+            
+            // Sensible Auth-Daten entfernen - nur maskierte Version senden
+            unset($settings['auth']['email'], $settings['auth']['emails'], $settings['auth']['invites']);
             
             echo json_encode(['success' => true, 'settings' => $settings]);
             break;
@@ -188,10 +196,25 @@ try {
             
             // Nur erlaubte Felder aktualisieren (Email ist geschützt)
             if (isset($newSettings['site'])) {
-                $settings['site'] = array_merge($settings['site'] ?? [], $newSettings['site']);
+                // Site-Felder: nur erlaubte Keys, Strings sanitizen
+                $allowedSiteKeys = ['title', 'pageTitle', 'headerImage', 'headerFocusPoint', 'footerText'];
+                foreach ($allowedSiteKeys as $key) {
+                    if (isset($newSettings['site'][$key])) {
+                        $settings['site'][$key] = $newSettings['site'][$key];
+                    }
+                }
             }
             if (isset($newSettings['theme'])) {
-                $settings['theme'] = array_merge($settings['theme'] ?? [], $newSettings['theme']);
+                // Theme-Farben: nur gültige Hex-Werte (#RRGGBB) erlauben
+                $colorKeys = ['backgroundColor', 'accentColor', 'accentColor2', 'accentColor3'];
+                foreach ($colorKeys as $key) {
+                    if (isset($newSettings['theme'][$key])) {
+                        $color = $newSettings['theme'][$key];
+                        if (preg_match('/^#[0-9a-fA-F]{6}$/', $color)) {
+                            $settings['theme'][$key] = $color;
+                        }
+                    }
+                }
             }
             
             // Speichern
@@ -201,6 +224,46 @@ try {
             } else {
                 throw new Exception('Speichern fehlgeschlagen');
             }
+            break;
+
+        case 'get_admins':
+            $emails = $auth->getAdminEmails();
+            $invites = $auth->getPendingInvites();
+            echo json_encode(['success' => true, 'emails' => $emails, 'invites' => $invites]);
+            break;
+
+        case 'invite_admin':
+            $email = $_POST['email'] ?? '';
+            $createdBy = $_SESSION['auth_email'] ?? '';
+            $result = $auth->createInvite($email, $createdBy);
+            if (!$result['success']) {
+                http_response_code(400);
+            }
+            $result['emails'] = $auth->getAdminEmails();
+            $result['invites'] = $auth->getPendingInvites();
+            echo json_encode($result);
+            break;
+
+        case 'remove_admin_email':
+            $email = $_POST['email'] ?? '';
+            $result = $auth->removeAdminEmail($email);
+            if (!$result['success']) {
+                http_response_code(400);
+            }
+            $result['emails'] = $auth->getAdminEmails();
+            $result['invites'] = $auth->getPendingInvites();
+            echo json_encode($result);
+            break;
+
+        case 'remove_admin_invite':
+            $email = $_POST['email'] ?? '';
+            $result = $auth->removeInvite($email);
+            if (!$result['success']) {
+                http_response_code(400);
+            }
+            $result['emails'] = $auth->getAdminEmails();
+            $result['invites'] = $auth->getPendingInvites();
+            echo json_encode($result);
             break;
         
         // ===== UPLOADS =====

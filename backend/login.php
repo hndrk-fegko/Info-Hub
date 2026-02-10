@@ -39,6 +39,7 @@ if ($auth->isAuthenticated()) {
 $error = '';
 $success = '';
 $step = $_POST['step'] ?? 'email';
+$prefillEmail = $_GET['email'] ?? '';
 
 // Session abgelaufen?
 if (isset($_GET['expired'])) {
@@ -50,6 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($step === 'email') {
         $email = trim($_POST['email'] ?? '');
+        if (!empty($email)) {
+            $prefillEmail = $email;
+        }
         
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = 'Bitte gültige Email-Adresse eingeben';
@@ -338,10 +342,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 <div class="form-group">
                     <label for="email">Email-Adresse</label>
-                    <input 
+                    <input
                         type="email" 
                         id="email" 
                         name="email" 
+                        value="<?= htmlspecialchars($prefillEmail) ?>"
                         placeholder="admin@example.com"
                         autofocus
                         required

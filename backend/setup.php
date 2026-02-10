@@ -26,7 +26,7 @@ if (file_exists(__DIR__ . '/config.php')) {
 $settingsFile = __DIR__ . '/data/settings.json';
 if (file_exists($settingsFile)) {
     $settings = json_decode(file_get_contents($settingsFile), true);
-    if (!empty($settings['auth']['email'])) {
+    if (!empty($settings['auth']['email']) || !empty($settings['auth']['emails'])) {
         // Setup bereits durchgeführt
         header('Location: login.php');
         exit;
@@ -115,7 +115,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'accentColor3' => '#ed8936'
             ],
             'auth' => [
-                'email' => $email
+                'emails' => [$email],
+                'invites' => []
             ]
         ];
         
@@ -163,6 +164,7 @@ define('SESSION_WARNING_BEFORE', 300);
 define('LOGIN_CODE_EXPIRY', 900);
 define('MAX_LOGIN_ATTEMPTS', 3);
 define('LOGIN_LOCKOUT_DURATION', 600);
+define('ADMIN_INVITE_EXPIRY', 3600);
 define('MAX_IMAGE_SIZE', 5 * 1024 * 1024);
 define('MAX_DOWNLOAD_SIZE', 50 * 1024 * 1024);
 define('ALLOWED_IMAGE_EXTENSIONS', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
@@ -202,9 +204,12 @@ HTACCESS;
         
         $success = true;
         
-        // Setup-Datei löschen (Sicherheit)
-        // Auskommentiert für Development - in Production aktivieren!
-        // unlink(__FILE__);
+        // Setup-Datei löschen — außer in lokaler Dev-Umgebung oder DEBUG_MODE
+        $isLocalhost = in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1', '::1']);
+        $isDebug = defined('DEBUG_MODE') && DEBUG_MODE;
+        if (!$isLocalhost && !$isDebug) {
+            unlink(__FILE__);
+        }
     }
 }
 ?>

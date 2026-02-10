@@ -11,6 +11,7 @@
         "accentColor3": "#ed8936"
     },
     "auth": {
-        "email": ""
+        "emails": [""],
+        "invites": []
     }
 }

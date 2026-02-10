@@ -25,6 +25,7 @@ class AuthService {
     private int $maxAttempts;
     private int $lockoutTime;
     private int $warningBefore;
+    private int $inviteExpiry;
     
     private StorageService $settingsStorage;
     
@@ -35,6 +36,7 @@ class AuthService {
         $this->maxAttempts = defined('MAX_LOGIN_ATTEMPTS') ? constant('MAX_LOGIN_ATTEMPTS') : 3;
         $this->lockoutTime = defined('LOGIN_LOCKOUT_DURATION') ? constant('LOGIN_LOCKOUT_DURATION') : 600;
         $this->warningBefore = defined('SESSION_WARNING_BEFORE') ? constant('SESSION_WARNING_BEFORE') : 300;
+        $this->inviteExpiry = defined('ADMIN_INVITE_EXPIRY') ? constant('ADMIN_INVITE_EXPIRY') : 3600;
         
         // Debug: Log die geladenen Werte
         if (defined('DEBUG_MODE') && constant('DEBUG_MODE')) {
@@ -52,6 +54,90 @@ class AuthService {
         $this->settingsStorage = new StorageService('settings.json');
         $this->ensureSession();
     }
+
+    /**
+     * Normalisiert eine Email-Adresse
+     */
+    private function normalizeEmail(string $email): string {
+        return strtolower(trim($email));
+    }
+
+    /**
+     * Lädt Settings und sorgt für kompatibles Auth-Format
+     */
+    private function getSettings(bool $saveIfChanged = true): array {
+        $settings = $this->settingsStorage->read();
+        $changed = false;
+
+        if (!isset($settings['auth']) || !is_array($settings['auth'])) {
+            $settings['auth'] = [];
+            $changed = true;
+        }
+
+        if (!isset($settings['auth']['emails']) || !is_array($settings['auth']['emails'])) {
+            if (!empty($settings['auth']['email'])) {
+                $settings['auth']['emails'] = [$settings['auth']['email']];
+            } else {
+                $settings['auth']['emails'] = [];
+            }
+            $changed = true;
+        }
+
+        // Altes Feld aufräumen nach Migration (einmalig)
+        if (array_key_exists('email', $settings['auth'])) {
+            unset($settings['auth']['email']);
+            $changed = true;
+        }
+
+        if (!isset($settings['auth']['invites']) || !is_array($settings['auth']['invites'])) {
+            $settings['auth']['invites'] = [];
+            $changed = true;
+        }
+
+        if ($this->cleanupExpiredInvites($settings)) {
+            $changed = true;
+        }
+
+        if ($saveIfChanged && $changed) {
+            $this->settingsStorage->write($settings);
+        }
+
+        return $settings;
+    }
+
+    /**
+     * Entfernt abgelaufene Einladungen
+     */
+    private function cleanupExpiredInvites(array &$settings): bool {
+        if (empty($settings['auth']['invites'])) {
+            return false;
+        }
+
+        $now = time();
+        $before = count($settings['auth']['invites']);
+
+        $settings['auth']['invites'] = array_values(array_filter(
+            $settings['auth']['invites'],
+            fn($invite) => ($invite['expiresAt'] ?? 0) > $now
+        ));
+
+        return count($settings['auth']['invites']) !== $before;
+    }
+
+    /**
+     * Findet eine gültige Einladung für eine Email
+     */
+    private function findInvite(array $settings, string $email): ?array {
+        $email = $this->normalizeEmail($email);
+
+        foreach ($settings['auth']['invites'] as $invite) {
+            if ($this->normalizeEmail($invite['email'] ?? '') === $email) {
+                return $invite;
+            }
+        }
+
+        return null;
+    }
     
     /**
      * Sendet Login-Code an die hinterlegte Email
@@ -60,19 +146,28 @@ class AuthService {
      * @return array ['success' => bool, 'message' => string]
      */
     public function sendCode(string $email): array {
-        $settings = $this->settingsStorage->read();
-        $adminEmail = $settings['auth']['email'] ?? null;
+        $settings = $this->getSettings();
+        $email = $this->normalizeEmail($email);
+        $adminEmails = $settings['auth']['emails'] ?? [];
         
-        if (!$adminEmail) {
+        if (empty($adminEmails)) {
             LogService::error('AuthService', 'No admin email configured');
             return ['success' => false, 'message' => 'System nicht konfiguriert'];
         }
-        
-        // Email-Vergleich (case-insensitive)
-        if (strtolower(trim($email)) !== strtolower(trim($adminEmail))) {
+
+        // Prüfen ob Email autorisiert ist (Admin oder gültige Einladung)
+        $isAdmin = in_array($email, array_map([$this, 'normalizeEmail'], $adminEmails), true);
+        $invite = $isAdmin ? null : $this->findInvite($settings, $email);
+
+        if (!$isAdmin && !$invite) {
             LogService::warning('AuthService', 'Invalid email attempt', ['email' => $email]);
             // Gleiche Antwort für Security (kein Hinweis ob Email existiert)
             return ['success' => true, 'message' => 'Falls die Email korrekt ist, wurde ein Code versendet'];
+        }
+
+        if ($invite && ($invite['expiresAt'] ?? 0) <= time()) {
+            LogService::info('AuthService', 'Invite expired on login attempt', ['email' => $email]);
+            return ['success' => false, 'message' => 'Einladung ist abgelaufen'];
         }
         
         // Code generieren
@@ -82,7 +177,8 @@ class AuthService {
         $_SESSION['auth_code'] = $code;
         $_SESSION['auth_code_expires'] = time() + $this->codeExpiry;
         $_SESSION['auth_attempts'] = 0;
-        $_SESSION['auth_email'] = $adminEmail;
+        $_SESSION['auth_email'] = $email;
+        $_SESSION['auth_pending_email'] = $invite ? $email : null;
         
         // Email versenden
         $siteName = $settings['site']['title'] ?? 'Info-Hub';
@@ -95,11 +191,11 @@ class AuthService {
         
         $headers = "From: noreply@" . ($_SERVER['HTTP_HOST'] ?? 'localhost');
         
-        $mailSent = @mail($adminEmail, $subject, $message, $headers);
+        $mailSent = @mail($email, $subject, $message, $headers);
         
         // DEVELOPMENT MODE: Wenn mail() fehlschlägt, Code in Session für Debug anzeigen
         if (!$mailSent) {
-            LogService::error('AuthService', 'Failed to send email', ['email' => $adminEmail]);
+            LogService::error('AuthService', 'Failed to send email', ['email' => $email]);
             
             // Für Development: Code trotzdem in Session speichern und per Message zurückgeben
             if (defined('DEBUG_MODE') && constant('DEBUG_MODE')) {
@@ -111,7 +207,7 @@ class AuthService {
             return ['success' => false, 'message' => 'Email konnte nicht versendet werden'];
         }
         
-        LogService::info('AuthService', 'Login code sent', ['email' => $adminEmail]);
+        LogService::info('AuthService', 'Login code sent', ['email' => $email]);
         return ['success' => true, 'message' => 'Falls die Email korrekt ist, wurde ein Code versendet'];
     }
     
@@ -159,6 +255,31 @@ class AuthService {
                 'message' => "Falscher Code. Noch $remaining Versuche."
             ];
         }
+
+        // Einladung prüfen/aktivieren (falls vorhanden)
+        $pendingEmail = $_SESSION['auth_pending_email'] ?? null;
+        if (!empty($pendingEmail)) {
+            $settings = $this->getSettings();
+            $invite = $this->findInvite($settings, $pendingEmail);
+
+            if (!$invite) {
+                return ['success' => false, 'message' => 'Einladung ist nicht mehr gültig'];
+            }
+
+            // Einladung aktivieren
+            $emails = $settings['auth']['emails'] ?? [];
+            if (!in_array($pendingEmail, array_map([$this, 'normalizeEmail'], $emails), true)) {
+                $settings['auth']['emails'][] = $pendingEmail;
+            }
+
+            // Einladung entfernen
+            $settings['auth']['invites'] = array_values(array_filter(
+                $settings['auth']['invites'],
+                fn($i) => $this->normalizeEmail($i['email'] ?? '') !== $pendingEmail
+            ));
+
+            $this->settingsStorage->write($settings);
+        }
         
         // Erfolg!
         // Session-ID regenerieren (Security: verhindert Session-Fixation)
@@ -170,7 +291,7 @@ class AuthService {
         // CSRF-Token generieren
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         
-        unset($_SESSION['auth_code'], $_SESSION['auth_code_expires'], $_SESSION['auth_attempts']);
+        unset($_SESSION['auth_code'], $_SESSION['auth_code_expires'], $_SESSION['auth_attempts'], $_SESSION['auth_pending_email']);
         
         LogService::success('AuthService', 'User authenticated', [
             'email' => $_SESSION['auth_email'] ?? 'unknown'
@@ -254,5 +375,140 @@ class AuthService {
      */
     public function getSessionWarningBefore(): int {
         return $this->warningBefore;
+    }
+
+    /**
+     * Gibt Admin-Emails zurück
+     */
+    public function getAdminEmails(): array {
+        $settings = $this->getSettings();
+        return $settings['auth']['emails'] ?? [];
+    }
+
+    /**
+     * Gibt offene Einladungen zurück
+     */
+    public function getPendingInvites(): array {
+        $settings = $this->getSettings();
+        return $settings['auth']['invites'] ?? [];
+    }
+
+    /**
+     * Erstellt eine neue Einladung
+     */
+    public function createInvite(string $email, string $createdBy = ''): array {
+        $settings = $this->getSettings();
+        $email = $this->normalizeEmail($email);
+
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['success' => false, 'message' => 'Ungültige Email-Adresse'];
+        }
+
+        $emails = $settings['auth']['emails'] ?? [];
+        $emailsNormalized = array_map([$this, 'normalizeEmail'], $emails);
+
+        if (in_array($email, $emailsNormalized, true)) {
+            return ['success' => false, 'message' => 'Diese Email ist bereits Admin'];
+        }
+
+        foreach ($settings['auth']['invites'] as $invite) {
+            if ($this->normalizeEmail($invite['email'] ?? '') === $email) {
+                return ['success' => false, 'message' => 'Für diese Email existiert bereits eine Einladung'];
+            }
+        }
+
+        $createdAt = time();
+        $expiresAt = $createdAt + $this->inviteExpiry;
+
+        $settings['auth']['invites'][] = [
+            'email' => $email,
+            'createdAt' => $createdAt,
+            'expiresAt' => $expiresAt,
+            'createdBy' => $createdBy
+        ];
+
+        $this->settingsStorage->write($settings);
+
+        // Einladung per Email versenden (Link mit Prefill)
+        $siteName = $settings['site']['title'] ?? 'Info-Hub';
+        $subject = "$siteName - Admin Einladung";
+        $expiryMinutes = ceil($this->inviteExpiry / 60);
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        // Basispfad dynamisch ermitteln (funktioniert auch in Unterverzeichnissen)
+        $scriptPath = $_SERVER['SCRIPT_NAME'] ?? '';
+        $backendPos = strpos($scriptPath, '/backend/');
+        $basePath = ($backendPos !== false) ? substr($scriptPath, 0, $backendPos) : '';
+        $inviteLink = $scheme . '://' . $host . $basePath . '/backend/login.php?email=' . urlencode($email);
+
+        $message = "Du wurdest als Admin eingeladen.\n\n" .
+                   "Bitte besuche innerhalb von {$expiryMinutes} Minuten folgenden Link und melde dich mit dieser Adresse an, um deinen Zugang zu aktivieren:\n" .
+                   "$inviteLink\n\n" .
+                   "Wenn du diese Einladung nicht erwartest, kannst du diese Email ignorieren.";
+
+        $headers = "From: noreply@" . $host;
+        $mailSent = @mail($email, $subject, $message, $headers);
+
+        if (!$mailSent) {
+            LogService::error('AuthService', 'Failed to send invite email', ['email' => $email]);
+            if (defined('DEBUG_MODE') && constant('DEBUG_MODE')) {
+                return ['success' => true, 'message' => 'Einladung erstellt. DEBUG: ' . $inviteLink];
+            }
+            return ['success' => false, 'message' => 'Einladung erstellt, aber Email-Versand fehlgeschlagen'];
+        }
+
+        LogService::info('AuthService', 'Invite created', ['email' => $email, 'createdBy' => $createdBy]);
+        return ['success' => true, 'message' => 'Einladung wurde versendet'];
+    }
+
+    /**
+     * Entfernt eine Admin-Email (letzte darf nicht gelöscht werden)
+     */
+    public function removeAdminEmail(string $email): array {
+        $settings = $this->getSettings();
+        $email = $this->normalizeEmail($email);
+        $emails = $settings['auth']['emails'] ?? [];
+        $emailsNormalized = array_map([$this, 'normalizeEmail'], $emails);
+
+        if (!in_array($email, $emailsNormalized, true)) {
+            return ['success' => false, 'message' => 'Email nicht gefunden'];
+        }
+
+        if (count($emails) <= 1) {
+            return ['success' => false, 'message' => 'Die letzte Admin-Email kann nicht gelöscht werden'];
+        }
+
+        $settings['auth']['emails'] = array_values(array_filter(
+            $emails,
+            fn($e) => $this->normalizeEmail($e) !== $email
+        ));
+
+        $this->settingsStorage->write($settings);
+        LogService::info('AuthService', 'Admin email removed', ['email' => $email]);
+
+        return ['success' => true, 'message' => 'Admin entfernt'];
+    }
+
+    /**
+     * Entfernt eine offene Einladung
+     */
+    public function removeInvite(string $email): array {
+        $settings = $this->getSettings();
+        $email = $this->normalizeEmail($email);
+
+        $before = count($settings['auth']['invites'] ?? []);
+        $settings['auth']['invites'] = array_values(array_filter(
+            $settings['auth']['invites'] ?? [],
+            fn($i) => $this->normalizeEmail($i['email'] ?? '') !== $email
+        ));
+
+        if (count($settings['auth']['invites']) === $before) {
+            return ['success' => false, 'message' => 'Einladung nicht gefunden'];
+        }
+
+        $this->settingsStorage->write($settings);
+        LogService::info('AuthService', 'Invite removed', ['email' => $email]);
+
+        return ['success' => true, 'message' => 'Einladung entfernt'];
     }
 }
