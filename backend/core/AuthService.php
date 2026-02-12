@@ -190,7 +190,7 @@ class AuthService {
         $_SESSION['auth_pending_email'] = $invite ? $email : null;
         
         // Email versenden
-        $siteName = $settings['site']['title'] ?? 'Info-Hub';
+        $siteName = trim($settings['site']['title'] ?? '') ?: 'Info-Hub';
         $subject = "$siteName - Login-Code";
         
         // Email-Inhalt mit Sicherheitshinweisen
@@ -198,25 +198,12 @@ class AuthService {
         $codeExpiryMinutes = ceil($this->codeExpiry / 60);
         $message = "Dein Login-Code: $code\n\nGültig für {$codeExpiryMinutes} Minuten.\n\nFalls du diesen Code nicht angefordert hast, ignoriere diese Email.{$securityInfo}";
         
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        // Host bereinigen (Port entfernen falls vorhanden)
-        $host = preg_replace('/:\d+$/', '', $host);
-        $fromEmail = 'noreply@' . $host;
-        
-        $headers  = "From: {$siteName} <{$fromEmail}>\r\n";
-        $headers .= "Reply-To: {$fromEmail}\r\n";
-        $headers .= "MIME-Version: 1.0\r\n";
-        $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
-        $headers .= "X-Mailer: Info-Hub/1.0";
-        
-        $mailSent = @mail($email, $subject, $message, $headers, "-f{$fromEmail}");
+        $mailSent = $this->sendMail($email, $subject, $message);
         
         // DEVELOPMENT MODE: Wenn mail() fehlschlägt, Code in Session für Debug anzeigen
         if (!$mailSent) {
             LogService::error('AuthService', 'Failed to send email', [
                 'email' => $email,
-                'from' => $fromEmail,
-                'host' => $host,
                 'isAdmin' => $isAdmin,
                 'isInvite' => ($invite !== null)
             ]);
@@ -375,6 +362,49 @@ class AuthService {
             session_start();
         }
     }
+
+    /**
+     * Versendet eine Email mit korrekten Headers
+     * 
+     * Zentrale Mail-Methode: Stellt sicher, dass From-Header,
+     * Encoding und Envelope-Sender korrekt gesetzt sind.
+     * Ohne das lehnen externe Mailserver die Mail ab.
+     *
+     * @param string $to Empfänger-Email
+     * @param string $subject Betreff
+     * @param string $message Nachrichtentext
+     * @return bool true wenn mail() erfolgreich war
+     */
+    private function sendMail(string $to, string $subject, string $message): bool {
+        $settings = $this->settingsStorage->read();
+        $siteName = trim($settings['site']['title'] ?? '');
+        
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        // Port entfernen (z.B. localhost:8000 → localhost)
+        $host = preg_replace('/:\d+$/', '', $host);
+        $fromEmail = 'noreply@' . $host;
+        
+        // From-Header: Mit oder ohne Display-Name
+        if (!empty($siteName)) {
+            // Display-Name RFC 2047 kodieren für Umlaute/Sonderzeichen
+            $encodedName = '=?UTF-8?B?' . base64_encode($siteName) . '?=';
+            $fromHeader = "{$encodedName} <{$fromEmail}>";
+        } else {
+            $fromHeader = $fromEmail;
+        }
+        
+        // Subject RFC 2047 kodieren für Umlaute
+        $encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
+        
+        $headers  = "From: {$fromHeader}\r\n";
+        $headers .= "Reply-To: {$fromEmail}\r\n";
+        $headers .= "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+        $headers .= "Content-Transfer-Encoding: 8bit\r\n";
+        $headers .= "X-Mailer: Info-Hub/1.0";
+        
+        return @mail($to, $encodedSubject, $message, $headers, "-f{$fromEmail}");
+    }
     
     /**
      * Gibt verbleibende Session-Zeit zurück
@@ -454,8 +484,6 @@ class AuthService {
         $this->settingsStorage->write($settings);
 
         // Einladung per Email versenden (Link mit Prefill)
-        $siteName = $settings['site']['title'] ?? 'Info-Hub';
-        $subject = "$siteName - Admin Einladung";
         $expiryMinutes = ceil($this->inviteExpiry / 60);
         $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
@@ -470,17 +498,8 @@ class AuthService {
                    "$inviteLink\n\n" .
                    "Wenn du diese Einladung nicht erwartest, kannst du diese Email ignorieren.";
 
-        // Host bereinigen (Port entfernen falls vorhanden)
-        $cleanHost = preg_replace('/:\d+$/', '', $host);
-        $fromEmail = 'noreply@' . $cleanHost;
-        
-        $headers  = "From: {$siteName} <{$fromEmail}>\r\n";
-        $headers .= "Reply-To: {$fromEmail}\r\n";
-        $headers .= "MIME-Version: 1.0\r\n";
-        $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
-        $headers .= "X-Mailer: Info-Hub/1.0";
-        
-        $mailSent = @mail($email, $subject, $message, $headers, "-f{$fromEmail}");
+        $siteName = trim($settings['site']['title'] ?? '') ?: 'Info-Hub';
+        $mailSent = $this->sendMail($email, "$siteName - Admin Einladung", $message);
 
         if (!$mailSent) {
             LogService::error('AuthService', 'Failed to send invite email', ['email' => $email]);
