@@ -403,7 +403,44 @@ class AuthService {
         $headers .= "Content-Transfer-Encoding: 8bit\r\n";
         $headers .= "X-Mailer: Info-Hub/1.0";
         
-        return @mail($to, $encodedSubject, $message, $headers, "-f{$fromEmail}");
+        $envelopeSender = "-f{$fromEmail}";
+        
+        // DEBUG: Komplette Mail-Rohdaten loggen vor dem Versand
+        if (defined('DEBUG_MODE') && constant('DEBUG_MODE')) {
+            LogService::debug('AuthService', 'MAIL_DEBUG: Preparing to send', [
+                'to' => $to,
+                'subject_raw' => $subject,
+                'subject_encoded' => $encodedSubject,
+                'from_email' => $fromEmail,
+                'from_header' => $fromHeader,
+                'envelope_sender' => $envelopeSender,
+                'host' => $host,
+                'headers_raw' => str_replace("\r\n", ' | ', $headers),
+                'message_length' => strlen($message),
+                'message_preview' => mb_substr($message, 0, 200),
+                'php_mail_path' => ini_get('sendmail_path') ?: '(not set)',
+                'php_mail_from' => ini_get('sendmail_from') ?: '(not set)',
+                'smtp_host' => ini_get('SMTP') ?: '(not set)',
+                'smtp_port' => ini_get('smtp_port') ?: '(not set)'
+            ]);
+        }
+        
+        // PHP-Fehler abfangen für bessere Diagnose
+        error_clear_last();
+        $result = @mail($to, $encodedSubject, $message, $headers, $envelopeSender);
+        $lastError = error_get_last();
+        
+        // DEBUG: Ergebnis loggen
+        if (defined('DEBUG_MODE') && constant('DEBUG_MODE')) {
+            LogService::debug('AuthService', 'MAIL_DEBUG: mail() returned', [
+                'to' => $to,
+                'result' => $result ? 'TRUE (accepted by local MTA)' : 'FALSE (rejected)',
+                'php_error' => $lastError ? $lastError['message'] : null,
+                'php_error_type' => $lastError ? $lastError['type'] : null
+            ]);
+        }
+        
+        return $result;
     }
     
     /**
