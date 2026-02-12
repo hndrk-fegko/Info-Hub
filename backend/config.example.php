@@ -47,7 +47,8 @@ define('MAX_LOGIN_ATTEMPTS', 3);
 // Sperrdauer nach zu vielen Versuchen in Sekunden (Standard: 10 Minuten)
 define('LOGIN_LOCKOUT_DURATION', 600);
 
-// Gültigkeit einer Admin-Einladung in Sekunden (Standard: 1 Stunde)
+// Admin-Einladung Gültigkeit in Sekunden (Standard: 1 Stunde)
+// Security: Beide Admins sollten gleichzeitig am Rechner sein
 define('ADMIN_INVITE_EXPIRY', 3600);
 
 // ============================================

@@ -114,11 +114,15 @@ class AuthService {
         }
 
         $now = time();
+        // Abgelaufene Einladungen bleiben noch so lange wie ihre Gültigkeit war,
+        // damit sendCode() eine hilfreiche "abgelaufen"-Meldung geben kann.
+        // Danach werden sie beim nächsten Login (lazy) aufgeräumt.
+        $gracePeriod = $this->inviteExpiry;
         $before = count($settings['auth']['invites']);
 
         $settings['auth']['invites'] = array_values(array_filter(
             $settings['auth']['invites'],
-            fn($invite) => ($invite['expiresAt'] ?? 0) > $now
+            fn($invite) => ($invite['expiresAt'] ?? 0) > ($now - $gracePeriod)
         ));
 
         return count($settings['auth']['invites']) !== $before;
@@ -157,17 +161,22 @@ class AuthService {
 
         // Prüfen ob Email autorisiert ist (Admin oder gültige Einladung)
         $isAdmin = in_array($email, array_map([$this, 'normalizeEmail'], $adminEmails), true);
+        
+        // Auch abgelaufene Einladungen suchen (vor Cleanup!) um bessere Fehlermeldung zu geben
         $invite = $isAdmin ? null : $this->findInvite($settings, $email);
+
+        if (!$isAdmin && $invite && ($invite['expiresAt'] ?? 0) <= time()) {
+            LogService::info('AuthService', 'Invite expired on login attempt', [
+                'email' => $email,
+                'expiredAt' => date('c', $invite['expiresAt'] ?? 0)
+            ]);
+            return ['success' => false, 'message' => 'Einladung ist abgelaufen. Bitte fordere eine neue Einladung an.'];
+        }
 
         if (!$isAdmin && !$invite) {
             LogService::warning('AuthService', 'Invalid email attempt', ['email' => $email]);
             // Gleiche Antwort für Security (kein Hinweis ob Email existiert)
             return ['success' => true, 'message' => 'Falls die Email korrekt ist, wurde ein Code versendet'];
-        }
-
-        if ($invite && ($invite['expiresAt'] ?? 0) <= time()) {
-            LogService::info('AuthService', 'Invite expired on login attempt', ['email' => $email]);
-            return ['success' => false, 'message' => 'Einladung ist abgelaufen'];
         }
         
         // Code generieren
@@ -189,13 +198,28 @@ class AuthService {
         $codeExpiryMinutes = ceil($this->codeExpiry / 60);
         $message = "Dein Login-Code: $code\n\nGültig für {$codeExpiryMinutes} Minuten.\n\nFalls du diesen Code nicht angefordert hast, ignoriere diese Email.{$securityInfo}";
         
-        $headers = "From: noreply@" . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        // Host bereinigen (Port entfernen falls vorhanden)
+        $host = preg_replace('/:\d+$/', '', $host);
+        $fromEmail = 'noreply@' . $host;
         
-        $mailSent = @mail($email, $subject, $message, $headers);
+        $headers  = "From: {$siteName} <{$fromEmail}>\r\n";
+        $headers .= "Reply-To: {$fromEmail}\r\n";
+        $headers .= "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+        $headers .= "X-Mailer: Info-Hub/1.0";
+        
+        $mailSent = @mail($email, $subject, $message, $headers, "-f{$fromEmail}");
         
         // DEVELOPMENT MODE: Wenn mail() fehlschlägt, Code in Session für Debug anzeigen
         if (!$mailSent) {
-            LogService::error('AuthService', 'Failed to send email', ['email' => $email]);
+            LogService::error('AuthService', 'Failed to send email', [
+                'email' => $email,
+                'from' => $fromEmail,
+                'host' => $host,
+                'isAdmin' => $isAdmin,
+                'isInvite' => ($invite !== null)
+            ]);
             
             // Für Development: Code trotzdem in Session speichern und per Message zurückgeben
             if (defined('DEBUG_MODE') && constant('DEBUG_MODE')) {
@@ -446,8 +470,17 @@ class AuthService {
                    "$inviteLink\n\n" .
                    "Wenn du diese Einladung nicht erwartest, kannst du diese Email ignorieren.";
 
-        $headers = "From: noreply@" . $host;
-        $mailSent = @mail($email, $subject, $message, $headers);
+        // Host bereinigen (Port entfernen falls vorhanden)
+        $cleanHost = preg_replace('/:\d+$/', '', $host);
+        $fromEmail = 'noreply@' . $cleanHost;
+        
+        $headers  = "From: {$siteName} <{$fromEmail}>\r\n";
+        $headers .= "Reply-To: {$fromEmail}\r\n";
+        $headers .= "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+        $headers .= "X-Mailer: Info-Hub/1.0";
+        
+        $mailSent = @mail($email, $subject, $message, $headers, "-f{$fromEmail}");
 
         if (!$mailSent) {
             LogService::error('AuthService', 'Failed to send invite email', ['email' => $email]);
