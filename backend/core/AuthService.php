@@ -379,10 +379,19 @@ class AuthService {
         $settings = $this->settingsStorage->read();
         $siteName = trim($settings['site']['title'] ?? '');
         
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        // Port entfernen (z.B. localhost:8000 → localhost)
-        $host = preg_replace('/:\d+$/', '', $host);
-        $fromEmail = 'noreply@' . $host;
+        // From-Adresse: Konfiguriert oder aus HTTP_HOST abgeleitet
+        // MAIL_FROM_ADDRESS muss gesetzt werden, wenn die Subdomain
+        // auf einem Server liegt, der nicht für diese Domain mailen darf (SPF).
+        $configuredFrom = defined('MAIL_FROM_ADDRESS') ? constant('MAIL_FROM_ADDRESS') : '';
+        
+        if (!empty($configuredFrom) && filter_var($configuredFrom, FILTER_VALIDATE_EMAIL)) {
+            $fromEmail = $configuredFrom;
+        } else {
+            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            // Port entfernen (z.B. localhost:8000 → localhost)
+            $host = preg_replace('/:\d+$/', '', $host);
+            $fromEmail = 'noreply@' . $host;
+        }
         
         // From-Header: Mit oder ohne Display-Name
         if (!empty($siteName)) {
@@ -414,7 +423,7 @@ class AuthService {
                 'from_email' => $fromEmail,
                 'from_header' => $fromHeader,
                 'envelope_sender' => $envelopeSender,
-                'host' => $host,
+                'configured_from' => $configuredFrom ?: '(not set, using HTTP_HOST)',
                 'headers_raw' => str_replace("\r\n", ' | ', $headers),
                 'message_length' => strlen($message),
                 'message_preview' => mb_substr($message, 0, 200),

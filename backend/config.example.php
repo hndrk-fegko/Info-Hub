@@ -52,6 +52,19 @@ define('LOGIN_LOCKOUT_DURATION', 600);
 define('ADMIN_INVITE_EXPIRY', 3600);
 
 // ============================================
+// MAIL-EINSTELLUNGEN
+// ============================================
+
+// Absender-Adresse für System-Emails (Login-Codes, Einladungen)
+// WICHTIG: Muss eine Domain sein, für die der Server senden darf (SPF)!
+// Wenn die Subdomain auf einem fremden Server liegt, hier die
+// Hauptdomain des Hosters verwenden.
+// Leer lassen = automatisch aus HTTP_HOST (funktioniert nur wenn
+// der Server auch für diese Domain mailen darf)
+// Beispiel: 'noreply@mein-hoster.de'
+define('MAIL_FROM_ADDRESS', '');
+
+// ============================================
 // UPLOAD-LIMITS
 // ============================================
 
