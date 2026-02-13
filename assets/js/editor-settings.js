@@ -111,10 +111,14 @@ function renderAdminEmailList() {
 
     const adminItems = adminEmailsCache.map(email => {
         const disabled = canRemoveAdmin ? '' : 'disabled';
-        const title = canRemoveAdmin ? 'Admin entfernen' : 'Letzte Admin-Adresse kann nicht gelöscht werden';
+        const isSelf = CONFIG?.currentEmail && email.toLowerCase() === CONFIG.currentEmail.toLowerCase();
+        const title = !canRemoveAdmin
+            ? 'Letzte Admin-Adresse kann nicht gelöscht werden'
+            : isSelf ? 'Eigenen Zugang entfernen (Abmeldung!)' : 'Admin entfernen';
+        const label = isSelf ? `${escapeHtml(email)} (du)` : escapeHtml(email);
         return `
-            <div class="admin-email-item">
-                <span>${escapeHtml(email)}</span>
+            <div class="admin-email-item${isSelf ? ' is-self' : ''}">
+                <span>${label}</span>
                 <button class="admin-remove" ${disabled} title="${title}" onclick="removeAdminEmail('${escapeHtml(email)}')">✕</button>
             </div>
         `;
@@ -165,11 +169,22 @@ async function submitInviteAdmin(event) {
 }
 
 async function removeAdminEmail(email) {
-    if (!confirm('Admin wirklich entfernen?')) return;
+    const isSelf = CONFIG?.currentEmail && email.toLowerCase() === CONFIG.currentEmail.toLowerCase();
+    
+    const confirmMsg = isSelf
+        ? 'Du entfernst dich selbst als Admin!\n\nDu wirst sofort abgemeldet und kannst dich nicht mehr einloggen, bis ein anderer Admin dich erneut einlädt.\n\nWirklich fortfahren?'
+        : 'Admin wirklich entfernen?';
+    
+    if (!confirm(confirmMsg)) return;
 
     try {
         const result = await apiPost('remove_admin_email', { email });
         if (result.success) {
+            if (isSelf) {
+                // Self-delete: sofort abmelden
+                window.location.href = 'login.php?logout=1';
+                return;
+            }
             syncAdminData(result);
             showToast('success', result.message || 'Admin entfernt');
         } else {

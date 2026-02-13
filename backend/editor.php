@@ -375,6 +375,7 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
         window.CONFIG = {
             csrfToken: '<?= $csrfToken ?>',
             apiUrl: 'api/endpoints.php',
+            currentEmail: '<?= htmlspecialchars($_SESSION['auth_email'] ?? '', ENT_QUOTES) ?>',
             sessionTimeout: <?= $sessionTimeout ?>,
             sessionWarning: <?= $sessionWarning ?>,
             sessionRemaining: <?= $remainingTime ?>,
