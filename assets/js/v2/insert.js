@@ -393,14 +393,30 @@ window.V2Insert = (function() {
         });
         
         html += '</div>';
+        html += '<button class="v2-type-popup-close" title="Schließen">&times;</button>';
         _popup.innerHTML = html;
         document.body.appendChild(_popup);
         
+        // Close button
+        _popup.querySelector('.v2-type-popup-close').addEventListener('click', (e) => {
+            e.stopPropagation();
+            hideTypePopup();
+        });
+        
         // Click außerhalb schließt Popup
         document.addEventListener('click', (e) => {
+            if (_popup.style.display !== 'block') return;
             if (!e.target.closest('.v2-type-popup') && 
                 !e.target.closest('.v2-insert-trigger') &&
                 !e.target.closest('.v2-add-tile-btn')) {
+                hideTypePopup();
+            }
+        });
+        
+        // Escape schließt Popup
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && _popup.style.display === 'block') {
+                e.stopPropagation();
                 hideTypePopup();
             }
         });
