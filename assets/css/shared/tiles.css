@@ -1,0 +1,151 @@
+/* ===== Tile Base Styles ===== */
+
+.tile {
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing);
+    border-radius: var(--border-radius);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Card: Inhalt vertikal zentrieren (bei Grid-Stretch sichtbar) */
+.tile.style-card {
+    justify-content: center;
+}
+
+/* Flat: Inhalt oben (natürlicher Fluss) */
+.tile.style-flat {
+    justify-content: flex-start;
+}
+
+.tile:hover {
+    transform: translateY(-2px);
+}
+
+/* Flat tiles: kein Lift-Effekt */
+.tile.style-flat:hover {
+    transform: none;
+}
+
+/* Mobile: kein Hover-Lift */
+@media (max-width: 600px) {
+    .tile:hover {
+        transform: none;
+    }
+}
+
+/* ===== Tile Style Variants ===== */
+
+.tile.style-flat {
+    background: transparent;
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+.tile.style-card {
+    background: var(--card-bg);
+    box-shadow: var(--card-shadow);
+}
+
+.tile.style-card:hover {
+    box-shadow: var(--card-shadow-hover);
+}
+
+/* ===== Tile Color Schemes ===== */
+
+.tile.color-default {
+    background-color: transparent;
+}
+
+.tile.color-white {
+    background-color: var(--card-bg);
+}
+
+.tile.color-accent1 {
+    background-color: var(--accent-color);
+}
+
+.tile.color-accent2 {
+    background-color: var(--accent-color-2);
+}
+
+.tile.color-accent3 {
+    background-color: var(--accent-color-3);
+}
+
+/* Card-Style überschreibt default transparent mit weiß */
+.tile.style-card.color-default {
+    background-color: var(--card-bg);
+}
+
+/* ===== Tile Content ===== */
+
+.tile h3 {
+    margin-bottom: 12px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.tile p {
+    margin-bottom: 12px;
+}
+
+.tile p:last-child {
+    margin-bottom: 0;
+}
+
+.tile img {
+    max-width: 100%;
+    display: block;
+    border-radius: 8px;
+}
+
+.tile a {
+    color: var(--accent-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.tile a:hover {
+    text-decoration: underline;
+}
+
+/* ===== Download Button ===== */
+
+.tile-download {
+    text-align: center;
+}
+
+.tile-download .download-content {
+    text-align: left;
+}
+
+.tile-download .download-action {
+    margin-top: auto;
+    padding-top: 12px;
+    text-align: center;
+}
+
+.tile-download.style-flat .download-action {
+    margin-top: 12px;
+}
+
+.tile .download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent-color);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.tile .download-btn:hover {
+    filter: brightness(0.9);
+    transform: translateY(-1px);
+    text-decoration: none;
+}

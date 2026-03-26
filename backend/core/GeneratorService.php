@@ -226,6 +226,26 @@ class GeneratorService {
     }
     
     /**
+     * Lädt und kombiniert alle shared CSS-Dateien
+     */
+    private function loadSharedCSS(): string {
+        $sharedDir = __DIR__ . '/../../assets/css/shared/';
+        $files = ['variables.css', 'base.css', 'grid.css', 'tiles.css', 'header.css', 'footer.css', 'components.css'];
+        
+        $css = '';
+        foreach ($files as $file) {
+            $path = $sharedDir . $file;
+            if (file_exists($path)) {
+                $css .= "/* {$file} */\n" . file_get_contents($path) . "\n";
+            } else {
+                LogService::warning('GeneratorService', 'Shared CSS file missing', ['file' => $path]);
+            }
+        }
+        
+        return $css;
+    }
+    
+    /**
      * Rendert die komplette Seite
      */
     private function renderPage(array $settings, string $tilesHtml): string {
@@ -233,6 +253,9 @@ class GeneratorService {
         $tileCSS = $this->collectTileCSS();
         $tileJS = $this->collectTileJS();
         $tileInitCalls = $this->collectTileInitCalls();
+        
+        // Shared CSS laden
+        $sharedCSS = $this->loadSharedCSS();
         
         // Defaults
         $siteTitle = htmlspecialchars($settings['site']['title'] ?? '');
@@ -300,338 +323,8 @@ HTML;
             --accent-color: {$accentColor};
             --accent-color-2: {$accentColor2};
             --accent-color-3: {$accentColor3};
-            --text-color: #2d3748;
-            --text-light: #718096;
-            --card-bg: #ffffff;
-            --card-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 14px rgba(0,0,0,0.06);
-            --card-shadow-hover: 0 2px 6px rgba(0,0,0,0.06), 0 10px 24px rgba(0,0,0,0.1);
-            --border-radius: 14px;
-            --spacing: 24px;
-            --max-width: 1200px;
         }
-        
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        
-        html {
-            background-color: var(--bg-color);
-            overscroll-behavior: none;
-            scroll-behavior: smooth;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            line-height: 1.6;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-        
-        /* Header */
-        .site-header {
-            position: relative;
-            text-align: center;
-            margin-bottom: calc(var(--spacing) * 0.5);
-        }
-        
-        .site-header .header-image {
-            width: 100%;
-            height: 320px;
-            overflow: hidden;
-        }
-        
-        .site-header .header-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .site-header .site-title {
-            position: absolute;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: white;
-            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
-            font-size: clamp(1.5rem, 4vw, 2.5rem);
-            font-weight: 700;
-            padding: 12px 32px;
-            background: rgba(0, 0, 0, 0.3);
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
-            border-radius: var(--border-radius);
-            max-width: 90%;
-            letter-spacing: -0.01em;
-        }
-        
-        .site-header--minimal {
-            padding: 48px 24px;
-            background: var(--accent-color);
-        }
-        
-        .site-header--minimal .site-title {
-            position: static;
-            transform: none;
-            background: none;
-            text-shadow: none;
-            font-size: clamp(1.5rem, 4vw, 2.2rem);
-        }
-        
-        /* Tile Grid - 4 Spalten */
-        .tile-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: var(--spacing);
-            width: 100%;
-            max-width: var(--max-width);
-            margin: 0 auto;
-            padding: var(--spacing);
-            flex-grow: 1;
-            align-content: start;
-        }
-        
-        /* Tile Base */
-        .tile {
-            display: flex;
-            flex-direction: column;
-            padding: var(--spacing);
-            border-radius: var(--border-radius);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        
-        /* Card: Inhalt vertikal zentrieren (bei Grid-Stretch sichtbar) */
-        .tile.style-card {
-            justify-content: center;
-        }
-        
-        /* Flat: Inhalt oben (natürlicher Fluss) */
-        .tile.style-flat {
-            justify-content: flex-start;
-        }
-        
-        .tile:hover {
-            transform: translateY(-2px);
-        }
-        
-        /* Flat tiles: kein Lift-Effekt */
-        .tile.style-flat:hover {
-            transform: none;
-        }
-        
-        /* Tile Sizes - Desktop: 4 Spalten */
-        .tile.size-small {
-            grid-column: span 1;  /* 1/4 */
-        }
-        
-        .tile.size-medium {
-            grid-column: span 2;  /* 2/4 = 1/2 */
-        }
-        
-        .tile.size-large {
-            grid-column: span 3;  /* 3/4 */
-        }
-        
-        .tile.size-full {
-            grid-column: 1 / -1;  /* 4/4 = volle Breite */
-        }
-        
-        /* Tablet: 2 Spalten */
-        @media (max-width: 900px) {
-            .tile-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            .tile.size-small {
-                grid-column: span 1;  /* 1/2 */
-            }
-            .tile.size-medium {
-                grid-column: span 2;  /* 2/2 = voll */
-            }
-            .tile.size-large {
-                grid-column: span 2;  /* 2/2 = voll */
-            }
-            .site-header .header-image {
-                height: 260px;
-            }
-            .site-header .site-title {
-                bottom: 20px;
-            }
-        }
-        
-        /* Mobile: 1 Spalte */
-        @media (max-width: 600px) {
-            :root {
-                --spacing: 16px;
-                --border-radius: 12px;
-            }
-            .tile-grid {
-                grid-template-columns: 1fr;
-                gap: 16px;
-            }
-            .tile.size-small,
-            .tile.size-medium,
-            .tile.size-large,
-            .tile.size-full {
-                grid-column: span 1;
-            }
-            .tile:hover {
-                transform: none;
-            }
-            .site-header .header-image {
-                height: 200px;
-            }
-            .site-header .site-title {
-                bottom: 16px;
-                padding: 8px 20px;
-            }
-            .site-header--minimal {
-                padding: 32px 16px;
-            }
-        }
-        
-        /* Tile Styles */
-        .tile.style-flat {
-            background: transparent;
-            border-radius: 8px;
-            box-shadow: none;
-        }
-        
-        .tile.style-card {
-            background: var(--card-bg);
-            box-shadow: var(--card-shadow);
-        }
-        
-        .tile.style-card:hover {
-            box-shadow: var(--card-shadow-hover);
-        }
-        
-        /* Tile Color Schemes */
-        .tile.color-default {
-            background-color: transparent;
-        }
-        
-        .tile.color-white {
-            background-color: var(--card-bg);
-        }
-        
-        .tile.color-accent1 {
-            background-color: var(--accent-color);
-        }
-        
-        .tile.color-accent2 {
-            background-color: var(--accent-color-2);
-        }
-        
-        .tile.color-accent3 {
-            background-color: var(--accent-color-3);
-        }
-        
-        /* Card-Style überschreibt default transparent mit weiß */
-        .tile.style-card.color-default {
-            background-color: var(--card-bg);
-        }
-        
-        /* Tile Content */
-        .tile h3 {
-            margin-bottom: 12px;
-            font-size: 1.2rem;
-            font-weight: 600;
-            letter-spacing: -0.01em;
-        }
-        
-        .tile p {
-            margin-bottom: 12px;
-        }
-        
-        .tile p:last-child {
-            margin-bottom: 0;
-        }
-        
-        .tile img {
-            max-width: 100%;
-            display: block;
-            border-radius: 8px;
-        }
-        
-        .tile a {
-            color: var(--accent-color);
-            text-decoration: none;
-            font-weight: 500;
-        }
-        
-        .tile a:hover {
-            text-decoration: underline;
-        }
-        
-        /* Download Button */
-        .tile-download {
-            text-align: center;
-        }
-        
-        .tile-download .download-content {
-            text-align: left;
-        }
-        
-        .tile-download .download-action {
-            margin-top: auto;
-            padding-top: 12px;
-            text-align: center;
-        }
-        
-        .tile-download.style-flat .download-action {
-            margin-top: 12px;
-        }
-        
-        .tile .download-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: var(--accent-color);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 500;
-            transition: filter 0.2s ease, transform 0.2s ease;
-        }
-        
-        .tile .download-btn:hover {
-            filter: brightness(0.9);
-            transform: translateY(-1px);
-            text-decoration: none;
-        }
-        
-        /* Footer */
-        .site-footer {
-            text-align: center;
-            padding: 32px 24px;
-            color: var(--text-light);
-            margin-top: auto;
-            padding-top: 32px;
-            font-size: 0.875rem;
-            border-top: 1px solid rgba(0,0,0,0.06);
-        }
-        
-        /* Auswahl-Farbe */
-        ::selection {
-            background: var(--accent-color);
-            color: white;
-        }
-        
-        /* Reduzierte Bewegung */
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                transition-duration: 0.01ms !important;
-            }
-            html { scroll-behavior: auto; }
-        }
+{$sharedCSS}
 {$tileCSS}
     </style>
 </head>

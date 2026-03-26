@@ -1,0 +1,64 @@
+/* ===== Tile Grid Layout ===== */
+
+.tile-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing);
+    width: 100%;
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: var(--spacing);
+    flex-grow: 1;
+    align-content: start;
+}
+
+/* Tile Sizes - Desktop: 4 Spalten */
+.tile.size-small {
+    grid-column: span 1;  /* 1/4 */
+}
+
+.tile.size-medium {
+    grid-column: span 2;  /* 2/4 = 1/2 */
+}
+
+.tile.size-large {
+    grid-column: span 3;  /* 3/4 */
+}
+
+.tile.size-full {
+    grid-column: 1 / -1;  /* 4/4 = volle Breite */
+}
+
+/* Tablet: 2 Spalten */
+@media (max-width: 900px) {
+    .tile-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .tile.size-small {
+        grid-column: span 1;  /* 1/2 */
+    }
+    .tile.size-medium {
+        grid-column: span 2;  /* 2/2 = voll */
+    }
+    .tile.size-large {
+        grid-column: span 2;  /* 2/2 = voll */
+    }
+}
+
+/* Mobile: 1 Spalte */
+@media (max-width: 600px) {
+    :root {
+        --spacing: 16px;
+        --border-radius: 12px;
+    }
+    .tile-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .tile.size-small,
+    .tile.size-medium,
+    .tile.size-large,
+    .tile.size-full {
+        grid-column: span 1;
+    }
+}
