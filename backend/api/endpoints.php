@@ -55,7 +55,7 @@ try {
     // Auth prüfen (außer für bestimmte Actions)
     $auth = new AuthService();
     $publicActions = [];  // Alle Actions erfordern Authentifizierung
-    $getActions = ['get_tiles', 'get_tile', 'get_settings', 'get_tile_types', 'list_files', 'preview'];  // GET erlaubt
+    $getActions = ['get_tiles', 'get_tile', 'get_settings', 'get_tile_types', 'list_files', 'preview', 'render_all_tiles_html', 'get_canvas_css', 'get_canvas_js'];  // GET erlaubt
     
     // Action ermitteln
     $action = $_POST['action'] ?? $_GET['action'] ?? '';
@@ -157,8 +157,57 @@ try {
         case 'get_tile_types':
             $tileService = new TileService();
             $types = $tileService->getAvailableTypes();
-            echo json_encode(['success' => true, 'types' => $types]);
+            // fieldMeta ergänzen für WYSIWYG-Editor (Feldtypen, Labels, Defaults)
+            $typesWithMeta = $tileService->getAvailableTypesWithMeta();
+            echo json_encode(['success' => true, 'types' => $types, 'typesWithMeta' => $typesWithMeta]);
             break;
+        
+        // ===== WYSIWYG EDITOR (v2) =====
+        
+        case 'render_tile_html':
+            // Rendert eine einzelne Tile als HTML (für Live-Preview im Editor)
+            $tileData = json_decode(file_get_contents('php://input'), true)['tile'] ?? [];
+            if (empty($tileData)) {
+                $tileData = json_decode($_POST['tile'] ?? '{}', true);
+            }
+            
+            if (empty($tileData) || empty($tileData['type'])) {
+                throw new InvalidArgumentException('Tile-Daten mit type erforderlich');
+            }
+            
+            $generator = new GeneratorService();
+            $html = $generator->renderSingleTile($tileData);
+            
+            if ($html === null) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Unbekannter Tile-Typ']);
+            } else {
+                echo json_encode(['success' => true, 'html' => $html]);
+            }
+            break;
+        
+        case 'render_all_tiles_html':
+            // Rendert alle Tiles als HTML-Fragmente (für WYSIWYG Canvas)
+            $generator = new GeneratorService();
+            $tiles = $generator->renderAllTilesHtml();
+            echo json_encode(['success' => true, 'tiles' => $tiles]);
+            break;
+        
+        case 'get_canvas_css':
+            // Gibt shared+tile CSS zurück (für WYSIWYG Canvas)
+            $generator = new GeneratorService();
+            $css = $generator->getCanvasCSS();
+            header('Content-Type: text/css; charset=utf-8');
+            echo $css;
+            exit;
+        
+        case 'get_canvas_js':
+            // Gibt tile-spezifisches JS zurück (Lightbox, Countdown, etc.)
+            $generator = new GeneratorService();
+            $js = $generator->getCanvasJS();
+            header('Content-Type: application/javascript; charset=utf-8');
+            echo $js;
+            exit;
         
         // ===== SETTINGS =====
         

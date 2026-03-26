@@ -1,0 +1,500 @@
+/**
+ * WYSIWYG Editor v2 - Editor Chrome CSS
+ * 
+ * Nur Editor-UI Styles (Toolbar, Tile-Overlays, Toast, etc.)
+ * Die Tile-/Grid-Styles kommen aus den shared CSS files.
+ */
+
+/* ===== Reset & Base ===== */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    overflow-x: hidden;
+}
+
+/* ===== Top Toolbar ===== */
+
+.v2-toolbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    height: 52px;
+    background: #16213e;
+    border-bottom: 1px solid #0f3460;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.v2-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.v2-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.v2-logo {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0;
+    color: #e94560;
+}
+
+.v2-site-name {
+    font-size: 13px;
+    color: #999;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.v2-published-link {
+    font-size: 12px;
+    color: #53a8b6;
+    text-decoration: none;
+}
+
+.v2-published-link:hover {
+    text-decoration: underline;
+}
+
+.v2-last-generated {
+    font-size: 11px;
+    color: #666;
+}
+
+/* ===== Buttons ===== */
+
+.v2-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.v2-btn-primary {
+    background: #e94560;
+    color: white;
+}
+
+.v2-btn-primary:hover {
+    background: #c73e54;
+}
+
+.v2-btn-secondary {
+    background: #1a1a2e;
+    color: #ccc;
+    border: 1px solid #333;
+}
+
+.v2-btn-secondary:hover {
+    background: #252545;
+    color: white;
+}
+
+.v2-btn-icon {
+    background: transparent;
+    color: #ccc;
+    padding: 6px 8px;
+    font-size: 16px;
+}
+
+.v2-btn-icon:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+/* ===== Session Timer ===== */
+
+.v2-session-timer {
+    font-size: 12px;
+    color: #999;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.v2-session-timer.v2-session-warning {
+    color: #e94560;
+    background: rgba(233, 69, 96, 0.1);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* ===== Canvas Wrapper ===== */
+
+.v2-canvas-wrapper {
+    margin-top: 52px; /* toolbar height */
+    min-height: calc(100vh - 52px);
+    display: flex;
+    justify-content: center;
+    padding: 24px;
+    background: #1a1a2e;
+}
+
+.v2-canvas {
+    width: 100%;
+    max-width: 1200px;
+    background: var(--bg-color, #f5f5f5);
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    overflow: hidden;
+    /* The canvas renders like the real page */
+    /* Override shared base.css body styles that leak in */
+    color: #333;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
+}
+
+/* ===== Canvas Header/Footer ===== */
+
+.v2-canvas-header,
+.v2-canvas-footer {
+    position: relative;
+}
+
+.v2-canvas-header:hover,
+.v2-canvas-footer:hover {
+    outline: 2px dashed rgba(233, 69, 96, 0.4);
+    outline-offset: -2px;
+    cursor: pointer;
+}
+
+.v2-empty-header,
+.v2-empty-footer {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+}
+
+.v2-add-header-btn,
+.v2-add-footer-btn {
+    background: transparent;
+    border: 2px dashed #ccc;
+    padding: 12px 24px;
+    border-radius: 8px;
+    color: #999;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.v2-add-header-btn:hover,
+.v2-add-footer-btn:hover {
+    border-color: #e94560;
+    color: #e94560;
+}
+
+/* ===== Tile Grid (inherits from shared/grid.css) ===== */
+
+#tileGrid {
+    /* Grid layout comes from shared/grid.css .tile-grid styles */
+    padding: 20px;
+}
+
+/* ===== Add Tile Area ===== */
+
+.v2-add-tile-area {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+}
+
+.v2-add-tile-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 28px;
+    background: transparent;
+    border: 2px dashed #ccc;
+    border-radius: 10px;
+    color: #999;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.v2-add-tile-btn:hover {
+    border-color: #e94560;
+    color: #e94560;
+    background: rgba(233, 69, 96, 0.05);
+}
+
+.v2-add-icon {
+    font-size: 22px;
+    font-weight: bold;
+}
+
+/* ===== Empty Grid ===== */
+
+.v2-empty-grid {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 60px 20px;
+    color: #999;
+}
+
+.v2-empty-grid p {
+    font-size: 16px;
+    margin: 0;
+}
+
+/* ===== Tile Wrapper (Editor Overlay) ===== */
+
+.v2-tile-wrapper {
+    position: relative;
+    /* The wrapper inherits grid spanning from the inner .tile's size class */
+}
+
+/* Grid size classes on wrapper level - mirror shared/grid.css behavior
+   Since the wrapper is the grid child (not the inner .tile div), 
+   we must replicate size classes on the wrapper */
+.v2-tile-wrapper:has(.size-small)  { grid-column: span 1; }
+.v2-tile-wrapper:has(.size-medium) { grid-column: span 2; }
+.v2-tile-wrapper:has(.size-large)  { grid-column: span 3; }
+.v2-tile-wrapper:has(.size-full)   { grid-column: 1 / -1; }
+.v2-tile-wrapper:has(.tile-full-row) { grid-column: 1 / -1; }
+
+/* Make the inner .tile fill the wrapper completely */
+.v2-tile-wrapper > .tile {
+    /* Annul any grid behavior from the inner tile since the wrapper is the grid item */
+    width: 100%;
+    height: 100%;
+}
+
+/* Editor Overlay - transparent by default, visible on hover */
+.v2-tile-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: all 0.15s;
+}
+
+.v2-tile-overlay:hover {
+    background: rgba(233, 69, 96, 0.08);
+    outline: 2px solid rgba(233, 69, 96, 0.4);
+    outline-offset: -1px;
+}
+
+/* Type badge - shown on hover */
+.v2-tile-type-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+}
+
+.v2-tile-overlay:hover .v2-tile-type-badge {
+    opacity: 1;
+}
+
+/* Selected state */
+.v2-tile-wrapper.v2-selected .v2-tile-overlay {
+    outline: 2px solid #e94560;
+    outline-offset: -1px;
+    background: rgba(233, 69, 96, 0.05);
+}
+
+.v2-tile-wrapper.v2-selected .v2-tile-type-badge {
+    opacity: 1;
+    background: #e94560;
+}
+
+/* Hidden tile visual indicator */
+.v2-tile-wrapper.v2-tile-hidden {
+    opacity: 0.4;
+}
+
+.v2-tile-wrapper.v2-tile-hidden::after {
+    content: '👁️‍🗨️ Versteckt';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    color: #ff9800;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    z-index: 11;
+}
+
+/* ===== Floating Tile Toolbar ===== */
+
+.v2-tile-toolbar {
+    position: absolute;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: #16213e;
+    border: 1px solid #0f3460;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+.v2-tb-btn {
+    background: transparent;
+    border: none;
+    color: #ccc;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.1s;
+}
+
+.v2-tb-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: white;
+}
+
+.v2-tb-danger:hover {
+    background: rgba(233, 69, 96, 0.2);
+    color: #e94560;
+}
+
+.v2-tb-select {
+    background: #1a1a2e;
+    color: #ccc;
+    border: 1px solid #333;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.v2-tb-select:hover {
+    border-color: #e94560;
+}
+
+.v2-tb-separator {
+    width: 1px;
+    height: 20px;
+    background: #333;
+    margin: 0 4px;
+}
+
+/* ===== Toast Notifications ===== */
+
+.v2-toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.v2-toast {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0;
+    transform: translateX(20px);
+    transition: all 0.3s;
+    max-width: 360px;
+}
+
+.v2-toast-visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.v2-toast-success {
+    background: #1b5e20;
+    color: #a5d6a7;
+    border: 1px solid #2e7d32;
+}
+
+.v2-toast-error {
+    background: #b71c1c;
+    color: #ef9a9a;
+    border: 1px solid #c62828;
+}
+
+.v2-toast-info {
+    background: #0d47a1;
+    color: #90caf9;
+    border: 1px solid #1565c0;
+}
+
+/* ===== Responsive ===== */
+
+@media (max-width: 900px) {
+    .v2-toolbar {
+        padding: 0 8px;
+        height: 48px;
+    }
+    
+    .v2-site-name,
+    .v2-last-generated {
+        display: none;
+    }
+    
+    .v2-canvas-wrapper {
+        padding: 8px;
+        margin-top: 48px;
+    }
+}
+
+@media (max-width: 600px) {
+    .v2-toolbar-right .v2-btn-secondary span,
+    .v2-toolbar-right .v2-btn-primary span {
+        display: none;
+    }
+    
+    .v2-published-link {
+        display: none;
+    }
+    
+    .v2-tile-toolbar {
+        flex-wrap: wrap;
+        max-width: 280px;
+    }
+}

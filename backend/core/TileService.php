@@ -232,4 +232,32 @@ class TileService {
         
         return $types;
     }
+    
+    /**
+     * Gibt Tile-Typen mit vollständiger Feld-Metadaten zurück
+     * 
+     * Für den WYSIWYG-Editor: enthält Feldtypen, Labels, Defaults, etc.
+     * 
+     * @return array ['type' => ['name' => ..., 'fields' => ..., 'fieldMeta' => ...]]
+     */
+    public function getAvailableTypesWithMeta(): array {
+        global $TILE_TYPES;
+        
+        $types = [];
+        
+        foreach ($TILE_TYPES as $type => $class) {
+            $instance = new $class();
+            $types[$type] = [
+                'name' => $instance->getName(),
+                'fields' => $instance->getFields(),
+                'description' => $instance->getDescription(),
+                'fieldMeta' => method_exists($instance, 'getFieldMeta') ? $instance->getFieldMeta() : [],
+                'hasCSS' => !empty($instance->getCSS()),
+                'hasJS' => !empty($instance->getJS()),
+                'initFunction' => $instance->getInitFunction()
+            ];
+        }
+        
+        return $types;
+    }
 }

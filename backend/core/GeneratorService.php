@@ -151,11 +151,110 @@ class GeneratorService {
     }
     
     /**
+     * Rendert eine einzelne Tile als HTML (inkl. Wrapper-Div)
+     * 
+     * Wird sowohl intern von renderTiles() als auch extern vom
+     * WYSIWYG-Editor genutzt (Single Source of Truth für HTML-Output).
+     * 
+     * @param array $tile Komplettes Tile-Objekt (type, size, style, colorScheme, data, ...)
+     * @return string|null HTML-String oder null bei unbekanntem Typ
+     */
+    public function renderSingleTile(array $tile): ?string {
+        global $TILE_TYPES;
+        
+        $type = $tile['type'] ?? '';
+        
+        if (!isset($TILE_TYPES[$type])) {
+            LogService::warning('GeneratorService', 'Unknown tile type', ['type' => $type]);
+            return null;
+        }
+        
+        $class = $TILE_TYPES[$type];
+        $instance = new $class();
+        
+        // Tile-Wrapper mit gemeinsamen Klassen
+        $size = ($type === 'separator') ? 'full' : htmlspecialchars($tile['size'] ?? 'medium');
+        $style = htmlspecialchars($tile['style'] ?? 'card');
+        $colorScheme = htmlspecialchars($tile['colorScheme'] ?? 'default');
+        $id = htmlspecialchars($tile['id'] ?? '');
+        
+        // Zusätzliche Klassen vom Tile (z.B. fullRow bei Akkordeon)
+        $extraClasses = '';
+        if (method_exists($instance, 'getWrapperClasses')) {
+            $wrapperClasses = $instance->getWrapperClasses($tile['data'] ?? []);
+            if (!empty($wrapperClasses)) {
+                $extraClasses = ' ' . implode(' ', array_map('htmlspecialchars', $wrapperClasses));
+            }
+        }
+        
+        // Zeitsteuerungs-Attribute
+        $scheduleAttrs = $this->getScheduleAttributes($tile);
+        $hiddenStyle = $scheduleAttrs ? ' style="display:none;"' : '';
+        
+        $html = "<div class=\"tile tile-{$type} size-{$size} style-{$style} color-{$colorScheme}{$extraClasses}\"{$scheduleAttrs}{$hiddenStyle} data-tile-id=\"{$id}\">\n";
+        $html .= $instance->render($tile['data'] ?? []);
+        $html .= "</div>\n";
+        
+        return $html;
+    }
+    
+    /**
+     * Rendert alle Tiles als Array mit ID → HTML Mapping
+     * 
+     * Für den WYSIWYG-Editor: liefert das gerenderte HTML jeder Tile,
+     * sodass der Editor es direkt in den Canvas platzieren kann.
+     * 
+     * @return array [{id, type, html, size, style, colorScheme}, ...]
+     */
+    public function renderAllTilesHtml(): array {
+        $tiles = $this->tileService->getTiles();
+        $result = [];
+        
+        foreach ($tiles as $tile) {
+            $html = $this->renderSingleTile($tile);
+            if ($html !== null) {
+                $result[] = [
+                    'id' => $tile['id'],
+                    'type' => $tile['type'],
+                    'html' => $html,
+                    'size' => $tile['size'] ?? 'medium',
+                    'style' => $tile['style'] ?? 'card',
+                    'colorScheme' => $tile['colorScheme'] ?? 'default',
+                    'position' => $tile['position'] ?? 0,
+                    'visible' => $tile['visible'] ?? true
+                ];
+            }
+        }
+        
+        return $result;
+    }
+    
+    /**
+     * Gibt CSS zurück, das der WYSIWYG-Editor braucht (shared + tile-spezifisch)
+     * 
+     * @return string Komplettes CSS für den Canvas
+     */
+    public function getCanvasCSS(): string {
+        $sharedCSS = $this->loadSharedCSS();
+        $tileCSS = $this->collectTileCSS();
+        return $sharedCSS . $tileCSS;
+    }
+    
+    /**
+     * Gibt JavaScript zurück, das für tile-spezifische Funktionalität nötig ist
+     * 
+     * @return string JS-Code für Tile-Funktionen (Lightbox, Countdown, etc.)
+     */
+    public function getCanvasJS(): string {
+        $tileJS = $this->collectTileJS();
+        $initCalls = $this->collectTileInitCalls();
+        return $tileJS . $initCalls;
+    }
+    
+    /**
      * Rendert alle Tiles
      */
     private function renderTiles(array $tiles): string {
-        global $TILE_TYPES;
-        
         $html = '';
         
         foreach ($tiles as $tile) {
@@ -165,39 +264,10 @@ class GeneratorService {
                 continue;
             }
             
-            $type = $tile['type'] ?? '';
-            
-            if (!isset($TILE_TYPES[$type])) {
-                LogService::warning('GeneratorService', 'Unknown tile type', ['type' => $type]);
-                continue;
+            $tileHtml = $this->renderSingleTile($tile);
+            if ($tileHtml !== null) {
+                $html .= $tileHtml;
             }
-            
-            $class = $TILE_TYPES[$type];
-            $instance = new $class();
-            
-            // Tile-Wrapper mit gemeinsamen Klassen
-            // Separator-Tiles sind immer full-width für Umbruchschutz
-            $size = ($type === 'separator') ? 'full' : htmlspecialchars($tile['size'] ?? 'medium');
-            $style = htmlspecialchars($tile['style'] ?? 'card');
-            $colorScheme = htmlspecialchars($tile['colorScheme'] ?? 'default');
-            $id = htmlspecialchars($tile['id'] ?? '');
-            
-            // Zusätzliche Klassen vom Tile (z.B. fullRow bei Akkordeon)
-            $extraClasses = '';
-            if (method_exists($instance, 'getWrapperClasses')) {
-                $wrapperClasses = $instance->getWrapperClasses($tile['data'] ?? []);
-                if (!empty($wrapperClasses)) {
-                    $extraClasses = ' ' . implode(' ', array_map('htmlspecialchars', $wrapperClasses));
-                }
-            }
-            
-            // Zeitsteuerungs-Attribute für clientseitige Steuerung
-            $scheduleAttrs = $this->getScheduleAttributes($tile);
-            $hiddenStyle = $scheduleAttrs ? ' style="display:none;"' : '';
-            
-            $html .= "<div class=\"tile tile-{$type} size-{$size} style-{$style} color-{$colorScheme}{$extraClasses}\"{$scheduleAttrs}{$hiddenStyle} data-tile-id=\"{$id}\">\n";
-            $html .= $instance->render($tile['data'] ?? []);
-            $html .= "</div>\n";
         }
         
         return $html;
