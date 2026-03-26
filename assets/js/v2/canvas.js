@@ -188,6 +188,9 @@ window.V2Canvas = (function() {
     
     // === Toolbar ===
     
+    // Tile-Typen ohne Size/Style/Color Controls
+    const _noAppearanceTypes = ['separator'];
+    
     function showToolbar(tileId) {
         const toolbar = document.getElementById('tileToolbar');
         const wrapper = _gridEl.querySelector(`.v2-tile-wrapper[data-tile-id="${tileId}"]`);
@@ -199,6 +202,12 @@ window.V2Canvas = (function() {
             document.getElementById('tbSize').value = tile.size || 'medium';
             document.getElementById('tbStyle').value = tile.style || 'card';
             document.getElementById('tbColor').value = tile.colorScheme || 'default';
+            
+            // Appearance-Controls je nach Typ ein-/ausblenden
+            const showAppearance = !_noAppearanceTypes.includes(tile.type);
+            toolbar.querySelectorAll('[data-tb-group="appearance"]').forEach(el => {
+                el.style.display = showAppearance ? '' : 'none';
+            });
         }
         
         // Toolbar über der Tile positionieren
@@ -237,8 +246,8 @@ window.V2Canvas = (function() {
     // === Document Events ===
     
     function onDocumentClick(e) {
-        // Click outside any tile → deselect
-        if (!e.target.closest('.v2-tile-wrapper') && !e.target.closest('.v2-tile-toolbar') && !e.target.closest('.modal')) {
+        // Click outside any tile → deselect (but not when clicking modal/toolbar/popup)
+        if (!e.target.closest('.v2-tile-wrapper') && !e.target.closest('.v2-tile-toolbar') && !e.target.closest('.modal') && !e.target.closest('.v2-modal-overlay') && !e.target.closest('.v2-type-popup')) {
             V2State.deselectAll();
         }
     }
@@ -349,6 +358,21 @@ window.V2 = (function() {
         // Canvas initialisieren
         V2Canvas.init();
         
+        // Drag & Drop initialisieren
+        if (typeof V2DragDrop !== 'undefined') {
+            V2DragDrop.init();
+        }
+        
+        // Insert-Buttons initialisieren
+        if (typeof V2Insert !== 'undefined') {
+            V2Insert.init();
+        }
+        
+        // Edit-Modal initialisieren
+        if (typeof V2EditModal !== 'undefined') {
+            V2EditModal.init();
+        }
+        
         // Session-Timer starten
         initSessionTimer();
         
@@ -360,19 +384,29 @@ window.V2 = (function() {
     // === Tile Actions ===
     
     function addTile() {
-        // Für Phase 2: einfaches Prompt - wird in Phase 4 durch Modal ersetzt
+        // Nutze das Insert-System falls verfügbar (zeigt Typ-Popup)
+        if (typeof V2Insert !== 'undefined') {
+            const addBtn = document.querySelector('.v2-add-tile-btn');
+            if (addBtn) {
+                const tiles = V2State.getTiles();
+                const insertIndex = tiles.length; // am Ende
+                V2Insert.showTypePopup(addBtn, insertIndex);
+                return;
+            }
+        }
+        
+        // Fallback: prompt-basiert
         const types = V2State.getTileTypes();
         const typeNames = Object.entries(types).map(([key, t]) => `${key} (${t.name})`);
         const input = prompt('Tile-Typ wählen:\n\n' + typeNames.join('\n') + '\n\nTyp eingeben:');
         if (!input) return;
         
-        const type = input.trim().split(' ')[0]; // Nur den Key nehmen
+        const type = input.trim().split(' ')[0];
         if (!types[type]) {
             toast('Unbekannter Typ: ' + type, 'error');
             return;
         }
         
-        // Minimale Tile erstellen und speichern
         const tiles = V2State.getTiles();
         const maxPos = tiles.reduce((max, t) => Math.max(max, t.position || 0), 0);
         
@@ -411,17 +445,19 @@ window.V2 = (function() {
         const id = V2State.getSelectedTileId();
         if (!id) return;
         
-        // Phase 2: Öffne den klassischen Editor für diese Tile
-        // Phase 4 wird ein inline-basiertes Editing hinzufügen
         const tile = V2State.getTileById(id);
         if (!tile) return;
         
-        // Einfachen Edit-Dialog (prompt-basiert für Phase 2)
-        const title = prompt('Titel bearbeiten:', tile.data?.title || '');
-        if (title === null) return; // Abgebrochen
-        
-        const updatedTile = { ...tile, data: { ...tile.data, title: title } };
-        saveTileAndRefresh(updatedTile);
+        // Dynamisches Edit-Modal basierend auf fieldMeta des Tile-Typs
+        if (typeof V2EditModal !== 'undefined') {
+            V2EditModal.open(tile);
+        } else {
+            // Fallback: prompt-basiert
+            const title = prompt('Titel bearbeiten:', tile.data?.title || '');
+            if (title === null) return;
+            const updatedTile = { ...tile, data: { ...tile.data, title: title } };
+            saveTileAndRefresh(updatedTile);
+        }
     }
     
     async function deleteSelectedTile() {
@@ -515,7 +551,12 @@ window.V2 = (function() {
             const result = await V2Api.updatePositions(positions);
             if (result.success) {
                 await V2Canvas.reloadAll();
-                V2State.selectTile(tileId); // Re-select
+                // Force re-select: deselect first so selectTile always fires
+                V2State.deselectAll();
+                // Use rAF to let DOM settle before repositioning toolbar
+                requestAnimationFrame(() => {
+                    V2State.selectTile(tileId);
+                });
             }
         } catch(err) {
             console.error('[V2] swapPosition failed:', err);

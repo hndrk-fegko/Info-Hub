@@ -191,18 +191,18 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
     <!-- ===== Tile Selection Toolbar (floating) ===== -->
     <div id="tileToolbar" class="v2-tile-toolbar" style="display: none;">
         <button class="v2-tb-btn" onclick="V2.editSelectedTile()" title="Bearbeiten">✏️</button>
-        <div class="v2-tb-separator"></div>
-        <select id="tbSize" class="v2-tb-select" onchange="V2.changeSize(this.value)" title="Größe">
+        <div class="v2-tb-separator" data-tb-group="appearance"></div>
+        <select id="tbSize" class="v2-tb-select" data-tb-group="appearance" onchange="V2.changeSize(this.value)" title="Größe">
             <option value="small">Klein</option>
             <option value="medium">Mittel</option>
             <option value="large">Groß</option>
             <option value="full">Voll</option>
         </select>
-        <select id="tbStyle" class="v2-tb-select" onchange="V2.changeStyle(this.value)" title="Stil">
+        <select id="tbStyle" class="v2-tb-select" data-tb-group="appearance" onchange="V2.changeStyle(this.value)" title="Stil">
             <option value="card">Card</option>
             <option value="flat">Flat</option>
         </select>
-        <select id="tbColor" class="v2-tb-select" onchange="V2.changeColor(this.value)" title="Farbe">
+        <select id="tbColor" class="v2-tb-select" data-tb-group="appearance" onchange="V2.changeColor(this.value)" title="Farbe">
             <option value="default">Standard</option>
             <option value="white">Weiß</option>
             <option value="accent1">Akzent 1</option>
@@ -252,7 +252,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
     
     <!-- V2 Editor Module -->
     <?php
-    $v2Modules = ['state', 'api-client', 'canvas'];
+    $v2Modules = ['state', 'api-client', 'edit-modal', 'canvas', 'drag-drop', 'insert'];
     foreach ($v2Modules as $module):
         $filePath = __DIR__ . "/../../assets/js/v2/{$module}.js";
         $version = file_exists($filePath) ? filemtime($filePath) : time();

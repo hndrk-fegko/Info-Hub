@@ -164,6 +164,21 @@ window.V2Api = (function() {
         return await res.json();
     }
     
+    async function uploadDownload(file) {
+        const formData = new FormData();
+        formData.append('action', 'upload_download');
+        formData.append('csrf_token', getCsrfToken());
+        formData.append('file', file);
+        
+        const res = await fetch(getApiUrl(), {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: formData
+        });
+        
+        return await res.json();
+    }
+    
     async function uploadHeader(file) {
         const formData = new FormData();
         formData.append('action', 'upload_header');
@@ -209,7 +224,7 @@ window.V2Api = (function() {
         getTiles, renderAllTiles, renderTile,
         saveTile, deleteTile, updatePositions,
         getSettings, saveSettings,
-        uploadImage, uploadHeader,
+        uploadImage, uploadDownload, uploadHeader,
         publish, preview,
         extendSession
     };
