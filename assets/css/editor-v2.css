@@ -946,6 +946,52 @@ body {
 
 /* Accordion sections in modal */
 
+.v2-accordion-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.v2-accordion-section {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.v2-accordion-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.v2-accordion-section-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.v2-accordion-section-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.v2-accordion-section-actions .v2-btn-sm {
+    padding: 2px 6px;
+    font-size: 14px;
+    min-width: 0;
+    line-height: 1.2;
+}
+
+.v2-accordion-add-btn {
+    margin-top: 4px;
+    align-self: flex-start;
+}
+
+/* Legacy collapsible sections (kept for non-accordion groups) */
+
 .v2-modal-section {
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 8px;

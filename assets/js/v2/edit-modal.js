@@ -503,47 +503,196 @@ window.V2EditModal = (function() {
     }
 
     // === Accordion Section Fields ===
+    // Mirrors the classic editor: show filled sections + 1 empty,
+    // with add/remove/move buttons per section.
 
     function _buildSectionFields(container, fields, data) {
-        // Group section fields by sectionIndex
-        const sections = {};
+        const MAX_SECTIONS = 10;
+
+        // Group fields by sectionIndex
+        const sectionsMeta = {};
         fields.forEach(({ fieldName, meta }) => {
             const idx = meta.sectionIndex || 0;
-            if (!sections[idx]) sections[idx] = [];
-            sections[idx].push({ fieldName, meta });
+            if (!sectionsMeta[idx]) sectionsMeta[idx] = [];
+            sectionsMeta[idx].push({ fieldName, meta });
         });
 
-        const sortedIndices = Object.keys(sections).map(Number).sort((a, b) => a - b);
+        // Wrapper for all sections (needed for move/add/remove)
+        const wrapper = document.createElement('div');
+        wrapper.className = 'v2-accordion-editor';
 
-        sortedIndices.forEach(idx => {
-            const sectionFields = sections[idx];
-            const headingField = sectionFields.find(f => f.fieldName.endsWith('_heading'));
-            const headingValue = headingField ? (data[headingField.fieldName] || '') : '';
-            const hasContent = sectionFields.some(f => data[f.fieldName]);
+        // Determine which sections have content
+        let lastFilled = 0;
+        for (let i = 1; i <= MAX_SECTIONS; i++) {
+            const h = data[`section${i}_heading`];
+            const c = data[`section${i}_content`];
+            if ((h && h.trim()) || (c && c.trim())) lastFilled = i;
+        }
+        const initialVisible = Math.min(Math.max(lastFilled + 1, 1), MAX_SECTIONS);
 
-            // Collapsible section
+        for (let i = 1; i <= MAX_SECTIONS; i++) {
             const sectionDiv = document.createElement('div');
-            sectionDiv.className = 'v2-modal-section' + (hasContent ? ' v2-modal-section-open' : '');
+            sectionDiv.className = 'v2-accordion-section';
+            sectionDiv.dataset.sectionIdx = i;
+            if (i > initialVisible) sectionDiv.style.display = 'none';
 
-            const toggle = document.createElement('button');
-            toggle.type = 'button';
-            toggle.className = 'v2-modal-section-toggle';
-            toggle.textContent = `Bereich ${idx}` + (headingValue ? `: ${headingValue}` : '');
-            toggle.addEventListener('click', () => {
-                sectionDiv.classList.toggle('v2-modal-section-open');
+            // Header bar with number + actions
+            const header = document.createElement('div');
+            header.className = 'v2-accordion-section-header';
+
+            const label = document.createElement('span');
+            label.className = 'v2-accordion-section-label';
+            label.textContent = `Bereich ${i}`;
+
+            const actions = document.createElement('div');
+            actions.className = 'v2-accordion-section-actions';
+
+            // Move up
+            const upBtn = document.createElement('button');
+            upBtn.type = 'button';
+            upBtn.className = 'v2-btn v2-btn-icon v2-btn-sm';
+            upBtn.title = 'Nach oben';
+            upBtn.textContent = '⬆️';
+            upBtn.dataset.move = 'up';
+            upBtn.addEventListener('click', () => _moveSection(wrapper, i, -1));
+
+            // Move down
+            const downBtn = document.createElement('button');
+            downBtn.type = 'button';
+            downBtn.className = 'v2-btn v2-btn-icon v2-btn-sm';
+            downBtn.title = 'Nach unten';
+            downBtn.textContent = '⬇️';
+            downBtn.dataset.move = 'down';
+            downBtn.addEventListener('click', () => _moveSection(wrapper, i, 1));
+
+            actions.appendChild(upBtn);
+            actions.appendChild(downBtn);
+
+            // Remove (not for first section)
+            if (i > 1) {
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'v2-btn v2-btn-icon v2-btn-sm v2-btn-danger-text';
+                removeBtn.title = 'Bereich entfernen';
+                removeBtn.textContent = '🗑️';
+                removeBtn.addEventListener('click', () => _removeSection(wrapper, i));
+                actions.appendChild(removeBtn);
+            }
+
+            header.appendChild(label);
+            header.appendChild(actions);
+            sectionDiv.appendChild(header);
+
+            // Fields: heading + content
+            const sFields = sectionsMeta[i] || [];
+            sFields.forEach(({ fieldName, meta }) => {
+                sectionDiv.appendChild(_buildField(fieldName, meta, data[fieldName]));
             });
-            sectionDiv.appendChild(toggle);
 
-            const content = document.createElement('div');
-            content.className = 'v2-modal-section-content';
+            wrapper.appendChild(sectionDiv);
+        }
 
-            sectionFields.forEach(({ fieldName, meta }) => {
-                content.appendChild(_buildField(fieldName, meta, data[fieldName]));
-            });
+        // Add section button
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'v2-btn v2-btn-secondary v2-btn-sm v2-accordion-add-btn';
+        addBtn.textContent = '➕ Weiteren Bereich hinzufügen';
+        addBtn.addEventListener('click', () => _addSection(wrapper));
+        wrapper.appendChild(addBtn);
 
-            sectionDiv.appendChild(content);
-            container.appendChild(sectionDiv);
+        container.appendChild(wrapper);
+
+        // Initial button states
+        requestAnimationFrame(() => {
+            _updateSectionButtons(wrapper);
         });
+    }
+
+    /** Show next hidden section */
+    function _addSection(wrapper) {
+        const sections = wrapper.querySelectorAll('.v2-accordion-section');
+        for (const sec of sections) {
+            if (sec.style.display === 'none') {
+                sec.style.display = '';
+                const inp = sec.querySelector('input[type="text"]');
+                if (inp) inp.focus();
+                break;
+            }
+        }
+        _updateSectionButtons(wrapper);
+    }
+
+    /** Hide section and clear its fields */
+    function _removeSection(wrapper, idx) {
+        const sec = wrapper.querySelector(`[data-section-idx="${idx}"]`);
+        if (!sec) return;
+        // Clear values
+        sec.querySelectorAll('input, textarea').forEach(el => { el.value = ''; });
+        sec.style.display = 'none';
+        _updateSectionButtons(wrapper);
+    }
+
+    /** Swap field values between two visible sections */
+    function _moveSection(wrapper, idx, direction) {
+        const visible = _getVisibleSections(wrapper);
+        const pos = visible.indexOf(idx);
+        if (pos === -1) return;
+        const targetPos = pos + direction;
+        if (targetPos < 0 || targetPos >= visible.length) return;
+        const targetIdx = visible[targetPos];
+
+        // Swap all input/textarea values between idx and targetIdx
+        const secA = wrapper.querySelector(`[data-section-idx="${idx}"]`);
+        const secB = wrapper.querySelector(`[data-section-idx="${targetIdx}"]`);
+        if (!secA || !secB) return;
+
+        const inputsA = secA.querySelectorAll('input[type="text"], textarea, input[type="hidden"]');
+        const inputsB = secB.querySelectorAll('input[type="text"], textarea, input[type="hidden"]');
+        inputsA.forEach((elA, i) => {
+            const elB = inputsB[i];
+            if (!elB) return;
+            const tmp = elA.value;
+            elA.value = elB.value;
+            elB.value = tmp;
+        });
+
+        _updateSectionButtons(wrapper);
+    }
+
+    /** List visible section indices */
+    function _getVisibleSections(wrapper) {
+        const result = [];
+        wrapper.querySelectorAll('.v2-accordion-section').forEach(sec => {
+            if (sec.style.display !== 'none') {
+                result.push(Number(sec.dataset.sectionIdx));
+            }
+        });
+        return result;
+    }
+
+    /** Enable/disable move buttons, show/hide add button */
+    function _updateSectionButtons(wrapper) {
+        const visible = _getVisibleSections(wrapper);
+        wrapper.querySelectorAll('.v2-accordion-section').forEach(sec => {
+            const idx = Number(sec.dataset.sectionIdx);
+            const pos = visible.indexOf(idx);
+            const upBtn = sec.querySelector('[data-move="up"]');
+            const downBtn = sec.querySelector('[data-move="down"]');
+            if (upBtn) {
+                upBtn.disabled = pos <= 0;
+                upBtn.style.opacity = pos <= 0 ? '0.3' : '1';
+            }
+            if (downBtn) {
+                downBtn.disabled = pos < 0 || pos >= visible.length - 1;
+                downBtn.style.opacity = (pos < 0 || pos >= visible.length - 1) ? '0.3' : '1';
+            }
+        });
+        // Add button visibility
+        const addBtn = wrapper.querySelector('.v2-accordion-add-btn');
+        if (addBtn) {
+            const hasHidden = wrapper.querySelectorAll('.v2-accordion-section[style*="display: none"]').length > 0;
+            addBtn.style.display = hasHidden ? '' : 'none';
+        }
     }
 
     // === Save Handler ===
