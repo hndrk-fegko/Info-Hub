@@ -724,7 +724,7 @@ window.V2 = (function() {
     }
     
     function logout() {
-        window.location.href = '../login.php?action=logout';
+        window.location.href = '../login.php?logout=1';
     }
     
     // === Toast Notifications ===
