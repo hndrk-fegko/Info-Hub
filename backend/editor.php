@@ -310,6 +310,24 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                         </div>
                     </div>
                 </div>
+
+                <div class="settings-section">
+                    <h3>Layout</h3>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="narrowLayout" id="narrowLayout" <?= !empty($settings['theme']['narrowLayout']) ? 'checked' : '' ?>>
+                            Schmales Layout (begrenzte Breite mit dunklem Hintergrund)
+                        </label>
+                        <small>Rendert die statische Seite zentriert mit begrenzter Breite</small>
+                    </div>
+                    <div class="form-group" id="narrowWidthGroup" style="<?= empty($settings['theme']['narrowLayout']) ? 'display:none' : '' ?>">
+                        <label for="narrowWidth">Maximale Breite: <span id="narrowWidthValue"><?= intval($settings['theme']['narrowWidth'] ?? 960) ?></span>px</label>
+                        <input type="range" name="narrowWidth" id="narrowWidth"
+                               min="600" max="1400" step="20"
+                               value="<?= intval($settings['theme']['narrowWidth'] ?? 960) ?>">
+                        <div class="range-labels"><span>600px</span><span>1400px</span></div>
+                    </div>
+                </div>
                 
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">Abbrechen</button>

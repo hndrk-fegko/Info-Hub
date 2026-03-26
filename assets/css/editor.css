@@ -1343,6 +1343,32 @@ hr {
     height: 36px;
 }
 
+/* ===== Narrow Layout ===== */
+.settings-section .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 0.95rem;
+}
+
+.settings-section .checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+}
+
+.settings-section input[type="range"] {
+    width: 100%;
+    margin: 6px 0;
+}
+
+.range-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
 /* ===== Admin Emails ===== */
 .admin-email-list {
     display: flex;

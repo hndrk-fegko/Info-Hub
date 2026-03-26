@@ -15,6 +15,25 @@ function closeSettingsModal() {
     document.getElementById('settingsModal').classList.remove('active');
 }
 
+// ===== Narrow Layout Toggle =====
+document.addEventListener('DOMContentLoaded', function() {
+    const narrowCheck = document.getElementById('narrowLayout');
+    const narrowGroup = document.getElementById('narrowWidthGroup');
+    const narrowRange = document.getElementById('narrowWidth');
+    const narrowValue = document.getElementById('narrowWidthValue');
+    
+    if (narrowCheck && narrowGroup) {
+        narrowCheck.addEventListener('change', () => {
+            narrowGroup.style.display = narrowCheck.checked ? '' : 'none';
+        });
+    }
+    if (narrowRange && narrowValue) {
+        narrowRange.addEventListener('input', () => {
+            narrowValue.textContent = narrowRange.value;
+        });
+    }
+});
+
 async function saveSettings(event) {
     event.preventDefault();
     
@@ -36,7 +55,9 @@ async function saveSettings(event) {
             backgroundColor: formData.get('backgroundColor'),
             accentColor: formData.get('accentColor'),
             accentColor2: formData.get('accentColor2'),
-            accentColor3: formData.get('accentColor3')
+            accentColor3: formData.get('accentColor3'),
+            narrowLayout: document.getElementById('narrowLayout')?.checked || false,
+            narrowWidth: parseInt(document.getElementById('narrowWidth')?.value, 10) || 960
         }
     };
     
