@@ -269,6 +269,14 @@ try {
                 if (isset($newSettings['theme']['narrowLayout'])) {
                     $settings['theme']['narrowLayout'] = (bool) $newSettings['theme']['narrowLayout'];
                 }
+                
+                // Numerische Felder
+                if (isset($newSettings['theme']['narrowWidth'])) {
+                    $w = (int) $newSettings['theme']['narrowWidth'];
+                    if ($w >= 600 && $w <= 1400) {
+                        $settings['theme']['narrowWidth'] = $w;
+                    }
+                }
             }
             
             // Speichern

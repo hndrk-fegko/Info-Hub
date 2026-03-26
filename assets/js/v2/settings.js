@@ -44,6 +44,23 @@ window.V2Settings = (function() {
         
         // Wire up events
         wireEvents(settings);
+        
+        // Toggle narrow width field visibility
+        const narrowCheck = document.getElementById('v2SetNarrowLayout');
+        const narrowField = document.getElementById('v2NarrowWidthField');
+        if (narrowCheck && narrowField) {
+            narrowCheck.addEventListener('change', () => {
+                narrowField.style.display = narrowCheck.checked ? '' : 'none';
+            });
+        }
+        // Sync range value display
+        const widthRange = document.getElementById('v2SetNarrowWidth');
+        const widthValue = document.getElementById('v2NarrowWidthValue');
+        if (widthRange && widthValue) {
+            widthRange.addEventListener('input', () => {
+                widthValue.textContent = widthRange.value;
+            });
+        }
     }
     
     function buildModalHTML(settings) {
@@ -167,6 +184,32 @@ window.V2Settings = (function() {
                         </label>
                         <small class="v2-hint">Rendert die statische Seite zentriert mit begrenzter Breite, ähnlich der Editor-Ansicht</small>
                     </div>
+                    <div class="v2-field v2-narrow-width-field" id="v2NarrowWidthField" style="${narrowLayout ? '' : 'display:none'}">
+                        <label class="v2-label">Maximale Breite: <span id="v2NarrowWidthValue">${theme.narrowWidth || 960}</span>px</label>
+                        <input type="range" class="v2-range-input" id="v2SetNarrowWidth"
+                               min="600" max="1400" step="20"
+                               value="${theme.narrowWidth || 960}">
+                        <div class="v2-range-labels"><span>600px</span><span>1400px</span></div>
+                    </div>
+                </fieldset>
+                
+                <!-- Admin-Benutzer -->
+                <fieldset class="v2-modal-fieldset">
+                    <legend>Admin-Benutzer</legend>
+                    <div class="v2-field">
+                        <div class="v2-admin-list" id="v2AdminList">
+                            <span class="v2-hint">Lade...</span>
+                        </div>
+                    </div>
+                    <div class="v2-field">
+                        <div class="v2-admin-invite" id="v2AdminInvite">
+                            <input type="email" class="v2-input" id="v2InviteEmail" 
+                                   placeholder="Email-Adresse einladen" style="flex:1">
+                            <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" 
+                                    onclick="V2Settings.inviteAdmin()">➕ Einladen</button>
+                        </div>
+                        <small class="v2-hint">Die eingeladene Person kann sich beim nächsten Login automatisch anmelden</small>
+                    </div>
                 </fieldset>
             </div>
             <div class="v2-modal-footer">
@@ -201,6 +244,20 @@ window.V2Settings = (function() {
                 }
             });
         }
+        
+        // Load admin list
+        loadAdminList();
+        
+        // Invite on Enter key
+        const inviteInput = document.getElementById('v2InviteEmail');
+        if (inviteInput) {
+            inviteInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    inviteAdmin();
+                }
+            });
+        }
     }
     
     function removeHeader() {
@@ -225,7 +282,8 @@ window.V2Settings = (function() {
                 accentColor: document.getElementById('v2SetAccent1').value,
                 accentColor2: document.getElementById('v2SetAccent2').value,
                 accentColor3: document.getElementById('v2SetAccent3').value,
-                narrowLayout: document.getElementById('v2SetNarrowLayout').checked
+                narrowLayout: document.getElementById('v2SetNarrowLayout').checked,
+                narrowWidth: parseInt(document.getElementById('v2SetNarrowWidth').value, 10) || 960
             }
         };
         
@@ -273,6 +331,123 @@ window.V2Settings = (function() {
         }
     }
     
+    // ===== Admin Management =====
+    
+    let _adminEmails = [];
+    let _adminInvites = [];
+    
+    async function loadAdminList() {
+        const listEl = document.getElementById('v2AdminList');
+        if (!listEl) return;
+        
+        listEl.innerHTML = '<span class="v2-hint">Lade...</span>';
+        
+        try {
+            const result = await V2Api.post('get_admins');
+            if (result.success) {
+                _adminEmails = result.emails || [];
+                _adminInvites = result.invites || [];
+                renderAdminList();
+            } else {
+                listEl.innerHTML = '<span class="v2-hint">Keine Daten verfügbar</span>';
+            }
+        } catch(err) {
+            console.error('[Settings] Admin load failed:', err);
+            listEl.innerHTML = '<span class="v2-hint">Fehler beim Laden</span>';
+        }
+    }
+    
+    function renderAdminList() {
+        const listEl = document.getElementById('v2AdminList');
+        if (!listEl) return;
+        
+        if (_adminEmails.length === 0 && _adminInvites.length === 0) {
+            listEl.innerHTML = '<span class="v2-hint">Keine Admins gefunden</span>';
+            return;
+        }
+        
+        const canRemove = _adminEmails.length > 1;
+        
+        const emailItems = _adminEmails.map(email => {
+            const disabledAttr = canRemove ? '' : 'disabled';
+            const title = canRemove ? 'Admin entfernen' : 'Letzte Admin-Adresse kann nicht gelöscht werden';
+            return `<div class="v2-admin-item">
+                <span>${escHTML(email)}</span>
+                <button type="button" class="v2-admin-remove" ${disabledAttr} title="${title}"
+                        onclick="V2Settings.removeAdminEmail('${escAttr(email)}')">✕</button>
+            </div>`;
+        }).join('');
+        
+        const inviteItems = _adminInvites.map(invite => {
+            const email = invite.email || '';
+            return `<div class="v2-admin-item v2-admin-pending" title="Ausstehend – Einladung wartet auf Login">
+                <span>${escHTML(email)} (ausstehend)</span>
+                <button type="button" class="v2-admin-remove" title="Einladung löschen"
+                        onclick="V2Settings.removeAdminInvite('${escAttr(email)}')">✕</button>
+            </div>`;
+        }).join('');
+        
+        listEl.innerHTML = emailItems + inviteItems;
+    }
+    
+    async function inviteAdmin() {
+        const input = document.getElementById('v2InviteEmail');
+        const email = input?.value?.trim();
+        if (!email) return;
+        
+        try {
+            const result = await V2Api.post('invite_admin', { email });
+            if (result.success) {
+                _adminEmails = result.emails || _adminEmails;
+                _adminInvites = result.invites || _adminInvites;
+                renderAdminList();
+                input.value = '';
+                V2.toast(result.message || 'Einladung gesendet', 'success');
+            } else {
+                V2.toast(result.message || 'Einladung fehlgeschlagen', 'error');
+            }
+        } catch(err) {
+            console.error('[Settings] Invite failed:', err);
+            V2.toast('Netzwerkfehler beim Einladen', 'error');
+        }
+    }
+    
+    async function removeAdminEmail(email) {
+        if (!confirm('Admin "' + email + '" wirklich entfernen?')) return;
+        
+        try {
+            const result = await V2Api.post('remove_admin_email', { email });
+            if (result.success) {
+                _adminEmails = result.emails || _adminEmails;
+                _adminInvites = result.invites || _adminInvites;
+                renderAdminList();
+                V2.toast(result.message || 'Admin entfernt', 'success');
+            } else {
+                V2.toast(result.message || 'Entfernen fehlgeschlagen', 'error');
+            }
+        } catch(err) {
+            console.error('[Settings] Remove admin failed:', err);
+            V2.toast('Netzwerkfehler beim Entfernen', 'error');
+        }
+    }
+    
+    async function removeAdminInvite(email) {
+        try {
+            const result = await V2Api.post('remove_admin_invite', { email });
+            if (result.success) {
+                _adminEmails = result.emails || _adminEmails;
+                _adminInvites = result.invites || _adminInvites;
+                renderAdminList();
+                V2.toast(result.message || 'Einladung entfernt', 'success');
+            } else {
+                V2.toast(result.message || 'Entfernen fehlgeschlagen', 'error');
+            }
+        } catch(err) {
+            console.error('[Settings] Remove invite failed:', err);
+            V2.toast('Netzwerkfehler beim Entfernen', 'error');
+        }
+    }
+    
     // Helpers
     function escAttr(str) {
         return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -287,6 +462,9 @@ window.V2Settings = (function() {
         open,
         close,
         save,
-        removeHeader
+        removeHeader,
+        inviteAdmin,
+        removeAdminEmail,
+        removeAdminInvite
     };
 })();

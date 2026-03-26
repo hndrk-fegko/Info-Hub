@@ -718,6 +718,15 @@ body {
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* Form inside modal must also flex to allow body scrolling */
+.v2-modal-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
 .v2-modal-header {
     display: flex;
     align-items: center;
@@ -1127,6 +1136,23 @@ body {
     font-size: 12px;
 }
 
+/* Range input */
+
+.v2-range-input {
+    width: 100%;
+    height: 6px;
+    accent-color: var(--accent-color, #667eea);
+    cursor: pointer;
+    margin: 8px 0 4px;
+}
+
+.v2-range-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #64748b;
+}
+
 /* ===== Editable Region (Header/Footer) ===== */
 
 .v2-editable-region {
@@ -1156,5 +1182,56 @@ body {
 
 .v2-editable-region:hover .v2-region-edit-hint {
     display: block;
+}
+
+/* ===== Admin Management (Settings Modal) ===== */
+
+.v2-admin-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 32px;
+}
+
+.v2-admin-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border: 1px solid #334155;
+    border-radius: 20px;
+    background: #1e293b;
+    font-size: 0.85rem;
+    color: #e2e8f0;
+}
+
+.v2-admin-pending {
+    opacity: 0.6;
+    font-style: italic;
+}
+
+.v2-admin-remove {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #94a3b8;
+    padding: 0 2px;
+    line-height: 1;
+}
+
+.v2-admin-remove:hover {
+    color: #f87171;
+}
+
+.v2-admin-remove:disabled {
+    cursor: not-allowed;
+    opacity: 0.3;
+}
+
+.v2-admin-invite {
+    display: flex;
+    gap: 8px;
+    align-items: center;
 }
 

@@ -392,6 +392,8 @@ JS;
         $accentColor2 = htmlspecialchars($settings['theme']['accentColor2'] ?? '#48bb78');
         $accentColor3 = htmlspecialchars($settings['theme']['accentColor3'] ?? '#ed8936');
         $narrowLayout = !empty($settings['theme']['narrowLayout']);
+        $narrowWidth = intval($settings['theme']['narrowWidth'] ?? 960);
+        if ($narrowWidth < 600 || $narrowWidth > 1400) $narrowWidth = 960;
         
         // Title für <title>-Tag (pageTitle hat Priorität, dann title, dann Fallback)
         $pageTitleRaw = $settings['site']['pageTitle'] ?? '';
@@ -437,11 +439,11 @@ HTML;
         $narrowOpen = '';
         $narrowClose = '';
         if ($narrowLayout) {
-            $narrowCSS = <<<'CSS'
+            $narrowCSS = <<<CSS
         /* Narrow Layout */
         html { background: #1a1a2e; }
         body {
-            max-width: 960px;
+            max-width: {$narrowWidth}px;
             margin: 0 auto;
             min-height: 100vh;
             box-shadow: 0 0 60px rgba(0,0,0,0.4);
