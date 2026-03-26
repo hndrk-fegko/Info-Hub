@@ -45,6 +45,9 @@ window.V2Settings = (function() {
         // Wire up events
         wireEvents(settings);
         
+        // Highlight header & footer on canvas
+        _highlightRegions(true);
+        
         // Toggle narrow width field visibility
         const narrowCheck = document.getElementById('v2SetNarrowLayout');
         const narrowField = document.getElementById('v2NarrowWidthField');
@@ -307,10 +310,17 @@ window.V2Settings = (function() {
     }
     
     function close() {
+        _highlightRegions(false);
         if (_overlay) {
             _overlay.remove();
             _overlay = null;
         }
+    }
+    
+    function _highlightRegions(on) {
+        document.querySelectorAll('.v2-editable-region').forEach(el => {
+            el.classList.toggle('v2-settings-highlight', on);
+        });
     }
     
     function onSettingsChanged(data) {

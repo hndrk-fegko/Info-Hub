@@ -1083,6 +1083,105 @@ body {
 
 /* ===== Settings Modal Extras ===== */
 
+/* Shared input styles for settings modal */
+.v2-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #94a3b8;
+    margin-bottom: 6px;
+}
+
+.v2-hint {
+    display: block;
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
+    line-height: 1.4;
+}
+
+.v2-input,
+.v2-modal-fieldset input[type="text"],
+.v2-modal-fieldset input[type="email"],
+.v2-modal-fieldset textarea,
+.v2-modal-fieldset select {
+    width: 100%;
+    padding: 9px 12px;
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: #f1f5f9;
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+}
+
+.v2-input:focus,
+.v2-modal-fieldset input:focus,
+.v2-modal-fieldset textarea:focus,
+.v2-modal-fieldset select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.v2-input::placeholder,
+.v2-modal-fieldset input::placeholder,
+.v2-modal-fieldset textarea::placeholder {
+    color: #475569;
+}
+
+.v2-modal-fieldset textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.v2-modal-fieldset select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+}
+
+/* File input dark styling */
+.v2-modal-fieldset input[type="file"] {
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+.v2-modal-fieldset input[type="file"]::file-selector-button {
+    background: #334155;
+    color: #e2e8f0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 6px 14px;
+    margin-right: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s;
+}
+
+.v2-modal-fieldset input[type="file"]::file-selector-button:hover {
+    background: #475569;
+}
+
+/* Fieldset spacing */
+.v2-modal-fieldset:first-child {
+    margin-top: 0;
+}
+
+.v2-modal-fieldset:last-child {
+    margin-bottom: 0;
+}
+
+.v2-modal-fieldset .v2-field:last-child {
+    margin-bottom: 0;
+}
+
+/* Colors row */
 .v2-settings-colors {
     display: flex;
     gap: 16px;
@@ -1096,25 +1195,40 @@ body {
 
 .v2-color-input {
     width: 100%;
-    height: 36px;
+    height: 40px;
     border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 6px;
-    background: transparent;
+    border-radius: 8px;
+    background: #0f172a;
     cursor: pointer;
-    padding: 2px;
+    padding: 3px;
 }
 
+.v2-color-input:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Header preview */
 .v2-settings-header-preview {
     display: flex;
     flex-direction: column;
     gap: 8px;
     align-items: flex-start;
+    padding: 12px;
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
 }
 
 .v2-settings-header-preview img {
     display: block;
+    border-radius: 6px;
 }
 
+.v2-settings-header-preview .v2-hint {
+    margin: 8px 0;
+}
+
+/* Checkbox */
 .v2-checkbox-label {
     display: flex;
     align-items: center;
@@ -1132,12 +1246,11 @@ body {
 }
 
 .v2-btn-small {
-    padding: 4px 10px;
+    padding: 5px 12px;
     font-size: 12px;
 }
 
 /* Range input */
-
 .v2-range-input {
     width: 100%;
     height: 6px;
@@ -1182,6 +1295,16 @@ body {
 
 .v2-editable-region:hover .v2-region-edit-hint {
     display: block;
+}
+
+/* Settings open → persistent highlight on header & footer */
+.v2-settings-highlight {
+    outline: 2px dashed rgba(102, 126, 234, 0.6) !important;
+    outline-offset: -2px;
+}
+
+.v2-settings-highlight .v2-region-edit-hint {
+    display: block !important;
 }
 
 /* ===== Admin Management (Settings Modal) ===== */
