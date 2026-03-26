@@ -264,6 +264,11 @@ try {
                         }
                     }
                 }
+                
+                // Boolean-Felder
+                if (isset($newSettings['theme']['narrowLayout'])) {
+                    $settings['theme']['narrowLayout'] = (bool) $newSettings['theme']['narrowLayout'];
+                }
             }
             
             // Speichern

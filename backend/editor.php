@@ -96,6 +96,9 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                     <div class="session-timer" id="sessionTimer" title="Verbleibende Session-Zeit">
                         🕐 <span id="sessionTimeDisplay">--</span>
                     </div>
+                    <a href="v2/editor.php" class="btn btn-secondary" title="Zum WYSIWYG Editor">
+                        ✏️ WYSIWYG
+                    </a>
                     <button type="button" class="btn btn-icon" onclick="openSettingsModal()" title="Einstellungen (S)">
                         ⚙️
                     </button>

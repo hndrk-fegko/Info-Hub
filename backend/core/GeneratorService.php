@@ -391,6 +391,7 @@ JS;
         $accentColor = htmlspecialchars($settings['theme']['accentColor'] ?? $settings['theme']['primaryColor'] ?? '#667eea');
         $accentColor2 = htmlspecialchars($settings['theme']['accentColor2'] ?? '#48bb78');
         $accentColor3 = htmlspecialchars($settings['theme']['accentColor3'] ?? '#ed8936');
+        $narrowLayout = !empty($settings['theme']['narrowLayout']);
         
         // Title für <title>-Tag (pageTitle hat Priorität, dann title, dann Fallback)
         $pageTitleRaw = $settings['site']['pageTitle'] ?? '';
@@ -431,6 +432,23 @@ HTML;
             $footerHtml = "<footer class=\"site-footer\">{$footerText}</footer>";
         }
         
+        // Narrow Layout (optional: zentrierter Container mit begrenzter Breite)
+        $narrowCSS = '';
+        $narrowOpen = '';
+        $narrowClose = '';
+        if ($narrowLayout) {
+            $narrowCSS = <<<'CSS'
+        /* Narrow Layout */
+        html { background: #1a1a2e; }
+        body {
+            max-width: 960px;
+            margin: 0 auto;
+            min-height: 100vh;
+            box-shadow: 0 0 60px rgba(0,0,0,0.4);
+        }
+CSS;
+        }
+        
         // Komplette Seite
         $html = <<<HTML
 <!DOCTYPE html>
@@ -449,9 +467,11 @@ HTML;
         }
 {$sharedCSS}
 {$tileCSS}
+{$narrowCSS}
     </style>
 </head>
 <body>
+{$narrowOpen}
 {$headerHtml}
 
     <main class="tile-grid">
@@ -459,6 +479,7 @@ HTML;
     </main>
 
 {$footerHtml}
+{$narrowClose}
 
     <!-- Lightbox -->
     <div class="lightbox" id="lightbox" onclick="closeLightbox()">

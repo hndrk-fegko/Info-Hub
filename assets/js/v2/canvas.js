@@ -38,6 +38,18 @@ window.V2Canvas = (function() {
         // Keyboard shortcuts
         document.addEventListener('keydown', onKeyDown);
         
+        // Reposition toolbar on window resize (handles row-wrap changes)
+        window.addEventListener('resize', () => {
+            const selectedId = V2State.getSelectedTileId();
+            if (selectedId) {
+                const toolbar = document.getElementById('tileToolbar');
+                const wrapper = _gridEl.querySelector(`.v2-tile-wrapper[data-tile-id="${selectedId}"]`);
+                if (toolbar && wrapper && toolbar.style.display !== 'none') {
+                    positionToolbar(toolbar, wrapper);
+                }
+            }
+        });
+        
         _initialized = true;
         
         if (V2_CONFIG.debugMode) {
@@ -377,6 +389,11 @@ window.V2 = (function() {
             V2EditModal.init();
         }
         
+        // Settings-Modal initialisieren
+        if (typeof V2Settings !== 'undefined') {
+            V2Settings.init();
+        }
+        
         // Session-Timer starten
         initSessionTimer();
         
@@ -426,15 +443,21 @@ window.V2 = (function() {
         saveTileAndRefresh(newTile);
     }
     
-    async function saveTileAndRefresh(tileData) {
+    async function saveTileAndRefresh(tileData, reselect = true) {
         try {
             const result = await V2Api.saveTile(tileData);
             if (result.success) {
                 toast('Gespeichert', 'success');
-                await V2Canvas.reloadAll();
-                // Select the saved tile
-                if (result.tile && result.tile.id) {
-                    V2State.selectTile(result.tile.id);
+                const tileId = result.tile?.id || tileData.id;
+                if (reselect && tileId) {
+                    // Deselect first, reload, then re-select after DOM reflow
+                    V2State.deselectAll();
+                    await V2Canvas.reloadAll();
+                    requestAnimationFrame(() => {
+                        V2State.selectTile(tileId);
+                    });
+                } else {
+                    await V2Canvas.reloadAll();
                 }
             } else {
                 toast('Fehler: ' + (result.errors || result.error || 'Unbekannt'), 'error');
@@ -592,9 +615,11 @@ window.V2 = (function() {
     }
     
     function openSettings() {
-        // Phase 5 wird ein Settings-Panel für den WYSIWYG-Editor bauen
-        // Für jetzt: Redirect zum klassischen Editor Settings
-        toast('Settings werden in einer späteren Phase integriert. Nutze den klassischen Editor.', 'info');
+        if (typeof V2Settings !== 'undefined') {
+            V2Settings.open();
+        } else {
+            toast('Settings-Modul nicht geladen', 'error');
+        }
     }
     
     function logout() {
@@ -622,33 +647,89 @@ window.V2 = (function() {
         }, 3000);
     }
     
-    // === Session Timer ===
+    // === Session Timer (Activity-Tracking + Auto-Extend + Restore) ===
+    
+    let _sessionLastActivity = Date.now();
+    let _sessionWarningShown = false;
+    let _lastExtendCall = 0;
     
     function initSessionTimer() {
-        let remaining = V2_CONFIG.sessionRemaining;
+        const timeout = V2_CONFIG.sessionTimeout || 3600;
+        const warningBefore = V2_CONFIG.sessionWarning || 300;
         const display = document.getElementById('sessionTimeDisplay');
+        const timer = document.getElementById('sessionTimer');
         if (!display) return;
         
+        // Restore last activity from sessionStorage (survives reload)
+        const stored = sessionStorage.getItem('v2_lastActivity');
+        if (stored) {
+            const storedTime = parseInt(stored, 10);
+            // Only restore if it's recent enough (within timeout)
+            if (Date.now() - storedTime < timeout * 1000) {
+                _sessionLastActivity = storedTime;
+            }
+        }
+        
+        // Activity tracking
+        const activityEvents = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'];
+        activityEvents.forEach(evt => {
+            document.addEventListener(evt, () => {
+                _sessionLastActivity = Date.now();
+                sessionStorage.setItem('v2_lastActivity', String(_sessionLastActivity));
+                _sessionWarningShown = false;
+                extendSessionIfNeeded();
+            }, { passive: true });
+        });
+        
+        // Timer update every second
         function update() {
-            remaining--;
+            const inactiveSecs = Math.floor((Date.now() - _sessionLastActivity) / 1000);
+            const remaining = Math.max(0, timeout - inactiveSecs);
+            
+            const mins = Math.floor(remaining / 60);
+            const secs = remaining % 60;
+            
+            if (remaining <= 300 && remaining > 0) {
+                display.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            } else if (remaining > 0) {
+                display.textContent = `${mins}min`;
+            } else {
+                display.textContent = '0:00';
+            }
+            
+            // Warning state
+            if (timer) {
+                timer.classList.toggle('v2-session-warning', remaining < warningBefore);
+            }
+            
+            // Session expired → redirect
             if (remaining <= 0) {
+                sessionStorage.removeItem('v2_lastActivity');
                 window.location.href = '../login.php';
                 return;
             }
             
-            const mins = Math.floor(remaining / 60);
-            const secs = remaining % 60;
-            display.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
-            
-            // Warning state
-            const timer = document.getElementById('sessionTimer');
-            if (timer) {
-                timer.classList.toggle('v2-session-warning', remaining < V2_CONFIG.sessionWarning);
+            // Show warning dialog when close to expiry
+            if (remaining <= warningBefore && !_sessionWarningShown) {
+                _sessionWarningShown = true;
+                toast('Session läuft bald ab! Klicke irgendwo um sie zu verlängern.', 'warning');
             }
         }
         
         update();
         setInterval(update, 1000);
+    }
+    
+    async function extendSessionIfNeeded() {
+        // Max every 5 minutes
+        if (Date.now() - _lastExtendCall < 300000) return;
+        _lastExtendCall = Date.now();
+        
+        try {
+            await V2Api.extendSession();
+        } catch(e) {
+            console.warn('[V2] Session extend failed:', e);
+        }
     }
     
     // === Public API ===

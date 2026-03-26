@@ -489,10 +489,14 @@ window.V2Insert = (function() {
             data: { title: 'Neue ' + (types[type]?.name || type) }
         };
         
-        // Typ-spezifische Defaults
-        if (type === 'quote') newTile.data.quote = 'Zitat hier eingeben...';
+        // Typ-spezifische Defaults (required fields pro Typ)
+        if (type === 'quote') {newTile.data.quote = 'Zitat hier eingeben...';}
         if (type === 'separator') { newTile.data.height = 20; newTile.data.showLine = true; }
         if (type === 'link') { newTile.data.url = 'https://'; newTile.data.linkText = 'Mehr erfahren'; }
+        if (type === 'image') { newTile.data.image = ''; }
+        if (type === 'contact') { newTile.data.name = 'Neuer Kontakt'; }
+        if (type === 'download') { newTile.data.file = ''; }
+        if (type === 'iframe') { newTile.data.url = 'https://'; }
         if (type === 'countdown') { 
             newTile.data.targetDate = new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0];
             newTile.data.targetTime = '00:00';

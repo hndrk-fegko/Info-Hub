@@ -141,7 +141,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
         <div id="wysiwyg-canvas" class="v2-canvas">
             
             <!-- Header (aus Settings) -->
-            <div class="v2-canvas-header" id="canvasHeader" data-editor-region="header">
+            <div class="v2-canvas-header v2-editable-region" id="canvasHeader" data-editor-region="header" onclick="V2.openSettings()" title="Klicken um Header zu bearbeiten">
                 <?php if ($headerImage): ?>
                     <header class="site-header">
                         <div class="header-image">
@@ -151,10 +151,12 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
                             <h1 class="site-title"><?= $siteTitle ?></h1>
                         <?php endif; ?>
                     </header>
+                    <div class="v2-region-edit-hint">✏️ Header bearbeiten</div>
                 <?php elseif (!empty($siteTitle)): ?>
                     <header class="site-header site-header--minimal">
                         <h1 class="site-title"><?= $siteTitle ?></h1>
                     </header>
+                    <div class="v2-region-edit-hint">✏️ Header bearbeiten</div>
                 <?php else: ?>
                     <div class="v2-empty-header">
                         <button class="v2-add-header-btn" onclick="V2.openSettings()">+ Header hinzufügen</button>
@@ -176,9 +178,10 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             </div>
             
             <!-- Footer (aus Settings) -->
-            <div class="v2-canvas-footer" id="canvasFooter" data-editor-region="footer">
+            <div class="v2-canvas-footer v2-editable-region" id="canvasFooter" data-editor-region="footer" onclick="V2.openSettings()" title="Klicken um Footer zu bearbeiten">
                 <?php if ($footerText): ?>
                     <footer class="site-footer"><?= $footerText ?></footer>
+                    <div class="v2-region-edit-hint">✏️ Footer bearbeiten</div>
                 <?php else: ?>
                     <div class="v2-empty-footer">
                         <button class="v2-add-footer-btn" onclick="V2.openSettings()">+ Footer hinzufügen</button>
@@ -252,7 +255,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
     
     <!-- V2 Editor Module -->
     <?php
-    $v2Modules = ['state', 'api-client', 'edit-modal', 'canvas', 'drag-drop', 'insert'];
+    $v2Modules = ['state', 'api-client', 'edit-modal', 'settings', 'canvas', 'drag-drop', 'insert'];
     foreach ($v2Modules as $module):
         $filePath = __DIR__ . "/../../assets/js/v2/{$module}.js";
         $version = file_exists($filePath) ? filemtime($filePath) : time();
