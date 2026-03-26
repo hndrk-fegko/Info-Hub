@@ -1,11 +1,9 @@
 /**
  * V2 Drag & Drop - Native HTML5 Drag & Drop für Tile-Sortierung
  * 
- * Kein SortableJS nötig - verwendet native DnD API.
- * Sortiert Tiles per Drag & Drop und speichert neue Positionen via API.
- * 
- * FIX: Event-Delegation auf dem Grid statt individuelle Listener pro Tile.
- * So gibt es kein Listener-Leak bei Re-Renders.
+ * Nutzt die Insert-Gaps (aus insert.js) als Drop-Zonen.
+ * Auto-Scroll am Viewport-Rand während des Drags.
+ * Event-Delegation auf Grid-Level verhindert Listener-Leaks.
  */
 
 window.V2DragDrop = (function() {
@@ -13,8 +11,17 @@ window.V2DragDrop = (function() {
     
     let _gridEl = null;
     let _draggedEl = null;
+    let _draggedId = null;
     let _enabled = true;
-    let _boundGrid = false;  // Verhindert doppeltes Binden auf Grid-Level
+    let _boundGrid = false;
+    
+    // Auto-Scroll
+    let _scrollRAF = null;
+    const SCROLL_ZONE = 80;    // px vom Rand
+    const SCROLL_SPEED = 12;   // px pro Frame
+    
+    // Aktueller Drop-Gap
+    let _currentDropGap = null;
     
     function init() {
         _gridEl = document.getElementById('tileGrid');
@@ -24,12 +31,12 @@ window.V2DragDrop = (function() {
         if (!_boundGrid) {
             _gridEl.addEventListener('dragstart', onDragStart);
             _gridEl.addEventListener('dragend', onDragEnd);
-            _gridEl.addEventListener('dragover', onDragOver);
-            _gridEl.addEventListener('dragenter', onDragEnter);
-            _gridEl.addEventListener('dragleave', onDragLeave);
-            _gridEl.addEventListener('drop', onDrop);
             _boundGrid = true;
         }
+        
+        // dragover/drop auf document-Level für Auto-Scroll überall
+        document.addEventListener('dragover', onDragOver);
+        document.addEventListener('drop', onDrop);
         
         // Draggable-Attribut auf aktuelle Tiles setzen
         applyDraggable();
@@ -45,7 +52,7 @@ window.V2DragDrop = (function() {
         });
         
         if (V2_CONFIG.debugMode) {
-            console.log('[DragDrop] Initialized (event delegation)');
+            console.log('[DragDrop] Initialized (insert-gap drop zones + auto-scroll)');
         }
     }
     
@@ -66,6 +73,8 @@ window.V2DragDrop = (function() {
         return el?.closest?.('.v2-tile-wrapper');
     }
     
+    // === Drag Events ===
+    
     function onDragStart(e) {
         if (!_enabled) return;
         
@@ -73,124 +82,159 @@ window.V2DragDrop = (function() {
         if (!wrapper) return;
         
         _draggedEl = wrapper;
+        _draggedId = wrapper.dataset.tileId;
         _draggedEl.classList.add('v2-dragging');
         
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', wrapper.dataset.tileId);
+        e.dataTransfer.setData('text/plain', _draggedId);
         
         requestAnimationFrame(() => {
-            if (_draggedEl) _draggedEl.style.opacity = '0.4';
+            if (_draggedEl) _draggedEl.style.opacity = '0.3';
         });
         
-        // Insert-Indikator während Drag verstecken
-        if (typeof V2Insert !== 'undefined') V2Insert.hideTypePopup();
+        // Insert in Drop-Mode setzen (zeigt Gaps als Drop-Zonen)
+        if (typeof V2Insert !== 'undefined') {
+            V2Insert.hideTypePopup();
+            V2Insert.invalidateCache();
+            // Kurze Verzögerung damit der Drag-Start-Opacity angewendet ist
+            requestAnimationFrame(() => {
+                V2Insert.setDropMode(true);
+            });
+        }
         
         if (V2_CONFIG.debugMode) {
-            console.log('[DragDrop] Start:', wrapper.dataset.tileId);
+            console.log('[DragDrop] Start:', _draggedId);
         }
     }
     
     function onDragEnd(e) {
-        if (!_draggedEl) return;
+        // Auto-Scroll stoppen
+        stopAutoScroll();
         
-        _draggedEl.classList.remove('v2-dragging');
-        _draggedEl.style.opacity = '';
-        _draggedEl = null;
+        // Drop-Mode beenden
+        if (typeof V2Insert !== 'undefined') {
+            V2Insert.setDropMode(false);
+        }
         
-        // Alle Drop-Highlights entfernen
-        _gridEl.querySelectorAll('.v2-drop-before, .v2-drop-after').forEach(el => {
-            el.classList.remove('v2-drop-before', 'v2-drop-after');
-        });
+        if (_draggedEl) {
+            _draggedEl.classList.remove('v2-dragging');
+            _draggedEl.style.opacity = '';
+            _draggedEl = null;
+            _draggedId = null;
+        }
+        
+        _currentDropGap = null;
     }
     
     function onDragOver(e) {
         if (!_draggedEl) return;
         
-        const wrapper = closestWrapper(e.target);
-        
-        // Drop auf dem Grid direkt (nicht auf einem Wrapper) = am Ende einfügen
-        if (!wrapper || wrapper === _draggedEl) {
-            if (e.target === _gridEl || e.target.classList.contains('v2-empty-grid')) {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-            }
-            return;
-        }
-        
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         
-        // Obere/untere Hälfte bestimmen
-        const rect = wrapper.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
+        // Auto-Scroll am Viewport-Rand
+        handleAutoScroll(e.clientY);
         
-        // Vorherige Indikatoren auf anderen Wrappern entfernen
-        _gridEl.querySelectorAll('.v2-drop-before, .v2-drop-after').forEach(el => {
-            if (el !== wrapper) el.classList.remove('v2-drop-before', 'v2-drop-after');
-        });
-        
-        wrapper.classList.remove('v2-drop-before', 'v2-drop-after');
-        if (e.clientY < midY) {
-            wrapper.classList.add('v2-drop-before');
-        } else {
-            wrapper.classList.add('v2-drop-after');
-        }
-    }
-    
-    function onDragEnter(e) {
-        if (!_draggedEl) return;
-        e.preventDefault();
-    }
-    
-    function onDragLeave(e) {
-        const wrapper = closestWrapper(e.target);
-        if (!wrapper) return;
-        // Nur entfernen wenn wirklich das Wrapper-Element verlassen wird
-        if (!wrapper.contains(e.relatedTarget)) {
-            wrapper.classList.remove('v2-drop-before', 'v2-drop-after');
+        // Drop-Zone anzeigen: nächsten Gap finden via Insert-Modul
+        if (typeof V2Insert !== 'undefined') {
+            const result = V2Insert.findNearestGap(e.clientX, e.clientY, 80);
+            if (result) {
+                _currentDropGap = result.gap;
+                V2Insert.showIndicator(result.gap);
+            } else {
+                _currentDropGap = null;
+                V2Insert.hideIndicator();
+            }
         }
     }
     
     function onDrop(e) {
         e.preventDefault();
-        if (!_draggedEl) return;
+        if (!_draggedEl || !_draggedId) return;
         
-        const wrapper = closestWrapper(e.target);
+        // Stoppe alles
+        stopAutoScroll();
         
-        // Drop auf Grid = am Ende einfügen
-        if (!wrapper || wrapper === _draggedEl) {
-            if (e.target === _gridEl || e.target.classList.contains('v2-empty-grid')) {
-                moveToEnd(_draggedEl.dataset.tileId);
-            }
-            return;
+        if (_currentDropGap && typeof V2Insert !== 'undefined') {
+            const insertIndex = _currentDropGap.insertIndex;
+            reorderToIndex(_draggedId, insertIndex);
         }
         
-        const draggedId = _draggedEl.dataset.tileId;
-        const targetId = wrapper.dataset.tileId;
-        const isBefore = wrapper.classList.contains('v2-drop-before');
+        // Drop-Mode beenden
+        if (typeof V2Insert !== 'undefined') {
+            V2Insert.setDropMode(false);
+        }
         
-        wrapper.classList.remove('v2-drop-before', 'v2-drop-after');
-        
-        reorderTile(draggedId, targetId, isBefore);
+        if (_draggedEl) {
+            _draggedEl.classList.remove('v2-dragging');
+            _draggedEl.style.opacity = '';
+        }
+        _draggedEl = null;
+        _draggedId = null;
+        _currentDropGap = null;
     }
     
+    // === Auto-Scroll ===
+    
+    function handleAutoScroll(clientY) {
+        const viewH = window.innerHeight;
+        
+        let scrollDir = 0;
+        if (clientY < SCROLL_ZONE) {
+            scrollDir = -1; // nach oben
+        } else if (clientY > viewH - SCROLL_ZONE) {
+            scrollDir = 1;  // nach unten
+        }
+        
+        if (scrollDir !== 0) {
+            startAutoScroll(scrollDir);
+        } else {
+            stopAutoScroll();
+        }
+    }
+    
+    function startAutoScroll(direction) {
+        if (_scrollRAF) return; // Läuft bereits
+        
+        function tick() {
+            window.scrollBy(0, direction * SCROLL_SPEED);
+            // Gaps aktualisieren (Scroll verändert Positionen)
+            if (typeof V2Insert !== 'undefined') {
+                V2Insert.invalidateCache();
+            }
+            _scrollRAF = requestAnimationFrame(tick);
+        }
+        _scrollRAF = requestAnimationFrame(tick);
+    }
+    
+    function stopAutoScroll() {
+        if (_scrollRAF) {
+            cancelAnimationFrame(_scrollRAF);
+            _scrollRAF = null;
+        }
+    }
+    
+    // === Reorder Logic ===
+    
     /**
-     * Berechnet neue Positionen und speichert sie via API
+     * Verschiebt eine Tile an eine neue Position (insertIndex aus Gap).
+     * insertIndex = Position im sortierten tiles-Array, wo die Tile eingefügt werden soll.
      */
-    async function reorderTile(draggedId, targetId, insertBefore) {
+    async function reorderToIndex(tileId, insertIndex) {
         const tiles = [...V2State.getTiles()];
         
-        const dragIdx = tiles.findIndex(t => t.id === draggedId);
-        const targetIdx = tiles.findIndex(t => t.id === targetId);
+        const dragIdx = tiles.findIndex(t => t.id === tileId);
+        if (dragIdx === -1) return;
         
-        if (dragIdx === -1 || targetIdx === -1) return;
-        
+        // Tile entfernen
         const [draggedTile] = tiles.splice(dragIdx, 1);
         
-        const newTargetIdx = tiles.findIndex(t => t.id === targetId);
-        const insertIdx = insertBefore ? newTargetIdx : newTargetIdx + 1;
+        // insertIndex korrigieren: wenn Tile vor insertIndex war, verschiebt sich alles
+        const adjustedIdx = insertIndex > dragIdx ? insertIndex - 1 : insertIndex;
         
-        tiles.splice(insertIdx, 0, draggedTile);
+        // An neuer Position einfügen
+        const finalIdx = Math.max(0, Math.min(adjustedIdx, tiles.length));
+        tiles.splice(finalIdx, 0, draggedTile);
         
         // Positionen neu vergeben (10er-Schritte)
         const positions = tiles.map((t, i) => ({
@@ -203,31 +247,14 @@ window.V2DragDrop = (function() {
             if (result.success) {
                 V2.toast('Reihenfolge aktualisiert', 'success');
                 await V2Canvas.reloadAll();
-                V2State.selectTile(draggedId);
+                V2State.deselectAll();
+                requestAnimationFrame(() => {
+                    V2State.selectTile(tileId);
+                });
             }
         } catch(err) {
             console.error('[DragDrop] reorder failed:', err);
             V2.toast('Sortierung fehlgeschlagen', 'error');
-        }
-    }
-    
-    async function moveToEnd(tileId) {
-        const tiles = V2State.getTiles();
-        const maxPos = tiles.reduce((max, t) => Math.max(max, t.position || 0), 0);
-        
-        const positions = tiles.map(t => ({
-            id: t.id,
-            position: t.id === tileId ? maxPos + 10 : t.position
-        }));
-        
-        try {
-            const result = await V2Api.updatePositions(positions);
-            if (result.success) {
-                V2.toast('Reihenfolge aktualisiert', 'success');
-                await V2Canvas.reloadAll();
-            }
-        } catch(err) {
-            console.error('[DragDrop] moveToEnd failed:', err);
         }
     }
     

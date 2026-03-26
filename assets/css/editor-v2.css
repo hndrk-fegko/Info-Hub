@@ -484,31 +484,31 @@ body {
     background: rgba(233, 69, 96, 0.15);
 }
 
-/* Drop indicators */
-.v2-tile-wrapper.v2-drop-before::before {
-    content: '';
-    position: absolute;
-    top: -4px;
-    left: 0;
-    right: 0;
-    height: 4px;
+/* Drop indicators (via insert indicator in drop mode) */
+.v2-insert-indicator.v2-insert-drop-mode {
+    opacity: 1 !important;
+    pointer-events: none !important;
+    z-index: 100;
+}
+
+.v2-insert-indicator.v2-insert-drop-mode .v2-insert-trigger {
+    pointer-events: none;
     background: #e94560;
-    border-radius: 2px;
-    z-index: 20;
+    transform: scale(1.15);
+    box-shadow: 0 0 16px rgba(233, 69, 96, 0.6);
     animation: dropPulse 1s infinite;
 }
 
-.v2-tile-wrapper.v2-drop-after::after {
-    content: '';
-    position: absolute;
-    bottom: -4px;
-    left: 0;
-    right: 0;
-    height: 4px;
+.v2-insert-indicator.v2-insert-drop-mode .v2-insert-line {
+    opacity: 1;
+    height: 3px;
     background: #e94560;
-    border-radius: 2px;
-    z-index: 20;
-    animation: dropPulse 1s infinite;
+    box-shadow: 0 0 8px rgba(233, 69, 96, 0.5);
+}
+
+.v2-insert-indicator.v2-insert-drop-mode.v2-insert-vertical .v2-insert-line {
+    width: 3px;
+    height: auto;
 }
 
 @keyframes dropPulse {
@@ -516,7 +516,7 @@ body {
     50% { opacity: 0.5; }
 }
 
-/* (Floating drop indicator removed — using ::before/::after on wrappers instead) */
+/* (Floating drop indicator removed — using insert indicator in drop mode) */
 
 /* ===== Insert Indicator (floating, NOT in grid) ===== */
 

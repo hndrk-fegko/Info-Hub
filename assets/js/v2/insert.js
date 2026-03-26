@@ -218,42 +218,58 @@ window.V2Insert = (function() {
         return gaps;
     }
     
+    // === Drop-Mode (während Drag & Drop) ===
+    
+    let _dropMode = false;
+    
     /**
-     * Maus-Tracking: Nächsten Gap (horizontal oder vertikal) finden
+     * Aktiviert/deaktiviert den Drop-Modus.
+     * Im Drop-Modus: Indikator zeigt Drop-Zone statt Add-Button.
      */
-    function onGridMouseMove(e) {
-        // Nicht anzeigen während Drag & Drop
-        if (document.querySelector('.v2-dragging')) {
-            hideIndicator();
-            return;
+    function setDropMode(enabled) {
+        _dropMode = enabled;
+        if (_indicator) {
+            _indicator.classList.toggle('v2-insert-drop-mode', enabled);
         }
-        
-        // Gaps bei Bedarf neu berechnen (Cache)
+        if (!enabled) {
+            hideIndicator();
+        }
+    }
+    
+    /**
+     * Gibt gecachte Gaps zurück (berechnet bei Bedarf).
+     */
+    function getGaps() {
         if (_gaps.length === 0) {
             _gaps = computeGaps();
         }
-        if (_gaps.length === 0) return;
+        return _gaps;
+    }
+    
+    /**
+     * Findet den nächsten Gap zu einer Mausposition.
+     * @param {number} mouseX - clientX
+     * @param {number} mouseY - clientY
+     * @param {number} maxDist - Max-Entfernung in px (default 60)
+     * @returns {{ gap: object, dist: number } | null}
+     */
+    function findNearestGap(mouseX, mouseY, maxDist) {
+        const gaps = getGaps();
+        if (gaps.length === 0) return null;
         
-        const mouseX = e.clientX;
-        const mouseY = e.clientY;
-        
-        // Nächsten Gap finden (euklidische Distanz zum Gap-Mittelpunkt, max 40px)
         let bestGap = null;
-        let bestDist = 40;
+        let bestDist = maxDist || 60;
         
-        for (const gap of _gaps) {
-            // Für horizontale Gaps: nur Y-Abstand zählt (X ist immer nah)
-            // Für vertikale Gaps: nur X-Abstand zählt (wenn Y in Range)
+        for (const gap of gaps) {
             let dist;
             if (gap.orientation === 'horizontal') {
                 dist = Math.abs(mouseY - gap._midY);
             } else {
-                // Vertikaler Gap: Maus muss in Y-Range sein
                 const gridRect = _gridEl.getBoundingClientRect();
                 const gapTopAbs = gridRect.top + gap.y;
                 const gapBottomAbs = gapTopAbs + gap.height;
                 if (mouseY < gapTopAbs - 10 || mouseY > gapBottomAbs + 10) {
-                    continue; // Maus ist nicht in der Zeile
+                    continue;
                 }
                 dist = Math.abs(mouseX - gap._midX);
             }
@@ -264,9 +280,29 @@ window.V2Insert = (function() {
             }
         }
         
-        if (bestGap) {
+        return bestGap ? { gap: bestGap, dist: bestDist } : null;
+    }
+    
+    /**
+     * Maus-Tracking: Nächsten Gap (horizontal oder vertikal) finden
+     */
+    function onGridMouseMove(e) {
+        // Nicht anzeigen während Drag & Drop (wird von drag-drop.js gesteuert)
+        if (_dropMode || document.querySelector('.v2-dragging')) {
+            return;
+        }
+        
+        // Gaps bei Bedarf neu berechnen (Cache)
+        if (_gaps.length === 0) {
+            _gaps = computeGaps();
+        }
+        if (_gaps.length === 0) return;
+        
+        const result = findNearestGap(e.clientX, e.clientY, 40);
+        
+        if (result) {
             cancelHide();
-            showIndicator(bestGap);
+            showIndicator(result.gap);
         } else {
             scheduleHide(150);
         }
@@ -478,6 +514,12 @@ window.V2Insert = (function() {
         init,
         showTypePopup,
         hideTypePopup,
-        invalidateCache
+        invalidateCache,
+        // Für Drag & Drop:
+        setDropMode,
+        getGaps,
+        findNearestGap,
+        showIndicator,
+        hideIndicator
     };
 })();

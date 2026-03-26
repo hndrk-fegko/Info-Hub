@@ -52,15 +52,19 @@ check("DragDrop init function", strpos($ddContent, 'function init()') !== false)
 check("DragDrop uses HTML5 dragstart", strpos($ddContent, 'dragstart') !== false);
 check("DragDrop uses dragover", strpos($ddContent, 'dragover') !== false);
 check("DragDrop uses drop event", strpos($ddContent, "'drop'") !== false || strpos($ddContent, '"drop"') !== false);
-check("DragDrop has reorderTile", strpos($ddContent, 'reorderTile') !== false);
+check("DragDrop has reorderToIndex", strpos($ddContent, 'reorderToIndex') !== false);
 check("DragDrop calls V2Api.updatePositions", strpos($ddContent, 'V2Api.updatePositions') !== false);
 check("DragDrop has v2-dragging class", strpos($ddContent, 'v2-dragging') !== false);
-check("DragDrop has drop indicators", strpos($ddContent, 'v2-drop-before') !== false && strpos($ddContent, 'v2-drop-after') !== false);
+check("DragDrop uses insert gaps as drop zones", strpos($ddContent, 'V2Insert.findNearestGap') !== false);
 check("DragDrop setEnabled export", strpos($ddContent, 'setEnabled') !== false);
 check("DragDrop returns init", preg_match('/return\s*\{[^}]*init/', $ddContent) === 1);
 check("DragDrop event delegation (no per-tile listeners)", strpos($ddContent, '_boundGrid') !== false);
 check("DragDrop closestWrapper for delegation", strpos($ddContent, 'closestWrapper') !== false);
-check("DragDrop hides insert during drag", strpos($ddContent, 'V2Insert.hideTypePopup') !== false);
+check("DragDrop hides insert popup during drag", strpos($ddContent, 'V2Insert.hideTypePopup') !== false);
+check("DragDrop sets drop mode on insert", strpos($ddContent, 'V2Insert.setDropMode') !== false);
+check("DragDrop auto-scroll on viewport edge", strpos($ddContent, 'handleAutoScroll') !== false);
+check("DragDrop SCROLL_ZONE constant", strpos($ddContent, 'SCROLL_ZONE') !== false);
+check("DragDrop stopAutoScroll on dragend", strpos($ddContent, 'stopAutoScroll') !== false);
 
 // ---- 3. insert.js structure ----
 echo "\n--- insert.js ---\n";
@@ -83,6 +87,11 @@ check("Insert calls V2Api.saveTile", strpos($insContent, 'V2Api.saveTile') !== f
 check("Insert type defaults (separator)", strpos($insContent, "separator") !== false && strpos($insContent, 'showLine') !== false);
 check("Insert returns showTypePopup", preg_match('/return\s*\{[^}]*showTypePopup/', $insContent) === 1);
 check("Insert invalidateCache export", strpos($insContent, 'invalidateCache') !== false);
+check("Insert setDropMode export", strpos($insContent, 'setDropMode') !== false);
+check("Insert findNearestGap export", strpos($insContent, 'findNearestGap') !== false);
+check("Insert getGaps export", strpos($insContent, 'getGaps') !== false);
+check("Insert showIndicator export", preg_match('/return\s*\{[^}]*showIndicator/', $insContent) === 1);
+check("Insert hideIndicator export", preg_match('/return\s*\{[^}]*hideIndicator/', $insContent) === 1);
 
 // ---- 4. CSS classes ----
 echo "\n--- CSS for DnD + Insert ---\n";
@@ -91,8 +100,7 @@ $cssContent = file_get_contents($root . '/assets/css/editor-v2.css');
 
 $requiredCSS = [
     '.v2-dragging' => 'Drag state opacity',
-    '.v2-drop-before' => 'Drop before indicator',
-    '.v2-drop-after' => 'Drop after indicator',
+    '.v2-insert-drop-mode' => 'Drop mode for insert indicator',
     '.v2-insert-indicator' => 'Floating insert indicator',
     '.v2-insert-line' => 'Insert indicator line',
     '.v2-insert-trigger' => 'Insert trigger button',
