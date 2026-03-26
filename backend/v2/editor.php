@@ -216,6 +216,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
         <button class="v2-tb-btn" onclick="V2.moveUp()" title="Nach oben">⬆️</button>
         <button class="v2-tb-btn" onclick="V2.moveDown()" title="Nach unten">⬇️</button>
         <div class="v2-tb-separator"></div>
+        <button class="v2-tb-btn" onclick="V2.duplicateSelectedTile()" title="Duplizieren (Strg+D)">📋</button>
         <button class="v2-tb-btn v2-tb-danger" onclick="V2.deleteSelectedTile()" title="Löschen">🗑️</button>
     </div>
     

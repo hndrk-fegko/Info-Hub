@@ -191,6 +191,21 @@ window.V2EditModal = (function() {
                 }
             });
             footer.appendChild(deleteBtn);
+
+            // Duplicate button
+            const dupBtn = document.createElement('button');
+            dupBtn.type = 'button';
+            dupBtn.className = 'v2-btn v2-btn-secondary v2-modal-duplicate';
+            dupBtn.textContent = '📋 Duplizieren';
+            dupBtn.addEventListener('click', () => {
+                close();
+                // Short delay so modal closes before saveTileAndRefresh re-selects
+                requestAnimationFrame(() => {
+                    V2State.selectTile(tile.id);
+                    V2.duplicateSelectedTile();
+                });
+            });
+            footer.appendChild(dupBtn);
         }
 
         // Spacer to push cancel/save to the right

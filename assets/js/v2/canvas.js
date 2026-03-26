@@ -297,6 +297,13 @@ window.V2Canvas = (function() {
                     V2.editSelectedTile();
                 }
                 break;
+            case 'd':
+            case 'D':
+                if ((e.ctrlKey || e.metaKey) && selectedId) {
+                    e.preventDefault();
+                    V2.duplicateSelectedTile();
+                }
+                break;
             case 'n':
             case 'N':
                 if (!e.ctrlKey && !e.metaKey) {
@@ -507,6 +514,28 @@ window.V2 = (function() {
             const updatedTile = { ...tile, data: { ...tile.data, title: title } };
             saveTileAndRefresh(updatedTile);
         }
+    }
+    
+    async function duplicateSelectedTile() {
+        const id = V2State.getSelectedTileId();
+        if (!id) return;
+        
+        const tile = V2State.getTileById(id);
+        if (!tile) return;
+        
+        // Deep clone without id so API creates a new tile
+        const clone = JSON.parse(JSON.stringify(tile));
+        delete clone.id;
+        
+        // Place right after original (position + 5)
+        clone.position = (tile.position || 0) + 5;
+        
+        // Append "(Kopie)" to title if present
+        if (clone.data?.title) {
+            clone.data.title += ' (Kopie)';
+        }
+        
+        await saveTileAndRefresh(clone, true);
     }
     
     async function deleteSelectedTile() {
@@ -807,7 +836,7 @@ window.V2 = (function() {
     // === Public API ===
     return {
         init,
-        addTile, editSelectedTile, deleteSelectedTile,
+        addTile, editSelectedTile, duplicateSelectedTile, deleteSelectedTile,
         changeSize, changeStyle, changeColor,
         moveUp, moveDown,
         publish, openPreview, openSettings, logout,
