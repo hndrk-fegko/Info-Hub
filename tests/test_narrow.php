@@ -13,7 +13,9 @@ require_once __DIR__ . '/../backend/tiles/_registry.php';
 $ss = new StorageService('settings.json');
 $s = $ss->read();
 $origNarrow = $s['theme']['narrowLayout'] ?? false;
+$origNarrowWidth = $s['theme']['narrowWidth'] ?? 960;
 $s['theme']['narrowLayout'] = true;
+$s['theme']['narrowWidth'] = 960;
 $ss->write($s);
 
 // Generate 
@@ -34,6 +36,7 @@ foreach ($tests as $name => $pass) {
 // Restore: explicitly remove narrowLayout 
 $s2 = $ss->read();
 unset($s2['theme']['narrowLayout']);
+$s2['theme']['narrowWidth'] = $origNarrowWidth;
 $ss->write($s2);
 
 // Re-generate with original settings

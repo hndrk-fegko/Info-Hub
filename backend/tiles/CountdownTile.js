@@ -1,6 +1,17 @@
 /* CountdownTile JavaScript */
 
+// Track active intervals for cleanup on re-init
+var _countdownIntervals = [];
+
+function cleanupCountdowns() {
+    _countdownIntervals.forEach(id => clearInterval(id));
+    _countdownIntervals = [];
+}
+
 function initCountdowns() {
+    // Clear previous intervals before re-binding
+    cleanupCountdowns();
+
     const countdowns = document.querySelectorAll('.countdown-display');
     
     countdowns.forEach(countdown => {
@@ -91,8 +102,10 @@ function initCountdowns() {
             const interval = setInterval(() => {
                 if (!updateCountdown()) {
                     clearInterval(interval);
+                    _countdownIntervals = _countdownIntervals.filter(id => id !== interval);
                 }
             }, 1000);
+            _countdownIntervals.push(interval);
         }
     });
 }

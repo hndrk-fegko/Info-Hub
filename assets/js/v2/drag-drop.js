@@ -81,6 +81,14 @@ window.V2DragDrop = (function() {
         const wrapper = closestWrapper(e.target);
         if (!wrapper) return;
         
+        // Defensive: clean up stuck state from previous drag (e.g. Alt-Tab)
+        if (_draggedEl) {
+            _draggedEl.classList.remove('v2-dragging');
+            _draggedEl.style.opacity = '';
+            stopAutoScroll();
+            if (typeof V2Insert !== 'undefined') V2Insert.setDropMode(false);
+        }
+        
         _draggedEl = wrapper;
         _draggedId = wrapper.dataset.tileId;
         _draggedEl.classList.add('v2-dragging');
@@ -158,6 +166,9 @@ window.V2DragDrop = (function() {
         if (_currentDropGap && typeof V2Insert !== 'undefined') {
             const insertIndex = _currentDropGap.insertIndex;
             reorderToIndex(_draggedId, insertIndex);
+        } else {
+            // No valid drop zone
+            V2.toast('Kachel hier nicht ablegbar', 'info');
         }
         
         // Drop-Mode beenden
@@ -226,6 +237,11 @@ window.V2DragDrop = (function() {
         const dragIdx = tiles.findIndex(t => t.id === tileId);
         if (dragIdx === -1) return;
         
+        // Skip if dropping at same position (no change needed)
+        if (insertIndex === dragIdx || insertIndex === dragIdx + 1) {
+            return;
+        }
+        
         // Tile entfernen
         const [draggedTile] = tiles.splice(dragIdx, 1);
         
@@ -245,6 +261,7 @@ window.V2DragDrop = (function() {
         try {
             const result = await V2Api.updatePositions(positions);
             if (result.success) {
+                V2State.setDirty(true);
                 V2.toast('Reihenfolge aktualisiert', 'success');
                 await V2Canvas.reloadAll();
                 V2State.deselectAll();

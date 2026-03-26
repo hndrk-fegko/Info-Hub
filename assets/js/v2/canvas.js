@@ -148,6 +148,10 @@ window.V2Canvas = (function() {
      * (z.B. Countdowns, Accordions nach Re-Render)
      */
     function reinitTileScripts() {
+        // Cleanup before re-init to prevent listener/interval leaks
+        if (typeof cleanupCountdowns === 'function') {
+            try { cleanupCountdowns(); } catch(e) { /* ignore */ }
+        }
         // Countdown Init
         if (typeof initCountdowns === 'function') {
             try { initCountdowns(); } catch(e) { /* ignore */ }
@@ -271,6 +275,8 @@ window.V2Canvas = (function() {
     function onKeyDown(e) {
         // Don't handle keyboard shortcuts when typing in inputs
         if (e.target.matches('input, textarea, select')) return;
+        // Don't handle when a modal or popup is open
+        if (document.querySelector('.v2-modal-overlay') || document.querySelector('.v2-type-popup[style*="block"]')) return;
         
         const selectedId = V2State.getSelectedTileId();
         
@@ -327,6 +333,7 @@ window.V2Canvas = (function() {
      * Kompletter Reload aller Tiles vom Server
      */
     async function reloadAll() {
+        if (_gridEl) _gridEl.classList.add('v2-canvas-loading');
         try {
             const [tilesRes, renderRes] = await Promise.all([
                 V2Api.getTiles(),
@@ -335,10 +342,16 @@ window.V2Canvas = (function() {
             
             if (tilesRes.success && renderRes.success) {
                 V2State.setTiles(tilesRes.tiles, renderRes.tiles);
+            } else {
+                const errMsg = tilesRes.error || renderRes.error || 'Serverfehler';
+                console.error('[Canvas] reloadAll API error:', errMsg);
+                V2.toast('Laden fehlgeschlagen: ' + errMsg, 'error');
             }
         } catch(err) {
             console.error('[Canvas] reloadAll failed:', err);
             V2.toast('Fehler beim Laden', 'error');
+        } finally {
+            if (_gridEl) _gridEl.classList.remove('v2-canvas-loading');
         }
     }
     
@@ -397,6 +410,14 @@ window.V2 = (function() {
         // Session-Timer starten
         initSessionTimer();
         
+        // Unsaved-changes guard
+        window.addEventListener('beforeunload', function(e) {
+            if (V2State.isDirty()) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+        
         if (V2_CONFIG.debugMode) {
             console.log('[V2] WYSIWYG Editor ready');
         }
@@ -448,6 +469,7 @@ window.V2 = (function() {
             const result = await V2Api.saveTile(tileData);
             if (result.success) {
                 toast('Gespeichert', 'success');
+                V2State.setDirty(true);
                 const tileId = result.tile?.id || tileData.id;
                 if (reselect && tileId) {
                     // Deselect first, reload, then re-select after DOM reflow
@@ -500,6 +522,7 @@ window.V2 = (function() {
             const result = await V2Api.deleteTile(id);
             if (result.success) {
                 V2State.deselectAll();
+                V2State.setDirty(true);
                 toast('Kachel gelöscht', 'success');
                 await V2Canvas.reloadAll();
             } else {
@@ -577,6 +600,7 @@ window.V2 = (function() {
         try {
             const result = await V2Api.updatePositions(positions);
             if (result.success) {
+                V2State.setDirty(true);
                 await V2Canvas.reloadAll();
                 // Force re-select: deselect first so selectTile always fires
                 V2State.deselectAll();
@@ -593,25 +617,73 @@ window.V2 = (function() {
     
     // === Publishing ===
     
+    let _previewWindow = null;
+    
     async function publish() {
         if (!confirm('Seite jetzt veröffentlichen?')) return;
+        
+        const pubBtn = document.querySelector('.v2-btn-primary[onclick*="publish"]');
+        if (pubBtn) {
+            pubBtn.disabled = true;
+            pubBtn.textContent = '⏳ Wird veröffentlicht...';
+        }
         
         try {
             const result = await V2Api.publish();
             if (result.success) {
-                toast('Seite veröffentlicht! 🚀', 'success');
+                const tileCount = V2State.getTiles().length;
+                toast(`Seite veröffentlicht! 🚀 (${tileCount} Kachel${tileCount !== 1 ? 'n' : ''})`, 'success');
                 V2State.setDirty(false);
+                
+                // Update "Zuletzt" timestamp
+                const lastGen = document.querySelector('.v2-last-generated');
+                if (lastGen) {
+                    const now = new Date();
+                    const dd = String(now.getDate()).padStart(2, '0');
+                    const mm = String(now.getMonth() + 1).padStart(2, '0');
+                    const hh = String(now.getHours()).padStart(2, '0');
+                    const mi = String(now.getMinutes()).padStart(2, '0');
+                    lastGen.textContent = `Zuletzt: ${dd}.${mm}. ${hh}:${mi}`;
+                } else {
+                    // First publish — show link + timestamp
+                    const toolbarLeft = document.querySelector('.v2-toolbar-left');
+                    if (toolbarLeft) {
+                        const link = document.createElement('a');
+                        link.href = '../../index.html';
+                        link.target = '_blank';
+                        link.className = 'v2-published-link';
+                        link.title = 'Veröffentlichte Seite anzeigen';
+                        link.textContent = '🌐 Seite';
+                        toolbarLeft.appendChild(link);
+                        
+                        const span = document.createElement('span');
+                        span.className = 'v2-last-generated';
+                        const now = new Date();
+                        span.textContent = `Zuletzt: ${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}. ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                        toolbarLeft.appendChild(span);
+                    }
+                }
+                
+                // Refresh preview window if open
+                if (_previewWindow && !_previewWindow.closed) {
+                    _previewWindow.location.reload();
+                }
             } else {
                 toast('Veröffentlichung fehlgeschlagen: ' + (result.message || ''), 'error');
             }
         } catch(err) {
             console.error('[V2] publish failed:', err);
             toast('Veröffentlichung fehlgeschlagen', 'error');
+        } finally {
+            if (pubBtn) {
+                pubBtn.disabled = false;
+                pubBtn.textContent = '🚀 Veröffentlichen';
+            }
         }
     }
     
     function openPreview() {
-        window.open(V2_CONFIG.apiUrl + '?action=preview', '_blank');
+        _previewWindow = window.open(V2_CONFIG.apiUrl + '?action=preview', 'infohub_preview');
     }
     
     function openSettings() {

@@ -158,11 +158,59 @@ window.V2EditModal = (function() {
         // Footer
         const footer = document.createElement('div');
         footer.className = 'v2-modal-footer';
-        footer.innerHTML = `
-            <button type="button" class="v2-btn v2-btn-secondary v2-modal-cancel">Abbrechen</button>
-            <button type="submit" class="v2-btn v2-btn-primary">💾 Speichern</button>
-        `;
-        footer.querySelector('.v2-modal-cancel').addEventListener('click', close);
+
+        // Delete button (only for existing tiles with an id)
+        if (tile.id) {
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'v2-btn v2-btn-danger v2-modal-delete';
+            deleteBtn.textContent = '🗑️ Löschen';
+            deleteBtn.addEventListener('click', async () => {
+                const name = tile.data?.title || tile.type || 'diese Kachel';
+                if (!confirm(`"${name}" wirklich löschen?`)) return;
+                deleteBtn.disabled = true;
+                deleteBtn.textContent = '⏳ Löschen...';
+                try {
+                    const result = await V2Api.deleteTile(tile.id);
+                    if (result.success) {
+                        close();
+                        V2State.deselectAll();
+                        V2.toast('Kachel gelöscht', 'success');
+                        V2State.setDirty(true);
+                        await V2Canvas.reloadAll();
+                    } else {
+                        V2.toast('Löschen fehlgeschlagen', 'error');
+                        deleteBtn.disabled = false;
+                        deleteBtn.textContent = '🗑️ Löschen';
+                    }
+                } catch (err) {
+                    console.error('[EditModal] Delete failed:', err);
+                    V2.toast('Löschen fehlgeschlagen', 'error');
+                    deleteBtn.disabled = false;
+                    deleteBtn.textContent = '🗑️ Löschen';
+                }
+            });
+            footer.appendChild(deleteBtn);
+        }
+
+        // Spacer to push cancel/save to the right
+        const spacer = document.createElement('div');
+        spacer.style.flex = '1';
+        footer.appendChild(spacer);
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'v2-btn v2-btn-secondary v2-modal-cancel';
+        cancelBtn.textContent = 'Abbrechen';
+        cancelBtn.addEventListener('click', close);
+        footer.appendChild(cancelBtn);
+
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'submit';
+        saveBtn.className = 'v2-btn v2-btn-primary';
+        saveBtn.textContent = '💾 Speichern';
+        footer.appendChild(saveBtn);
+
         form.appendChild(footer);
 
         modal.appendChild(form);
@@ -741,16 +789,17 @@ window.V2EditModal = (function() {
             const result = await V2Api.saveTile(updatedTile);
             if (result.success) {
                 V2.toast('Gespeichert', 'success');
+                // Store refs before close() nullifies them
+                const tileId = (result.tile && result.tile.id) || _currentTile?.id;
+                const cb = _onSaveCallback;
                 close();
                 // Refresh canvas
                 await V2Canvas.reloadAll();
                 // Re-select tile
-                if (result.tile && result.tile.id) {
-                    V2State.selectTile(result.tile.id);
-                } else if (_currentTile.id) {
-                    V2State.selectTile(_currentTile.id);
+                if (tileId) {
+                    V2State.selectTile(tileId);
                 }
-                if (_onSaveCallback) _onSaveCallback(result);
+                if (cb) cb(result);
             } else {
                 const errMsg = result.errors
                     ? (Array.isArray(result.errors) ? result.errors.join(', ') : result.errors)

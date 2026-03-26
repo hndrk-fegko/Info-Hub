@@ -477,7 +477,19 @@ window.V2Insert = (function() {
         } else {
             const before = tiles[insertIndex - 1]?.position || 0;
             const after = tiles[insertIndex]?.position || before + 20;
-            position = Math.round((before + after) / 2);
+            const gap = after - before;
+            if (gap >= 2) {
+                // Enough room to bisect
+                position = Math.round((before + after) / 2);
+            } else {
+                // Gap too small → rebalance all positions first
+                tiles.forEach((t, i) => { t.position = (i + 1) * 10; });
+                const rebalanced = tiles.map(t => ({ id: t.id, position: t.position }));
+                try { await V2Api.updatePositions(rebalanced); } catch(e) { /* best effort */ }
+                const bNew = tiles[insertIndex - 1].position;
+                const aNew = tiles[insertIndex].position;
+                position = Math.round((bNew + aNew) / 2);
+            }
         }
         
         const newTile = {
