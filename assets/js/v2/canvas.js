@@ -152,6 +152,10 @@ window.V2Canvas = (function() {
         if (typeof initIframeModals === 'function') {
             try { initIframeModals(); } catch(e) { /* ignore */ }
         }
+        // Text-Kontrast für Akzentfarben (WCAG)
+        if (typeof adjustTextContrast === 'function') {
+            try { adjustTextContrast(); } catch(e) { /* ignore */ }
+        }
     }
     
     // === State Event Handlers ===

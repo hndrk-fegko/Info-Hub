@@ -248,7 +248,59 @@ class GeneratorService {
     public function getCanvasJS(): string {
         $tileJS = $this->collectTileJS();
         $initCalls = $this->collectTileInitCalls();
-        return $tileJS . $initCalls;
+        $contrastJS = $this->getContrastJS();
+        return $contrastJS . $tileJS . $initCalls;
+    }
+
+    /**
+     * Gibt das adjustTextContrast()-JS zurück (WCAG-konformer Kontrast für Akzentfarben).
+     * Wird sowohl in der generierten Seite als auch im WYSIWYG-Editor verwendet.
+     */
+    public function getContrastJS(): string {
+        return <<<'JS'
+        // Automatischer Text-Kontrast (WCAG-konform)
+        function adjustTextContrast() {
+            function getLuminance(color) {
+                let r, g, b;
+                color = (color || '').trim();
+                const rgbMatch = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+                if (rgbMatch) {
+                    r = parseInt(rgbMatch[1]); g = parseInt(rgbMatch[2]); b = parseInt(rgbMatch[3]);
+                    return (0.299 * r + 0.587 * g + 0.114 * b);
+                }
+                let hex = color.replace('#', '');
+                if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+                if (hex.length !== 6) return 128;
+                r = parseInt(hex.substr(0, 2), 16);
+                g = parseInt(hex.substr(2, 2), 16);
+                b = parseInt(hex.substr(4, 2), 16);
+                if (isNaN(r) || isNaN(g) || isNaN(b)) return 128;
+                return (0.299 * r + 0.587 * g + 0.114 * b);
+            }
+            function getCSSVar(name) {
+                return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+            }
+            document.querySelectorAll('.tile.color-accent1, .tile.color-accent2, .tile.color-accent3').forEach(tile => {
+                let bgColor = '#ffffff';
+                if (tile.classList.contains('color-accent1')) {
+                    bgColor = getCSSVar('--accent-color');
+                } else if (tile.classList.contains('color-accent2')) {
+                    bgColor = getCSSVar('--accent-color-2');
+                } else if (tile.classList.contains('color-accent3')) {
+                    bgColor = getCSSVar('--accent-color-3');
+                }
+                const luminance = getLuminance(bgColor);
+                if (luminance > 150) {
+                    tile.style.color = '#333333';
+                    tile.querySelectorAll('h3, p').forEach(el => el.style.color = '#333333');
+                } else {
+                    tile.style.color = '#ffffff';
+                    tile.querySelectorAll('h3, p').forEach(el => el.style.color = '#ffffff');
+                }
+            });
+        }
+
+JS;
     }
     
     /**
@@ -323,6 +375,7 @@ class GeneratorService {
         $tileCSS = $this->collectTileCSS();
         $tileJS = $this->collectTileJS();
         $tileInitCalls = $this->collectTileInitCalls();
+        $contrastJS = $this->getContrastJS();
         
         // Shared CSS laden
         $sharedCSS = $this->loadSharedCSS();
@@ -427,60 +480,7 @@ HTML;
     </div>
 
     <script>
-        // Automatischer Text-Kontrast (WCAG-konform)
-        function adjustTextContrast() {
-            // Helligkeits-Berechnung nach W3C
-            function getLuminance(color) {
-                let r, g, b;
-                color = (color || '').trim();
-                // rgb()/rgba() Format
-                const rgbMatch = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-                if (rgbMatch) {
-                    r = parseInt(rgbMatch[1]); g = parseInt(rgbMatch[2]); b = parseInt(rgbMatch[3]);
-                    return (0.299 * r + 0.587 * g + 0.114 * b);
-                }
-                // Hex Format (3- oder 6-stellig)
-                let hex = color.replace('#', '');
-                if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
-                if (hex.length !== 6) return 128; // Fallback: mittlere Helligkeit
-                r = parseInt(hex.substr(0, 2), 16);
-                g = parseInt(hex.substr(2, 2), 16);
-                b = parseInt(hex.substr(4, 2), 16);
-                if (isNaN(r) || isNaN(g) || isNaN(b)) return 128;
-                return (0.299 * r + 0.587 * g + 0.114 * b);
-            }
-            
-            // CSS-Variable lesen
-            function getCSSVar(name) {
-                return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-            }
-            
-            // Tiles mit Farbschema finden (nur Akzentfarben brauchen Anpassung)
-            document.querySelectorAll('.tile.color-accent1, .tile.color-accent2, .tile.color-accent3').forEach(tile => {
-                let bgColor = '#ffffff';
-                
-                if (tile.classList.contains('color-accent1')) {
-                    bgColor = getCSSVar('--accent-color');
-                } else if (tile.classList.contains('color-accent2')) {
-                    bgColor = getCSSVar('--accent-color-2');
-                } else if (tile.classList.contains('color-accent3')) {
-                    bgColor = getCSSVar('--accent-color-3');
-                }
-                
-                // Luminanz prüfen
-                const luminance = getLuminance(bgColor);
-                
-                // Dunkler Text für helle Hintergründe, heller Text für dunkle
-                if (luminance > 150) {
-                    tile.style.color = '#333333';
-                    tile.querySelectorAll('h3, p').forEach(el => el.style.color = '#333333');
-                } else {
-                    tile.style.color = '#ffffff';
-                    tile.querySelectorAll('h3, p').forEach(el => el.style.color = '#ffffff');
-                }
-            });
-        }
-        
+{$contrastJS}
         // URL-Parameter auswerten für Embedding und Styles
         function applyUrlParams() {
             const params = new URLSearchParams(window.location.search);
