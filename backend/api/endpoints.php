@@ -308,9 +308,16 @@ try {
 
         case 'remove_admin_email':
             $email = $_POST['email'] ?? '';
+            $currentEmail = $_SESSION['auth_email'] ?? '';
             $result = $auth->removeAdminEmail($email);
             if (!$result['success']) {
                 http_response_code(400);
+            }
+            // Self-delete: Session sofort ungültig machen
+            if ($result['success'] && strtolower(trim($email)) === strtolower(trim($currentEmail))) {
+                LogService::info('AuthService', 'Admin self-deleted, destroying session', ['email' => $email]);
+                $result['self_deleted'] = true;
+                session_destroy();
             }
             $result['emails'] = $auth->getAdminEmails();
             $result['invites'] = $auth->getPendingInvites();

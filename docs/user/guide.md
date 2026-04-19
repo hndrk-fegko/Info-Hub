@@ -11,6 +11,13 @@
 
 **Hinweis:** Der Code ist 15 Minuten gültig.
 
+### Mehrere Admins
+
+Falls du von einem anderen Admin eingeladen wurdest:
+1. Du erhältst eine Email mit einem Einladungslink
+2. Klicke den Link innerhalb von 1 Stunde
+3. Melde dich mit deiner Email-Adresse an → dein Zugang wird aktiviert
+
 ### Security-Warnungen
 
 Falls oben auf der Seite ein gelbes Banner erscheint, zeigt es Sicherheitshinweise:

@@ -114,11 +114,15 @@ class AuthService {
         }
 
         $now = time();
+        // Abgelaufene Einladungen bleiben noch so lange wie ihre Gültigkeit war,
+        // damit sendCode() eine hilfreiche "abgelaufen"-Meldung geben kann.
+        // Danach werden sie beim nächsten Login (lazy) aufgeräumt.
+        $gracePeriod = $this->inviteExpiry;
         $before = count($settings['auth']['invites']);
 
         $settings['auth']['invites'] = array_values(array_filter(
             $settings['auth']['invites'],
-            fn($invite) => ($invite['expiresAt'] ?? 0) > $now
+            fn($invite) => ($invite['expiresAt'] ?? 0) > ($now - $gracePeriod)
         ));
 
         return count($settings['auth']['invites']) !== $before;
@@ -157,17 +161,22 @@ class AuthService {
 
         // Prüfen ob Email autorisiert ist (Admin oder gültige Einladung)
         $isAdmin = in_array($email, array_map([$this, 'normalizeEmail'], $adminEmails), true);
+        
+        // Auch abgelaufene Einladungen suchen (vor Cleanup!) um bessere Fehlermeldung zu geben
         $invite = $isAdmin ? null : $this->findInvite($settings, $email);
+
+        if (!$isAdmin && $invite && ($invite['expiresAt'] ?? 0) <= time()) {
+            LogService::info('AuthService', 'Invite expired on login attempt', [
+                'email' => $email,
+                'expiredAt' => date('c', $invite['expiresAt'] ?? 0)
+            ]);
+            return ['success' => false, 'message' => 'Einladung ist abgelaufen. Bitte fordere eine neue Einladung an.'];
+        }
 
         if (!$isAdmin && !$invite) {
             LogService::warning('AuthService', 'Invalid email attempt', ['email' => $email]);
             // Gleiche Antwort für Security (kein Hinweis ob Email existiert)
             return ['success' => true, 'message' => 'Falls die Email korrekt ist, wurde ein Code versendet'];
-        }
-
-        if ($invite && ($invite['expiresAt'] ?? 0) <= time()) {
-            LogService::info('AuthService', 'Invite expired on login attempt', ['email' => $email]);
-            return ['success' => false, 'message' => 'Einladung ist abgelaufen'];
         }
         
         // Code generieren
@@ -181,7 +190,7 @@ class AuthService {
         $_SESSION['auth_pending_email'] = $invite ? $email : null;
         
         // Email versenden
-        $siteName = $settings['site']['title'] ?? 'Info-Hub';
+        $siteName = trim($settings['site']['title'] ?? '') ?: 'Info-Hub';
         $subject = "$siteName - Login-Code";
         
         // Email-Inhalt mit Sicherheitshinweisen
@@ -189,13 +198,15 @@ class AuthService {
         $codeExpiryMinutes = ceil($this->codeExpiry / 60);
         $message = "Dein Login-Code: $code\n\nGültig für {$codeExpiryMinutes} Minuten.\n\nFalls du diesen Code nicht angefordert hast, ignoriere diese Email.{$securityInfo}";
         
-        $headers = "From: noreply@" . ($_SERVER['HTTP_HOST'] ?? 'localhost');
-        
-        $mailSent = @mail($email, $subject, $message, $headers);
+        $mailSent = $this->sendMail($email, $subject, $message);
         
         // DEVELOPMENT MODE: Wenn mail() fehlschlägt, Code in Session für Debug anzeigen
         if (!$mailSent) {
-            LogService::error('AuthService', 'Failed to send email', ['email' => $email]);
+            LogService::error('AuthService', 'Failed to send email', [
+                'email' => $email,
+                'isAdmin' => $isAdmin,
+                'isInvite' => ($invite !== null)
+            ]);
             
             // Für Development: Code trotzdem in Session speichern und per Message zurückgeben
             if (defined('DEBUG_MODE') && constant('DEBUG_MODE')) {
@@ -351,6 +362,95 @@ class AuthService {
             session_start();
         }
     }
+
+    /**
+     * Versendet eine Email mit korrekten Headers
+     * 
+     * Zentrale Mail-Methode: Stellt sicher, dass From-Header,
+     * Encoding und Envelope-Sender korrekt gesetzt sind.
+     * Ohne das lehnen externe Mailserver die Mail ab.
+     *
+     * @param string $to Empfänger-Email
+     * @param string $subject Betreff
+     * @param string $message Nachrichtentext
+     * @return bool true wenn mail() erfolgreich war
+     */
+    private function sendMail(string $to, string $subject, string $message): bool {
+        $settings = $this->settingsStorage->read();
+        $siteName = trim($settings['site']['title'] ?? '');
+        
+        // From-Adresse: Konfiguriert oder aus HTTP_HOST abgeleitet
+        // MAIL_FROM_ADDRESS muss gesetzt werden, wenn die Subdomain
+        // auf einem Server liegt, der nicht für diese Domain mailen darf (SPF).
+        $configuredFrom = defined('MAIL_FROM_ADDRESS') ? constant('MAIL_FROM_ADDRESS') : '';
+        
+        if (!empty($configuredFrom) && filter_var($configuredFrom, FILTER_VALIDATE_EMAIL)) {
+            $fromEmail = $configuredFrom;
+        } else {
+            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            // Port entfernen (z.B. localhost:8000 → localhost)
+            $host = preg_replace('/:\d+$/', '', $host);
+            $fromEmail = 'noreply@' . $host;
+        }
+        
+        // From-Header: Mit oder ohne Display-Name
+        if (!empty($siteName)) {
+            // Display-Name RFC 2047 kodieren für Umlaute/Sonderzeichen
+            $encodedName = '=?UTF-8?B?' . base64_encode($siteName) . '?=';
+            $fromHeader = "{$encodedName} <{$fromEmail}>";
+        } else {
+            $fromHeader = $fromEmail;
+        }
+        
+        // Subject RFC 2047 kodieren für Umlaute
+        $encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
+        
+        $headers  = "From: {$fromHeader}\r\n";
+        $headers .= "Reply-To: {$fromEmail}\r\n";
+        $headers .= "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+        $headers .= "Content-Transfer-Encoding: 8bit\r\n";
+        $headers .= "X-Mailer: Info-Hub/1.0";
+        
+        $envelopeSender = "-f{$fromEmail}";
+        
+        // DEBUG: Komplette Mail-Rohdaten loggen vor dem Versand
+        if (defined('DEBUG_MODE') && constant('DEBUG_MODE')) {
+            LogService::debug('AuthService', 'MAIL_DEBUG: Preparing to send', [
+                'to' => $to,
+                'subject_raw' => $subject,
+                'subject_encoded' => $encodedSubject,
+                'from_email' => $fromEmail,
+                'from_header' => $fromHeader,
+                'envelope_sender' => $envelopeSender,
+                'configured_from' => $configuredFrom ?: '(not set, using HTTP_HOST)',
+                'headers_raw' => str_replace("\r\n", ' | ', $headers),
+                'message_length' => strlen($message),
+                'message_preview' => mb_substr($message, 0, 200),
+                'php_mail_path' => ini_get('sendmail_path') ?: '(not set)',
+                'php_mail_from' => ini_get('sendmail_from') ?: '(not set)',
+                'smtp_host' => ini_get('SMTP') ?: '(not set)',
+                'smtp_port' => ini_get('smtp_port') ?: '(not set)'
+            ]);
+        }
+        
+        // PHP-Fehler abfangen für bessere Diagnose
+        error_clear_last();
+        $result = @mail($to, $encodedSubject, $message, $headers, $envelopeSender);
+        $lastError = error_get_last();
+        
+        // DEBUG: Ergebnis loggen
+        if (defined('DEBUG_MODE') && constant('DEBUG_MODE')) {
+            LogService::debug('AuthService', 'MAIL_DEBUG: mail() returned', [
+                'to' => $to,
+                'result' => $result ? 'TRUE (accepted by local MTA)' : 'FALSE (rejected)',
+                'php_error' => $lastError ? $lastError['message'] : null,
+                'php_error_type' => $lastError ? $lastError['type'] : null
+            ]);
+        }
+        
+        return $result;
+    }
     
     /**
      * Gibt verbleibende Session-Zeit zurück
@@ -430,8 +530,6 @@ class AuthService {
         $this->settingsStorage->write($settings);
 
         // Einladung per Email versenden (Link mit Prefill)
-        $siteName = $settings['site']['title'] ?? 'Info-Hub';
-        $subject = "$siteName - Admin Einladung";
         $expiryMinutes = ceil($this->inviteExpiry / 60);
         $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
@@ -446,8 +544,8 @@ class AuthService {
                    "$inviteLink\n\n" .
                    "Wenn du diese Einladung nicht erwartest, kannst du diese Email ignorieren.";
 
-        $headers = "From: noreply@" . $host;
-        $mailSent = @mail($email, $subject, $message, $headers);
+        $siteName = trim($settings['site']['title'] ?? '') ?: 'Info-Hub';
+        $mailSent = $this->sendMail($email, "$siteName - Admin Einladung", $message);
 
         if (!$mailSent) {
             LogService::error('AuthService', 'Failed to send invite email', ['email' => $email]);

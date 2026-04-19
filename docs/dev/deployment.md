@@ -137,6 +137,60 @@ define('DEBUG_MODE', false);  // true für Development
 
 ---
 
+## 📧 Mail-Konfiguration
+
+Info-Hub versendet Mails für Login-Codes und Admin-Einladungen über PHP `mail()` / Sendmail.
+
+### Absender-Adresse
+
+Die Absender-Adresse wird automatisch aus der Domain ermittelt (`noreply@deine-domain.de`). Falls der Server für eine andere Domain senden soll (z.B. Subdomain auf fremdem Server), kann sie explizit gesetzt werden:
+
+```php
+// backend/config.php
+define('MAIL_FROM_ADDRESS', 'noreply@deine-domain.de');
+```
+
+**Wichtig:** Die Domain muss zum sendenden Server passen (SPF-Record).
+
+### DKIM-Signierung
+
+Für bessere Zustellbarkeit (weniger Spam-Einstufung):
+1. In Plesk: **Mail-Einstellungen → DKIM** aktivieren
+2. DNS-Eintrag für DKIM-Key hinterlegen (Plesk zeigt den benötigten Record an)
+3. Optional: SPF-Record im DNS prüfen
+
+### Debug-Modus für Mail
+
+Bei Mail-Problemen `DEBUG_MODE = true` in `config.php` setzen. Dann werden ausführliche Mail-Logs geschrieben (Empfänger, Header, Sendmail-Pfad, MTA-Ergebnis) in `/backend/logs/app.log`.
+
+---
+
+## 👥 Multi-Admin-Verwaltung
+
+Info-Hub unterstützt mehrere Administratoren. Der erste Admin wird beim Setup festgelegt.
+
+### Weitere Admins einladen
+
+1. Im Editor → ⚙️ **Settings** → Abschnitt „Administratoren"
+2. **[+ Admin einladen]** → Email-Adresse eingeben
+3. Einladungslink wird per Mail versendet
+4. Eingeladener Admin klickt den Link und meldet sich an → Account wird aktiviert
+
+### Admins entfernen
+
+- ✕-Button neben der Admin-Adresse
+- Der letzte verbleibende Admin kann nicht gelöscht werden
+- **Selbstlöschung:** Wer sich selbst entfernt, wird sofort abgemeldet und kann sich nicht mehr einloggen, bis ein anderer Admin erneut einlädt
+
+### Sicherheit
+
+- Einladungen sind **1 Stunde** gültig (konfigurierbar: `ADMIN_INVITE_EXPIRY` in `config.php`)
+- Beide Admins sollten gleichzeitig am Rechner sein
+- Abgelaufene Einladungen werden automatisch bereinigt
+- Jeder Admin meldet sich per eigenem Email-Code an (keine geteilten Zugänge)
+
+---
+
 ## Troubleshooting
 
 ### Problem: Header-Bild Upload funktioniert nicht
@@ -223,6 +277,31 @@ php -r "mail('test@example.com', 'Test', 'Test Mail'); echo 'Mail sent';"
 Falls das nicht funktioniert:
 - Kontaktiere den Hosting-Provider
 - Oder nutze einen externen SMTP-Service (erfordert Änderung in `AuthService.php`)
+
+### Problem: Mails kommen nicht an (externer Empfänger)
+
+**Symptom:** Mails an Adressen auf dem eigenen Server funktionieren, aber externe Empfänger (z.B. Outlook, Gmail) erhalten keine Mail.
+
+**Ursache:** Das ist in vielen Hosting-Setups **Security by Design**. Der Mailserver ist standardmäßig nur für den Versand an eigene Domains konfiguriert — ohne Whitelist, ohne Relay. Das verhindert Spam-Missbrauch.
+
+**Lösung (Plesk):**
+1. Plesk → **Domains** → deine Domain → **Mail-Einstellungen**
+2. Option aktivieren: *„Für eingehende E-Mails deaktiviert — auf dieser Domain können E-Mails nur gesendet werden, und zwar ausschließlich via Sendmail"*
+3. **DKIM-Spamschutz** aktivieren für bessere Zustellbarkeit
+4. DNS-Records prüfen (SPF, DKIM) — Plesk zeigt die benötigten Einträge an
+
+**Alternative für Ehrenamtliche mit eigener Mail-Adresse:**
+Wenn der externe Mailversand nicht aktiviert werden soll/kann, können Ehrenamtliche eine Weiterleitung auf der eigenen Domain einrichten (z.B. `vorname@deine-domain.de` → private Adresse). So bleibt der Mailversand server-intern.
+
+### Problem: Mails landen im Spam
+
+- **DKIM** in Plesk aktivieren und DNS-Key hinterlegen
+- **SPF-Record** prüfen: `v=spf1 a mx ip4:SERVER-IP ~all`
+- `MAIL_FROM_ADDRESS` in `config.php` auf eine Domain setzen, für die SPF/DKIM konfiguriert ist
+
+### Problem: Admin-Einladung abgelaufen
+
+Einladungen sind standardmäßig 1 Stunde gültig. Bei Ablauf einfach die alte Einladung löschen und eine neue versenden. Einstellbar via `ADMIN_INVITE_EXPIRY` in `config.php`.
 
 ---
 

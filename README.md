@@ -11,6 +11,7 @@
 - ⚡ **Setup in < 5 Minuten** - Kein kompliziertes Setup
 - 🗃️ **Keine Datenbank** - Nur PHP + JSON
 - 🔐 **Email-Code-Login** - Kein Passwort nötig
+- 👥 **Multi-Admin** - Mehrere Admins per Einladung
 - 🎨 **Visueller Tile-Editor** - Drag & Drop ready
 - 📄 **Statische HTML-Generierung** - Schnell & SEO-freundlich
 - 📱 **Responsive Design** - CSS Grid Layout
@@ -171,6 +172,9 @@ Info-Hub/
 | Upload-Validierung | ✅ Extension + MIME |
 | XSS-Schutz | ✅ htmlspecialchars() |
 | Security-Warnungen | ✅ Debug-Mode & HTTPS |
+| Multi-Admin | ✅ Einladungssystem mit Ablauf |
+
+> Details: [Deployment & Wartung](docs/dev/deployment.md) (Multi-Admin, Mail-Konfiguration, Troubleshooting)
 
 ## 📚 Dokumentation
 
