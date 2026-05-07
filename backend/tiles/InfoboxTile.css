@@ -1,0 +1,15 @@
+.tile-infobox .infobox-content {
+    width: 100%;
+}
+
+.tile-infobox .infobox-content.align-left {
+    text-align: left;
+}
+
+.tile-infobox .infobox-content.align-center {
+    text-align: center;
+}
+
+.tile-infobox .infobox-content.align-right {
+    text-align: right;
+}

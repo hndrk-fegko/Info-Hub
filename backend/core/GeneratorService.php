@@ -157,9 +157,10 @@ class GeneratorService {
      * WYSIWYG-Editor genutzt (Single Source of Truth für HTML-Output).
      * 
      * @param array $tile Komplettes Tile-Objekt (type, size, style, colorScheme, data, ...)
+     * @param bool $applyScheduledVisibility Wenn false, werden zeitgesteuerte Tiles im Editor nicht versteckt
      * @return string|null HTML-String oder null bei unbekanntem Typ
      */
-    public function renderSingleTile(array $tile): ?string {
+    public function renderSingleTile(array $tile, bool $applyScheduledVisibility = true): ?string {
         global $TILE_TYPES;
         
         $type = $tile['type'] ?? '';
@@ -189,7 +190,9 @@ class GeneratorService {
         
         // Zeitsteuerungs-Attribute
         $scheduleAttrs = $this->getScheduleAttributes($tile);
-        $hiddenStyle = $scheduleAttrs ? ' style="display:none;"' : '';
+        $hiddenStyle = ($applyScheduledVisibility && $scheduleAttrs !== '' && !$this->isTileVisibleBySchedule($tile))
+            ? ' style="display:none;"'
+            : '';
         
         $html = "<div class=\"tile tile-{$type} size-{$size} style-{$style} color-{$colorScheme}{$extraClasses}\"{$scheduleAttrs}{$hiddenStyle} data-tile-id=\"{$id}\">\n";
         $html .= $instance->render($tile['data'] ?? []);
@@ -211,7 +214,7 @@ class GeneratorService {
         $result = [];
         
         foreach ($tiles as $tile) {
-            $html = $this->renderSingleTile($tile);
+            $html = $this->renderSingleTile($tile, false);
             if ($html !== null) {
                 $result[] = [
                     'id' => $tile['id'],

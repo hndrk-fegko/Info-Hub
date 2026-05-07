@@ -119,3 +119,4 @@ Die generierte index.html unterstützt URL-Parameter:
 
 - [API-Referenz](api.md)
 - [Deployment & Setup](deployment.md)
+- [Feature-Matrix / Nachtraegliches Lastenheft](feature-matrix.md)

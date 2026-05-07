@@ -103,10 +103,18 @@ window.V2Canvas = (function() {
         wrapper.className = 'v2-tile-wrapper';
         wrapper.dataset.tileId = tileRender.id;
         wrapper.dataset.tileType = tileRender.type;
-        
-        // Hidden-Tiles visuell markieren aber trotzdem zeigen
-        if (tileRender.visible === false) {
+
+        const rawTile = V2State.getTileById(tileRender.id);
+        const visStatus = getVisibilityStatus(rawTile, tileRender);
+
+        if (visStatus.effectivelyHidden) {
             wrapper.classList.add('v2-tile-hidden');
+        }
+        if (visStatus.visualClass) {
+            wrapper.classList.add(visStatus.visualClass);
+        }
+        if (visStatus.badgeLabel) {
+            wrapper.dataset.visibilityLabel = visStatus.badgeLabel;
         }
         
         // Das server-gerenderte HTML direkt einfügen
@@ -131,8 +139,60 @@ window.V2Canvas = (function() {
             V2State.selectTile(tileRender.id);
             V2.editSelectedTile();
         });
+
+        overlay.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            V2State.selectTile(tileRender.id);
+            if (typeof V2ContextMenu !== 'undefined') {
+                V2ContextMenu.showTileMenu(tileRender.id, e.clientX, e.clientY);
+            }
+        });
+
+        // Long-press (500ms) als Touch-Äquivalent zum Rechtsklick
+        let _longPressTimer = null;
+        overlay.addEventListener('touchstart', (e) => {
+            _longPressTimer = setTimeout(() => {
+                _longPressTimer = null;
+                const touch = e.touches[0];
+                V2State.selectTile(tileRender.id);
+                if (typeof V2ContextMenu !== 'undefined') {
+                    V2ContextMenu.showTileMenu(tileRender.id, touch.clientX, touch.clientY);
+                }
+            }, 500);
+        }, { passive: true });
+
+        const cancelLongPress = () => {
+            if (_longPressTimer !== null) {
+                clearTimeout(_longPressTimer);
+                _longPressTimer = null;
+            }
+        };
+        overlay.addEventListener('touchend',    cancelLongPress, { passive: true });
+        overlay.addEventListener('touchmove',   cancelLongPress, { passive: true });
+        overlay.addEventListener('touchcancel', cancelLongPress, { passive: true });
         
         return wrapper;
+    }
+
+    function getVisibilityStatus(rawTile, tileRender) {
+        if (rawTile && typeof V2ContextMenu !== 'undefined' && typeof V2ContextMenu.getVisibilityStatus === 'function') {
+            return V2ContextMenu.getVisibilityStatus(rawTile);
+        }
+
+        if (tileRender.visible === false) {
+            return {
+                effectivelyHidden: true,
+                badgeLabel: 'Nicht im Export',
+                visualClass: 'v2-visibility-hidden'
+            };
+        }
+
+        return {
+            effectivelyHidden: false,
+            badgeLabel: '',
+            visualClass: ''
+        };
     }
     
     /**
@@ -267,7 +327,7 @@ window.V2Canvas = (function() {
     
     function onDocumentClick(e) {
         // Click outside any tile → deselect (but not when clicking modal/toolbar/popup)
-        if (!e.target.closest('.v2-tile-wrapper') && !e.target.closest('.v2-tile-toolbar') && !e.target.closest('.modal') && !e.target.closest('.v2-modal-overlay') && !e.target.closest('.v2-type-popup')) {
+        if (!e.target.closest('.v2-tile-wrapper') && !e.target.closest('.v2-tile-toolbar') && !e.target.closest('.modal') && !e.target.closest('.v2-modal-overlay') && !e.target.closest('.v2-type-popup') && !e.target.closest('.v2-context-menu')) {
             V2State.deselectAll();
         }
     }
@@ -277,6 +337,7 @@ window.V2Canvas = (function() {
         if (e.target.matches('input, textarea, select')) return;
         // Don't handle when a modal or popup is open
         if (document.querySelector('.v2-modal-overlay') || document.querySelector('.v2-type-popup[style*="block"]')) return;
+        if (typeof V2ContextMenu !== 'undefined' && V2ContextMenu.isOpen()) return;
         
         const selectedId = V2State.getSelectedTileId();
         
@@ -413,6 +474,11 @@ window.V2 = (function() {
         if (typeof V2Settings !== 'undefined') {
             V2Settings.init();
         }
+
+        // Rechtsklick-Kontextmenü initialisieren
+        if (typeof V2ContextMenu !== 'undefined') {
+            V2ContextMenu.init();
+        }
         
         // Session-Timer starten
         initSessionTimer();
@@ -538,6 +604,18 @@ window.V2 = (function() {
         await saveTileAndRefresh(clone, true);
     }
     
+    function openContextMenu() {
+        const selectedId = V2State.getSelectedTileId();
+        if (!selectedId) return;
+        if (typeof V2ContextMenu === 'undefined') return;
+
+        const btn = document.getElementById('tbMoreBtn');
+        if (btn) {
+            const rect = btn.getBoundingClientRect();
+            V2ContextMenu.showTileMenu(selectedId, rect.left, rect.bottom + 4);
+        }
+    }
+
     async function deleteSelectedTile() {
         const id = V2State.getSelectedTileId();
         if (!id) return;
@@ -840,6 +918,7 @@ window.V2 = (function() {
         changeSize, changeStyle, changeColor,
         moveUp, moveDown,
         publish, openPreview, openSettings, logout,
+        openContextMenu,
         toast
     };
 })();

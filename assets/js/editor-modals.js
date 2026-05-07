@@ -433,6 +433,17 @@ function getFieldConfigs() {
         link: { type: 'url', label: 'Link', required: false, placeholder: 'https://...' },
         linkText: { type: 'text', label: 'Link-Text', required: false, default: 'Mehr erfahren' },
         buttonText: { type: 'text', label: 'Button-Text', required: false, default: 'Download' },
+        textAlign: {
+            type: 'select',
+            label: 'Textausrichtung',
+            required: false,
+            default: 'left',
+            options: {
+                'left': 'Links',
+                'center': 'Zentriert',
+                'right': 'Rechts'
+            }
+        },
         caption: { type: 'text', label: 'Untertitel', required: false },
         lightbox: { type: 'checkbox', label: 'Lightbox', required: false, default: true },
         external: { type: 'checkbox', label: 'neuer Tab', required: false, default: true },

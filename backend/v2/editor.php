@@ -213,11 +213,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             <option value="accent3">Akzent 3</option>
         </select>
         <div class="v2-tb-separator"></div>
-        <button class="v2-tb-btn" onclick="V2.moveUp()" title="Nach oben">⬆️</button>
-        <button class="v2-tb-btn" onclick="V2.moveDown()" title="Nach unten">⬇️</button>
-        <div class="v2-tb-separator"></div>
-        <button class="v2-tb-btn" onclick="V2.duplicateSelectedTile()" title="Duplizieren (Strg+D)">📋</button>
-        <button class="v2-tb-btn v2-tb-danger" onclick="V2.deleteSelectedTile()" title="Löschen">🗑️</button>
+        <button class="v2-tb-btn" id="tbMoreBtn" onclick="V2.openContextMenu()" title="Mehr (Sichtbarkeit, Zeitsteuerung ...)">&#8943;</button>
     </div>
     
     <!-- ===== Toast Container ===== -->
@@ -256,7 +252,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
     
     <!-- V2 Editor Module -->
     <?php
-    $v2Modules = ['state', 'api-client', 'edit-modal', 'settings', 'canvas', 'drag-drop', 'insert'];
+    $v2Modules = ['state', 'api-client', 'edit-modal', 'settings', 'context-menu', 'canvas', 'drag-drop', 'insert'];
     foreach ($v2Modules as $module):
         $filePath = __DIR__ . "/../../assets/js/v2/{$module}.js";
         $version = file_exists($filePath) ? filemtime($filePath) : time();

@@ -2,6 +2,9 @@
 
 > Geplante Features und Entwicklungs-Ideen
 
+Aktueller Ist-Funktionsumfang und Editor-Paritaet stehen in [docs/dev/feature-matrix.md](dev/feature-matrix.md).
+Diese Roadmap bleibt bewusst zukunftsorientiert und dokumentiert nicht den kompletten aktuellen Detailstand.
+
 ## 🎯 Aktuelle Version: v1.0 MVP
 
 Basis-Funktionalität abgeschlossen:

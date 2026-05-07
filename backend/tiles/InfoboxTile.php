@@ -18,7 +18,7 @@ class InfoboxTile extends TileBase {
     }
     
     public function getFields(): array {
-        return ['title', 'showTitle', 'description'];
+        return ['title', 'showTitle', 'textAlign', 'description'];
     }
     
     public function getFieldMeta(): array {
@@ -34,6 +34,17 @@ class InfoboxTile extends TileBase {
                 'label' => 'Titel auf Seite anzeigen',
                 'required' => false,
                 'default' => true
+            ],
+            'textAlign' => [
+                'type' => 'select',
+                'label' => 'Textausrichtung',
+                'required' => false,
+                'default' => 'left',
+                'options' => [
+                    'left' => 'Links',
+                    'center' => 'Zentriert',
+                    'right' => 'Rechts'
+                ]
             ],
             'description' => [
                 'type' => 'textarea',
@@ -58,6 +69,11 @@ class InfoboxTile extends TileBase {
         if (strlen($data['description'] ?? '') > 5000) {
             $errors[] = 'Beschreibung darf maximal 5000 Zeichen haben';
         }
+
+        $textAlign = $data['textAlign'] ?? 'left';
+        if (!in_array($textAlign, ['left', 'center', 'right'], true)) {
+            $errors[] = 'Ungültige Textausrichtung';
+        }
         
         return $errors;
     }
@@ -65,12 +81,17 @@ class InfoboxTile extends TileBase {
     public function render(array $data): string {
         $title = $this->esc($data['title'] ?? '');
         $showTitle = $data['showTitle'] ?? true;
+        $textAlign = $data['textAlign'] ?? 'left';
         $description = $data['description'] ?? '';
+
+        if (!in_array($textAlign, ['left', 'center', 'right'], true)) {
+            $textAlign = 'left';
+        }
         
         // Beschreibung: Zeilenumbrüche zu <br> konvertieren
         $description = nl2br($this->esc($description));
         
-        $html = '';
+        $html = "<div class=\"infobox-content align-{$textAlign}\">\n";
         
         if ($showTitle && !empty($title)) {
             $html .= "<h3>{$title}</h3>\n";
@@ -79,6 +100,8 @@ class InfoboxTile extends TileBase {
         if (!empty($description)) {
             $html .= "<p>{$description}</p>\n";
         }
+
+        $html .= "</div>\n";
         
         return $html;
     }
