@@ -383,16 +383,32 @@ class AuthService {
         // MAIL_FROM_ADDRESS muss gesetzt werden, wenn die Subdomain
         // auf einem Server liegt, der nicht für diese Domain mailen darf (SPF).
         $configuredFrom = defined('MAIL_FROM_ADDRESS') ? constant('MAIL_FROM_ADDRESS') : '';
-        
+
         if (!empty($configuredFrom) && filter_var($configuredFrom, FILTER_VALIDATE_EMAIL)) {
-            $fromEmail = $configuredFrom;
+            $fromEmail = $this->normalizeEmail($configuredFrom);
         } else {
-            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-            // Port entfernen (z.B. localhost:8000 → localhost)
+            $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+            $host = strtolower(trim((string)$host));
             $host = preg_replace('/:\d+$/', '', $host);
-            $fromEmail = 'noreply@' . $host;
+            $host = trim((string)$host, '.');
+
+            if ($host === '' || $host === 'localhost') {
+                $fromEmail = 'noreply@localhost';
+            } else {
+                $fromEmail = 'noreply@' . $host;
+            }
         }
-        
+
+        if (!filter_var($fromEmail, FILTER_VALIDATE_EMAIL) && $fromEmail !== 'noreply@localhost') {
+            LogService::error('AuthService', 'Invalid mail sender derived from host', [
+                'configured_from' => $configuredFrom ?: '(not set)',
+                'http_host' => $_SERVER['HTTP_HOST'] ?? null,
+                'server_name' => $_SERVER['SERVER_NAME'] ?? null,
+                'from_email' => $fromEmail
+            ]);
+            return false;
+        }
+
         // From-Header: Mit oder ohne Display-Name
         if (!empty($siteName)) {
             // Display-Name RFC 2047 kodieren für Umlaute/Sonderzeichen
@@ -404,17 +420,27 @@ class AuthService {
         
         // Subject RFC 2047 kodieren für Umlaute
         $encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
-        
+
         $headers  = "From: {$fromHeader}\r\n";
         $headers .= "Reply-To: {$fromEmail}\r\n";
         $headers .= "MIME-Version: 1.0\r\n";
         $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
         $headers .= "Content-Transfer-Encoding: 8bit\r\n";
         $headers .= "X-Mailer: Info-Hub/1.0";
-        
-        $envelopeSender = "-f{$fromEmail}";
-        
-        // DEBUG: Komplette Mail-Rohdaten loggen vor dem Versand
+
+        $attempts = [
+            [
+                'label' => 'with_envelope_sender',
+                'envelopeSender' => "-f{$fromEmail}"
+            ],
+            [
+                'label' => 'without_envelope_sender',
+                'envelopeSender' => null
+            ]
+        ];
+
+        $attemptResults = [];
+
         if (defined('DEBUG_MODE') && constant('DEBUG_MODE')) {
             LogService::debug('AuthService', 'MAIL_DEBUG: Preparing to send', [
                 'to' => $to,
@@ -422,7 +448,6 @@ class AuthService {
                 'subject_encoded' => $encodedSubject,
                 'from_email' => $fromEmail,
                 'from_header' => $fromHeader,
-                'envelope_sender' => $envelopeSender,
                 'configured_from' => $configuredFrom ?: '(not set, using HTTP_HOST)',
                 'headers_raw' => str_replace("\r\n", ' | ', $headers),
                 'message_length' => strlen($message),
@@ -433,23 +458,57 @@ class AuthService {
                 'smtp_port' => ini_get('smtp_port') ?: '(not set)'
             ]);
         }
-        
-        // PHP-Fehler abfangen für bessere Diagnose
-        error_clear_last();
-        $result = @mail($to, $encodedSubject, $message, $headers, $envelopeSender);
-        $lastError = error_get_last();
-        
-        // DEBUG: Ergebnis loggen
-        if (defined('DEBUG_MODE') && constant('DEBUG_MODE')) {
-            LogService::debug('AuthService', 'MAIL_DEBUG: mail() returned', [
-                'to' => $to,
-                'result' => $result ? 'TRUE (accepted by local MTA)' : 'FALSE (rejected)',
-                'php_error' => $lastError ? $lastError['message'] : null,
-                'php_error_type' => $lastError ? $lastError['type'] : null
-            ]);
+
+        foreach ($attempts as $attempt) {
+            error_clear_last();
+
+            if (!empty($attempt['envelopeSender'])) {
+                $result = @mail($to, $encodedSubject, $message, $headers, $attempt['envelopeSender']);
+            } else {
+                $result = @mail($to, $encodedSubject, $message, $headers);
+            }
+
+            $lastError = error_get_last();
+            $attemptResults[] = [
+                'from_email' => $fromEmail,
+                'label' => $attempt['label'],
+                'result' => $result,
+                'php_error' => $lastError['message'] ?? null,
+                'php_error_type' => $lastError['type'] ?? null
+            ];
+
+            if (defined('DEBUG_MODE') && constant('DEBUG_MODE')) {
+                LogService::debug('AuthService', 'MAIL_DEBUG: mail() returned', [
+                    'to' => $to,
+                    'from_email' => $fromEmail,
+                    'attempt' => $attempt['label'],
+                    'result' => $result ? 'TRUE (accepted by local MTA)' : 'FALSE (rejected)',
+                    'php_error' => $lastError['message'] ?? null,
+                    'php_error_type' => $lastError['type'] ?? null
+                ]);
+            }
+
+            if ($result) {
+                if ($attempt['label'] === 'without_envelope_sender') {
+                    LogService::warning('AuthService', 'mail() fallback without envelope sender succeeded', [
+                        'to' => $to,
+                        'from_email' => $fromEmail,
+                        'failed_attempt' => $attemptResults[0] ?? null
+                    ]);
+                }
+
+                return true;
+            }
         }
-        
-        return $result;
+
+        LogService::error('AuthService', 'mail() rejected all send attempts', [
+            'to' => $to,
+            'from_email' => $fromEmail,
+            'configured_from' => $configuredFrom ?: '(not set, using HTTP_HOST)',
+            'attempts' => $attemptResults
+        ]);
+
+        return false;
     }
     
     /**

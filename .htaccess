@@ -6,22 +6,38 @@ DirectoryIndex index.html
 # ===== Rewrite Engine =====
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    RewriteBase /
+
+    # HTTPS in Produktion erzwingen, aber localhost/Loopback nicht stören.
+    # X-Forwarded-Proto deckt Reverse-Proxy-/Load-Balancer-Setups ab.
+    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1|::1)(:\d+)?$ [NC]
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
+    RewriteCond %{HTTPS} !=on
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=302,NE]
     
     # Shared-Hosting-/IONOS-robust:
     # - keine Abhängigkeit von %{DOCUMENT_ROOT}
-    # - Dateiprüfungen relativ zum aktuellen Deploy-Ordner
-    # - Rewrite-Ziele ohne führenden Slash, damit der aktuelle Zielordner maßgeblich bleibt
+    # - Root-Index wird über %{REQUEST_FILENAME}/index.html geprüft
+    # - Redirect-Ziele immer als absolute URL-Pfade, damit Apache keinen physischen
+    #   Serverpfad in den Location-Header schreibt
+    # - setzt ein Deployment im Webroot der Domain/Subdomain voraus
     #
     # Wenn im aktuellen Deploy-Ordner noch keine index.html existiert:
     # 1. setup.php vorhanden -> Setup öffnen
     # 2. setup.php fehlt -> Login öffnen (Admin muss erst veröffentlichen)
-    RewriteCond index.html !-f
-    RewriteCond backend/setup.php -f
-    RewriteRule ^$ backend/setup.php [L,R=302]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteCond %{REQUEST_FILENAME}/index.html -f
+    RewriteRule ^$ /index.html [END]
     
-    RewriteCond index.html !-f
-    RewriteCond backend/setup.php !-f
-    RewriteRule ^$ backend/login.php [L,R=302]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteCond %{REQUEST_FILENAME}/index.html !-f
+    RewriteCond %{REQUEST_FILENAME}/backend/setup.php -f
+    RewriteRule ^$ /backend/setup.php [L,R=302,NE]
+
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteCond %{REQUEST_FILENAME}/index.html !-f
+    RewriteCond %{REQUEST_FILENAME}/backend/setup.php !-f
+    RewriteRule ^$ /backend/login.php [L,R=302,NE]
 </IfModule>
 
 # ===== General Security =====
