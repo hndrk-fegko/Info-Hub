@@ -1,4 +1,5 @@
 # API Directory - only the main endpoint is public
+# Diese Regel blockiert alle anderen PHP-Dateien im Ordner und lässt nur endpoints.php zu.
 <FilesMatch "^(?!endpoints\.php$).+\.php$">
     Require all denied
 </FilesMatch>
