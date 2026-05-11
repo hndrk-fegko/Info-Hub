@@ -197,7 +197,7 @@ Options -Indexes
 </FilesMatch>
 
 # Block direct access to sensitive files
-<FilesMatch "^(config(?:\.example)?\.php|.*\.(json|log|bak))$">
+<FilesMatch "^(config(?:\.example)?\.php|.*\.(json|log|bak)(\..+)?)$">
     Require all denied
 </FilesMatch>
 

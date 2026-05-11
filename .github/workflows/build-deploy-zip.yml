@@ -25,8 +25,8 @@ jobs:
           build_output="$(scripts/build-deploy-zip.sh)"
           printf '%s\n' "$build_output"
 
-          artifact_name="$(printf '%s\n' "$build_output" | awk -F= '/^artifact_name=/{print $2}')"
-          artifact_path="$(printf '%s\n' "$build_output" | awk -F= '/^artifact_path=/{print $2}')"
+          artifact_name="$(printf '%s\n' "$build_output" | sed -n 's/^artifact_name=//p')"
+          artifact_path="$(printf '%s\n' "$build_output" | sed -n 's/^artifact_path=//p')"
 
           if [ -z "$artifact_name" ] || [ -z "$artifact_path" ]; then
             echo "Build script did not return artifact metadata." >&2

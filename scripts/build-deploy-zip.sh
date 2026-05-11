@@ -55,6 +55,6 @@ rm -f "${ARCHIVE_PATH}"
     zip -qr "${ARCHIVE_PATH}" "${ARTIFACT_BASENAME}"
 )
 
-echo "Created ${ARCHIVE_PATH}"
-echo "artifact_name=$(basename "${ARCHIVE_PATH}")"
-echo "artifact_path=${ARCHIVE_PATH}"
+echo "Created ${ARCHIVE_PATH}" >&2
+printf 'artifact_name=%s\n' "$(basename "${ARCHIVE_PATH}")"
+printf 'artifact_path=%s\n' "${ARCHIVE_PATH}"
