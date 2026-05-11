@@ -1,4 +1,4 @@
-# API Directory - Allow PHP execution
-<FilesMatch "\.php$">
-    Require all granted
+# API Directory - only the main endpoint is public
+<FilesMatch "^(?!endpoints\.php$).+\.php$">
+    Require all denied
 </FilesMatch>

@@ -181,7 +181,14 @@ CONFIG;
             $htaccess = <<<'HTACCESS'
 # Info-Hub Backend Security Rules
 
+# Shared-Hosting-Hinweis:
+# Der frühere <DirectoryMatch>-Block wurde bewusst ersetzt. Solche Container sind in
+# .htaccess auf Shared Hosting / IONOS oft nicht erlaubt und können direkt einen HTTP 500
+# auslösen, obwohl die Sicherheitsidee korrekt ist.
+
 # Disable directory listing
+# Falls IONOS hier "Options not allowed here" meldet, diesen Block testweise auskommentieren.
+# Ursache ist dann meist ein restriktives AllowOverride für Options.
 Options -Indexes
 
 # Prevent access to hidden files
@@ -189,15 +196,31 @@ Options -Indexes
     Require all denied
 </FilesMatch>
 
-# Protect data, logs, archive directories
-<DirectoryMatch "(data|logs|archive|core|tiles|templates)">
-    Require all denied
-</DirectoryMatch>
-
 # Block direct access to sensitive files
-<FilesMatch "\.(json|log|bak)$">
+<FilesMatch "^(config(?:\.example)?\.php|.*\.(json|log|bak))$">
     Require all denied
 </FilesMatch>
+
+# Shared-Hosting-Hinweis:
+# Wenn ein Hoster mod_rewrite komplett deaktiviert hat, kann dieser Block testweise
+# auskommentiert werden. Dann bleiben die FilesMatch-Sperren aktiv, aber die Verzeichnisse
+# /core, /tiles, /templates, /data, /logs und /archive sind nicht mehr so streng geschützt.
+# Auf IONOS ist mod_rewrite normalerweise verfügbar; problematisch war vor allem DirectoryMatch.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Sensible Backend-Verzeichnisse nie direkt ausliefern
+    RewriteRule "^(?:data|logs|archive|core|tiles|templates)(?:/|$)" - [F,L,NC]
+    
+    # Nur die vorgesehenen PHP-Einstiegspunkte bleiben direkt erreichbar
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule "^(?!login\.php$)(?!setup\.php$)(?!editor\.php$)(?!v2/editor\.php$)(?!api/endpoints\.php$).+\.php$" - [F,L,NC]
+</IfModule>
+
+# Absicht:
+# - login.php / setup.php / editor.php / v2/editor.php bleiben erreichbar
+# - api/endpoints.php bleibt erreichbar
+# - interne Services, Tiles, Templates und Daten bleiben von außen blockiert
 HTACCESS;
             file_put_contents($htaccessFile, $htaccess);
         }

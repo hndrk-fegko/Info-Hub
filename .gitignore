@@ -3,11 +3,14 @@
 # Config - enthält lokale Einstellungen
 backend/config.php
 
-# User data - sollte nicht ins Repo
+# User data / Runtime-Daten - sollte nicht ins Repo
 backend/data/settings.json
 backend/data/tiles.json
+backend/data/*.tmp
+backend/data/*.tmp.*
+backend/data/*.bak
 
-# Uploads - benutzerspezifisch
+# Uploads / Media-Runtime - benutzerspezifisch
 backend/media/downloads/*
 backend/media/images/*
 backend/media/header/*
@@ -19,12 +22,25 @@ backend/media/header/*
 backend/logs/*
 !backend/logs/.gitkeep
 
-# Archive
+# Archive / Backups
 backend/archive/*
 !backend/archive/.gitkeep
 
 # Generated files
 index.html
+index.html.tmp.*
+
+# Build / Dist
+dist/
+build/
+artifacts/
+
+# ZIP / Archive artifacts
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
 
 # OS generated files
 .DS_Store
@@ -42,11 +58,23 @@ desktop.ini
 *.swp
 *.swo
 *~
+.history/
 
 # Temporary files
 *.tmp
 *.temp
 *.bak
+*.orig
+*.rej
+/tmp/
+/temp/
 
 # PHP
 *.log
+.phpunit.result.cache
+
+# Lokale Test-/Probe-Dateien
+tests/*.local.php
+tests/local-*
+tests/probe-*
+tests/scratch-*

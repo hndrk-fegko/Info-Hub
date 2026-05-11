@@ -62,6 +62,42 @@ https://subdomain.example.com/backend/login.php
 
 ---
 
+## Shared Hosting / IONOS Hinweise
+
+### Root-.htaccess
+
+- Die Root-`.htaccess` ist bewusst document-root-agnostisch gehalten.
+- Dateiprüfungen erfolgen relativ zum aktuellen Deploy-Ordner statt über `%{DOCUMENT_ROOT}`.
+- Wenn im Zielordner noch keine `index.html` existiert, leitet die Datei weiter zu:
+  - `backend/setup.php`, solange das Setup noch vorhanden ist
+  - sonst `backend/login.php`
+
+### backend/.htaccess
+
+- Die Sicherheitsidee bleibt gleich: interne Verzeichnisse und sensible Dateien werden direkt blockiert.
+- Der frühere `DirectoryMatch`-Ansatz wurde ersetzt, weil solche Container in `.htaccess` auf Shared Hosting / IONOS häufig HTTP-500-Fehler verursachen.
+- Falls ein Hoster `Options -Indexes` nicht erlaubt, kann genau dieser Block testweise auskommentiert werden.
+- Falls ein Zielsystem wider Erwarten kein `mod_rewrite` bereitstellt, kann auch der kommentierte Rewrite-Block testweise deaktiviert werden; dann bleiben `FilesMatch`-Sperren aktiv, aber der Schutz interner Verzeichnisse ist schwächer.
+
+### Deploy-ZIP
+
+Lokal:
+
+```bash
+chmod +x scripts/build-deploy-zip.sh
+./scripts/build-deploy-zip.sh
+```
+
+GitHub Actions:
+
+- Workflow: **Build deploy ZIP**
+- Trigger: manuell (`workflow_dispatch`) oder bei Pushes auf `main` und `copilot/**`
+- Artefakt: `info-hub-<branch>-<sha>.zip`
+
+Das ZIP enthält nur die für den Webspace benötigten Dateien und lässt Dev-/Test-/CI-Inhalte bewusst weg.
+
+---
+
 ## Wartung
 
 ### Logs prüfen

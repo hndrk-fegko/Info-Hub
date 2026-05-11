@@ -104,6 +104,25 @@ https://deine-domain.de/backend/setup.php
 https://deine-domain.de/backend/login.php
 ```
 
+## 🏠 Shared Hosting / IONOS
+
+- Die Root-`.htaccess` arbeitet jetzt relativ zum aktuellen Deploy-Ordner und leitet bei fehlender `index.html` robust zu `backend/setup.php` oder `backend/login.php`.
+- `backend/.htaccess` schützt weiterhin interne Verzeichnisse, nutzt dafür aber keine `DirectoryMatch`-Direktive mehr, weil diese in `.htaccess` auf Shared Hosting häufig HTTP-500-Fehler verursacht.
+- Falls ein Hoster `Options -Indexes` in `.htaccess` nicht erlaubt, kann der kommentierte Block in `backend/.htaccess` testweise auskommentiert werden.
+
+## 📦 Deploy-ZIP bauen
+
+Lokal:
+
+```bash
+chmod +x scripts/build-deploy-zip.sh
+./scripts/build-deploy-zip.sh
+```
+
+- Ausgabe: `dist/info-hub-<branch>-<sha>.zip`
+- Inhalt: nur deploy-relevante Dateien; `.github/`, `docs/`, `tests/`, `scripts/` und andere Dev-Artefakte bleiben draußen
+- In GitHub Actions liegt das ZIP als Workflow-Artefakt im Lauf **Build deploy ZIP**
+
 ## 💻 Lokale Entwicklung
 
 ```bash
