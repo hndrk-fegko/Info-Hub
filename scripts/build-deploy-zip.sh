@@ -17,7 +17,7 @@ fi
 cd "${ROOT_DIR}"
 
 CURRENT_BRANCH="$(git branch --show-current 2>/dev/null || true)"
-REF_NAME="${CURRENT_BRANCH:-${GITHUB_REF_NAME:-$(git rev-parse --short HEAD)}}"
+REF_NAME="${CURRENT_BRANCH:-${GITHUB_REF_NAME:-detached}}"
 SAFE_REF="${REF_NAME//\//-}"
 SHORT_SHA="${GITHUB_SHA:-$(git rev-parse --short HEAD)}"
 SHORT_SHA="${SHORT_SHA:0:7}"
