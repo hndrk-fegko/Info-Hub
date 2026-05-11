@@ -210,7 +210,7 @@ Options -Indexes
     RewriteEngine On
     
     # Sensible Backend-Verzeichnisse nie direkt ausliefern
-    RewriteRule "^(?:data|logs|archive|core|tiles|templates)(?:/|$)" - [F,L,NC]
+    RewriteRule "^(?:data|logs|archive|core|tiles|templates)(?:/|$)" - [F,L]
     
     # Erlaubte direkte PHP-Einstiegspunkte:
     # - login.php
@@ -218,11 +218,11 @@ Options -Indexes
     # - editor.php
     # - v2/editor.php
     # - api/endpoints.php
-    RewriteRule "^(?:login\.php|setup\.php|editor\.php|v2/editor\.php|api/endpoints\.php)$" - [L,NC]
+    RewriteRule "^(?:login\.php|setup\.php|editor\.php|v2/editor\.php|api/endpoints\.php)$" - [L]
     
     # Alle anderen vorhandenen PHP-Dateien im Backend direkt blockieren
     RewriteCond %{REQUEST_FILENAME} -f
-    RewriteRule ".+\.php$" - [F,L,NC]
+    RewriteRule ".+\.php$" - [F,L]
 </IfModule>
 
 # Absicht:
