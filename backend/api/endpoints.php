@@ -51,9 +51,11 @@ try {
     require_once __DIR__ . '/../core/UploadService.php';
     require_once __DIR__ . '/../core/GeneratorService.php';
     require_once __DIR__ . '/../core/StorageService.php';
+    require_once __DIR__ . '/../core/ConfigService.php';
     
     // Auth prüfen (außer für bestimmte Actions)
     $auth = new AuthService();
+    $configService = new ConfigService(__DIR__ . '/../config.php');
     $publicActions = [];  // Alle Actions erfordern Authentifizierung
     $getActions = ['get_tiles', 'get_tile', 'get_settings', 'get_tile_types', 'list_files', 'preview', 'render_all_tiles_html', 'get_canvas_css', 'get_canvas_js'];  // GET erlaubt
     
@@ -133,24 +135,27 @@ try {
             if (empty($id)) {
                 throw new InvalidArgumentException('Tile-ID erforderlich');
             }
-            
+
             $tileService = new TileService();
             $result = $tileService->deleteTile($id);
-            
+
             if (!$result['success']) {
-                http_response_code(404);
+                http_response_code(400);
             }
+
             echo json_encode($result);
             break;
             
         case 'update_positions':
             $positions = json_decode($_POST['positions'] ?? '[]', true);
-            if (empty($positions)) {
-                $positions = json_decode(file_get_contents('php://input'), true)['positions'] ?? [];
-            }
             
             $tileService = new TileService();
             $result = $tileService->updatePositions($positions);
+
+            if (!$result['success']) {
+                http_response_code(400);
+            }
+
             echo json_encode($result);
             break;
             
@@ -214,23 +219,28 @@ try {
         case 'get_settings':
             $storage = new StorageService('settings.json');
             $settings = $storage->read();
+            $responseSettings = $settings;
             
             // Email für Security maskieren (nur letzte 4 Zeichen zeigen)
-            if (isset($settings['auth']['email'])) {
-                $email = $settings['auth']['email'];
+            if (isset($responseSettings['auth']['email'])) {
+                $email = $responseSettings['auth']['email'];
                 $masked = '***' . substr($email, -10);
-                $settings['auth']['emailMasked'] = $masked;
+                $responseSettings['auth']['emailMasked'] = $masked;
             }
-            if (isset($settings['auth']['emails']) && is_array($settings['auth']['emails'])) {
-                $settings['auth']['emailsMasked'] = array_map(function($email) {
+            if (isset($responseSettings['auth']['emails']) && is_array($responseSettings['auth']['emails'])) {
+                $responseSettings['auth']['emailsMasked'] = array_map(function($email) {
                     return '***' . substr($email, -10);
-                }, $settings['auth']['emails']);
+                }, $responseSettings['auth']['emails']);
             }
             
             // Sensible Auth-Daten entfernen - nur maskierte Version senden
-            unset($settings['auth']['email'], $settings['auth']['emails'], $settings['auth']['invites']);
+            unset($responseSettings['auth']['email'], $responseSettings['auth']['emails'], $responseSettings['auth']['invites'], $responseSettings['system']);
+            $responseSettings['system']['mailFromAddress'] = $configService->getMailFromAddress(
+                $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '',
+                $_SESSION['auth_email'] ?? ''
+            );
             
-            echo json_encode(['success' => true, 'settings' => $settings]);
+            echo json_encode(['success' => true, 'settings' => $responseSettings]);
             break;
             
         case 'save_settings':
@@ -251,6 +261,13 @@ try {
                     if (isset($newSettings['site'][$key])) {
                         $settings['site'][$key] = $newSettings['site'][$key];
                     }
+                }
+
+                if (array_key_exists('headerImage', $newSettings['site']) && empty($newSettings['site']['headerImage'])) {
+                    $settings['site']['headerImage'] = null;
+                    $settings['site']['headerImagePlaceholder'] = null;
+                    $settings['site']['headerImageWidth'] = null;
+                    $settings['site']['headerImageHeight'] = null;
                 }
             }
             if (isset($newSettings['theme'])) {
@@ -278,11 +295,33 @@ try {
                     }
                 }
             }
+
+            if (isset($newSettings['system']['mailFromAddress'])) {
+                $mailFromAddress = strtolower(trim((string) $newSettings['system']['mailFromAddress']));
+                if ($mailFromAddress === '' || !filter_var($mailFromAddress, FILTER_VALIDATE_EMAIL)) {
+                    throw new InvalidArgumentException('Gültige Absender-Adresse erforderlich');
+                }
+
+                if (!$configService->updateMailFromAddress($mailFromAddress)) {
+                    throw new RuntimeException('MAIL_FROM_ADDRESS konnte nicht in config.php gespeichert werden');
+                }
+
+                $responseMailFromAddress = $mailFromAddress;
+            } else {
+                $responseMailFromAddress = $configService->getMailFromAddress(
+                    $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '',
+                    $_SESSION['auth_email'] ?? ''
+                );
+            }
+
+            unset($settings['system']);
             
             // Speichern
             if ($storage->write($settings)) {
                 LogService::info('API', 'Settings saved');
-                echo json_encode(['success' => true, 'settings' => $settings]);
+                $responseSettings = $settings;
+                $responseSettings['system']['mailFromAddress'] = $responseMailFromAddress;
+                echo json_encode(['success' => true, 'settings' => $responseSettings]);
             } else {
                 throw new Exception('Speichern fehlgeschlagen');
             }
@@ -374,10 +413,31 @@ try {
             $result = $uploadService->uploadHeader($_FILES['file']);
             
             if ($result['success']) {
+                $clientPlaceholder = $_POST['headerPlaceholder'] ?? null;
+                if (!is_string($clientPlaceholder) || !preg_match('#^data:image/(?:webp|jpeg);base64,[A-Za-z0-9+/=]+$#', $clientPlaceholder) || strlen($clientPlaceholder) > 100000) {
+                    $clientPlaceholder = null;
+                }
+
+                $clientWidth = isset($_POST['headerImageWidth']) ? (int)$_POST['headerImageWidth'] : null;
+                $clientHeight = isset($_POST['headerImageHeight']) ? (int)$_POST['headerImageHeight'] : null;
+
+                if (empty($result['placeholder']) && $clientPlaceholder) {
+                    $result['placeholder'] = $clientPlaceholder;
+                }
+                if (empty($result['width']) && $clientWidth && $clientWidth > 0) {
+                    $result['width'] = $clientWidth;
+                }
+                if (empty($result['height']) && $clientHeight && $clientHeight > 0) {
+                    $result['height'] = $clientHeight;
+                }
+
                 // Auch in Settings speichern
                 $storage = new StorageService('settings.json');
                 $settings = $storage->read();
                 $settings['site']['headerImage'] = $result['path'];
+                $settings['site']['headerImagePlaceholder'] = $result['placeholder'] ?? null;
+                $settings['site']['headerImageWidth'] = $result['width'] ?? null;
+                $settings['site']['headerImageHeight'] = $result['height'] ?? null;
                 $storage->write($settings);
             } else {
                 http_response_code(400);

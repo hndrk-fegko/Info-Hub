@@ -10,12 +10,46 @@
     width: 100%;
     height: 320px;
     overflow: hidden;
+    position: relative;
+    background: rgba(0, 0, 0, 0.08);
 }
 
 .site-header .header-image img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
+}
+
+.site-header .header-image-placeholder,
+.site-header .header-image-main {
+    position: absolute;
+    inset: 0;
+}
+
+.site-header .header-image-placeholder {
+    filter: blur(18px);
+    transform: scale(1.06);
+    transition: opacity 0.55s ease, transform 0.55s ease;
+    pointer-events: none;
+}
+
+.site-header .header-image-main {
+    z-index: 1;
+}
+
+.site-header .header-image.has-placeholder .header-image-main {
+    opacity: 0;
+    transition: opacity 0.55s ease;
+}
+
+.site-header .header-image.has-placeholder.is-loaded .header-image-main {
+    opacity: 1;
+}
+
+.site-header .header-image.has-placeholder.is-loaded .header-image-placeholder {
+    opacity: 0;
+    transform: scale(1.1);
 }
 
 .site-header .site-title {
@@ -23,6 +57,7 @@
     bottom: 24px;
     left: 50%;
     transform: translateX(-50%);
+    z-index: 2;
     color: white;
     text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
     font-size: clamp(1.5rem, 4vw, 2.5rem);

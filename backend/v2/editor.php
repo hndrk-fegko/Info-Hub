@@ -23,6 +23,7 @@ require_once __DIR__ . '/../core/AuthService.php';
 require_once __DIR__ . '/../core/TileService.php';
 require_once __DIR__ . '/../core/StorageService.php';
 require_once __DIR__ . '/../core/GeneratorService.php';
+require_once __DIR__ . '/../core/ConfigService.php';
 
 // Auth prüfen
 $auth = new AuthService();
@@ -38,6 +39,11 @@ $csrfToken = $_SESSION['csrf_token'] ?? '';
 $tileService = new TileService();
 $settingsStorage = new StorageService('settings.json');
 $settings = $settingsStorage->read();
+$configService = new ConfigService(__DIR__ . '/../config.php');
+$settings['system']['mailFromAddress'] = $configService->getMailFromAddress(
+    $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '',
+    $_SESSION['auth_email'] ?? ''
+);
 $generator = new GeneratorService();
 
 // Alle Tiles als HTML rendern (Server-Side Rendering für den Editor)

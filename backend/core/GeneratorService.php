@@ -387,6 +387,9 @@ JS;
         $siteTitle = htmlspecialchars($settings['site']['title'] ?? '');
         $siteTitleRaw = $settings['site']['title'] ?? '';
         $headerImage = $settings['site']['headerImage'] ?? null;
+        $headerImagePlaceholder = $settings['site']['headerImagePlaceholder'] ?? null;
+        $headerImageWidth = (int)($settings['site']['headerImageWidth'] ?? 0);
+        $headerImageHeight = (int)($settings['site']['headerImageHeight'] ?? 0);
         $headerFocusPoint = htmlspecialchars($settings['site']['headerFocusPoint'] ?? 'center center');
         $footerText = nl2br(htmlspecialchars($settings['site']['footerText'] ?? ''));
         $bgColor = htmlspecialchars($settings['theme']['backgroundColor'] ?? '#f5f5f5');
@@ -410,14 +413,27 @@ JS;
         
         // Header HTML - Titel nur wenn nicht leer
         $headerHtml = '';
+        $headerPreloadHtml = '';
         $titleHtml = !empty($siteTitleRaw) ? "<h1 class=\"site-title\">{$siteTitle}</h1>" : '';
         
         if ($headerImage) {
             $headerImage = htmlspecialchars($headerImage);
+            $headerImagePlaceholder = !empty($headerImagePlaceholder) ? htmlspecialchars($headerImagePlaceholder) : null;
+            $headerImageClasses = 'header-image' . ($headerImagePlaceholder ? ' has-placeholder' : '');
+            $headerDimensionAttrs = '';
+            if ($headerImageWidth > 0 && $headerImageHeight > 0) {
+                $headerDimensionAttrs = " width=\"{$headerImageWidth}\" height=\"{$headerImageHeight}\"";
+            }
+
+            $headerPreloadHtml = "    <link rel=\"preload\" as=\"image\" href=\"{$headerImage}\">\n";
+            $placeholderHtml = $headerImagePlaceholder
+                ? "            <img src=\"{$headerImagePlaceholder}\" alt=\"\" class=\"header-image-placeholder\" aria-hidden=\"true\">\n"
+                : '';
+
             $headerHtml = <<<HTML
     <header class="site-header">
-        <div class="header-image">
-            <img src="{$headerImage}" alt="" style="object-position: {$headerFocusPoint};">
+        <div class="{$headerImageClasses}">
+{$placeholderHtml}            <img src="{$headerImage}" alt="" class="header-image-main" fetchpriority="high" decoding="async" loading="eager"{$headerDimensionAttrs} style="object-position: {$headerFocusPoint};">
         </div>
         {$titleHtml}
     </header>
@@ -463,6 +479,7 @@ CSS;
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{$pageTitle}</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📌</text></svg>">
+{$headerPreloadHtml}    <script>document.documentElement.classList.add('js','page-enter');</script>
     <style>
         :root {
             --bg-color: {$bgColor};
@@ -538,9 +555,45 @@ CSS;
                 });
             }
         }
+
+        function initHeaderReveal() {
+            document.querySelectorAll('.header-image.has-placeholder').forEach(container => {
+                const mainImage = container.querySelector('.header-image-main');
+                if (!mainImage) return;
+
+                const markLoaded = () => container.classList.add('is-loaded');
+
+                if (mainImage.complete && mainImage.naturalWidth > 0) {
+                    markLoaded();
+                    return;
+                }
+
+                mainImage.addEventListener('load', markLoaded, { once: true });
+                mainImage.addEventListener('error', markLoaded, { once: true });
+            });
+        }
+
+        function initEntranceMotion() {
+            const root = document.documentElement;
+
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                root.classList.remove('page-enter');
+                root.classList.add('page-ready');
+                return;
+            }
+
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    root.classList.remove('page-enter');
+                    root.classList.add('page-ready');
+                });
+            });
+        }
         
         // Bei Seitenladung ausführen
         document.addEventListener('DOMContentLoaded', () => {
+            initHeaderReveal();
+            initEntranceMotion();
             applyUrlParams();
             // Kontrast NUR berechnen wenn NICHT minimalbox
             const params = new URLSearchParams(window.location.search);

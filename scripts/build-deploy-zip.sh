@@ -43,6 +43,13 @@ PATHSPECS=(
     ":(exclude)tests/**"
 )
 
+mapfile -d '' UNTRACKED_FILES < <(git ls-files -z --others --exclude-standard -- "${PATHSPECS[@]}")
+if (( ${#UNTRACKED_FILES[@]} > 0 )); then
+    printf 'Untracked files würden im Deploy-ZIP fehlen. Bitte zuerst git add ausführen oder die Dateien entfernen.\n' >&2
+    printf ' - %s\n' "${UNTRACKED_FILES[@]}" >&2
+    exit 1
+fi
+
 while IFS= read -r -d '' relative_path; do
     target_dir="${PACKAGE_DIR}/$(dirname "${relative_path}")"
     mkdir -p "${target_dir}"

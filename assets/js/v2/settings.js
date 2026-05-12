@@ -44,6 +44,7 @@ window.V2Settings = (function() {
         
         // Wire up events
         wireEvents(settings);
+        switchTab('design');
         
         // Highlight header & footer on canvas
         _highlightRegions(true);
@@ -69,6 +70,7 @@ window.V2Settings = (function() {
     function buildModalHTML(settings) {
         const site = settings.site || {};
         const theme = settings.theme || {};
+        const system = settings.system || {};
         
         const headerImage = site.headerImage || '';
         const focusPoint = site.headerFocusPoint || 'center center';
@@ -97,6 +99,12 @@ window.V2Settings = (function() {
                 <button class="v2-modal-close" onclick="V2Settings.close()">×</button>
             </div>
             <div class="v2-modal-body">
+                <div class="v2-settings-tabs" role="tablist" aria-label="Einstellungsbereiche">
+                    <button type="button" class="v2-settings-tab active" data-v2-settings-tab="design" onclick="V2Settings.switchTab('design')">Design</button>
+                    <button type="button" class="v2-settings-tab" data-v2-settings-tab="system" onclick="V2Settings.switchTab('system')">System</button>
+                </div>
+
+                <div class="v2-settings-panel active" data-v2-settings-panel="design">
                 <!-- Seite -->
                 <fieldset class="v2-modal-fieldset">
                     <legend>Seite</legend>
@@ -195,7 +203,20 @@ window.V2Settings = (function() {
                         <div class="v2-range-labels"><span>600px</span><span>1400px</span></div>
                     </div>
                 </fieldset>
+                </div>
                 
+                <div class="v2-settings-panel" data-v2-settings-panel="system">
+                <fieldset class="v2-modal-fieldset">
+                    <legend>System-Mail</legend>
+                    <div class="v2-field">
+                        <label class="v2-label">Absender-Adresse</label>
+                        <input type="email" class="v2-input" id="v2SetMailFromAddress"
+                               value="${escAttr(system.mailFromAddress || '')}"
+                               placeholder="noreply@example.com" required>
+                        <small class="v2-hint">Für Login-Codes und Einladungen. Empfehlung: Hauptdomain ohne Subdomain verwenden.</small>
+                    </div>
+                </fieldset>
+
                 <!-- Admin-Benutzer -->
                 <fieldset class="v2-modal-fieldset">
                     <legend>Admin-Benutzer</legend>
@@ -214,6 +235,7 @@ window.V2Settings = (function() {
                         <small class="v2-hint">Die eingeladene Person kann sich beim nächsten Login automatisch anmelden</small>
                     </div>
                 </fieldset>
+                </div>
             </div>
             <div class="v2-modal-footer">
                 <button class="v2-btn v2-btn-secondary" onclick="V2Settings.close()">Abbrechen</button>
@@ -270,6 +292,16 @@ window.V2Settings = (function() {
         const preview = document.getElementById('v2SetHeaderPreview');
         if (preview) preview.innerHTML = '<span class="v2-hint">Kein Header-Bild</span>';
     }
+
+    function switchTab(tabName) {
+        document.querySelectorAll('[data-v2-settings-tab]').forEach((tab) => {
+            tab.classList.toggle('active', tab.dataset.v2SettingsTab === tabName);
+        });
+
+        document.querySelectorAll('[data-v2-settings-panel]').forEach((panel) => {
+            panel.classList.toggle('active', panel.dataset.v2SettingsPanel === tabName);
+        });
+    }
     
     async function save() {
         const newSettings = {
@@ -287,6 +319,9 @@ window.V2Settings = (function() {
                 accentColor3: document.getElementById('v2SetAccent3').value,
                 narrowLayout: document.getElementById('v2SetNarrowLayout').checked,
                 narrowWidth: parseInt(document.getElementById('v2SetNarrowWidth').value, 10) || 960
+            },
+            system: {
+                mailFromAddress: document.getElementById('v2SetMailFromAddress').value.trim()
             }
         };
         
@@ -472,6 +507,7 @@ window.V2Settings = (function() {
         open,
         close,
         save,
+        switchTab,
         removeHeader,
         inviteAdmin,
         removeAdminEmail,

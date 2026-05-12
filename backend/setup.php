@@ -22,6 +22,9 @@ if (file_exists(__DIR__ . '/config.php')) {
     ini_set('display_errors', '0');
 }
 
+require_once __DIR__ . '/core/UploadService.php';
+require_once __DIR__ . '/core/ConfigService.php';
+
 // Bereits konfiguriert?
 $settingsFile = __DIR__ . '/data/settings.json';
 if (file_exists($settingsFile)) {
@@ -35,17 +38,26 @@ if (file_exists($settingsFile)) {
 
 $errors = [];
 $success = false;
+$mailFromSuggestion = $_POST['mailFromAddress'] ?? ConfigService::deriveSuggestedMailFromAddress(
+    $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '',
+    $_POST['email'] ?? ''
+);
 
 // Form-Verarbeitung
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     $email = trim($_POST['email'] ?? '');
+    $mailFromAddress = strtolower(trim($_POST['mailFromAddress'] ?? ''));
     $title = trim($_POST['title'] ?? 'Info-Hub');
     $footerText = trim($_POST['footerText'] ?? '');
     
     // Validierung
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Gültige Email-Adresse erforderlich';
+    }
+
+    if (empty($mailFromAddress) || !filter_var($mailFromAddress, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = 'Gültige Absender-Adresse erforderlich';
     }
     
     if (empty($title)) {
@@ -89,15 +101,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Header-Bild verarbeiten
         $headerImage = null;
+        $headerImagePlaceholder = null;
+        $headerImageWidth = null;
+        $headerImageHeight = null;
         if (!empty($_FILES['headerImage']['tmp_name'])) {
-            $uploadDir = __DIR__ . '/media/header/';
-            $ext = strtolower(pathinfo($_FILES['headerImage']['name'], PATHINFO_EXTENSION));
-            
-            if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-                $filename = 'header_' . time() . '.' . $ext;
-                if (move_uploaded_file($_FILES['headerImage']['tmp_name'], $uploadDir . $filename)) {
-                    $headerImage = '/backend/media/header/' . $filename;
-                }
+            $uploadService = new UploadService();
+            $uploadResult = $uploadService->uploadHeader($_FILES['headerImage']);
+
+            if (!empty($uploadResult['success'])) {
+                $headerImage = $uploadResult['path'];
+                $headerImagePlaceholder = $uploadResult['placeholder'] ?? null;
+                $headerImageWidth = $uploadResult['width'] ?? null;
+                $headerImageHeight = $uploadResult['height'] ?? null;
+            } elseif (!empty($uploadResult['error'])) {
+                $errors[] = 'Header-Bild: ' . $uploadResult['error'];
             }
         }
         
@@ -106,6 +123,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'site' => [
                 'title' => $title,
                 'headerImage' => $headerImage,
+                'headerImagePlaceholder' => $headerImagePlaceholder,
+                'headerImageWidth' => $headerImageWidth,
+                'headerImageHeight' => $headerImageHeight,
                 'footerText' => $footerText ?: '© ' . date('Y')
             ],
             'theme' => [
@@ -138,7 +158,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $configExample = __DIR__ . '/config.example.php';
             if (file_exists($configExample)) {
                 // Kopiere config.example.php als config.php
-                copy($configExample, $configFile);
+                if (!copy($configExample, $configFile)) {
+                    $errors[] = 'config.php konnte nicht erstellt werden';
+                }
             } else {
                 // Fallback: config.php manuell erstellen
                 $configContent = <<<'CONFIG'
@@ -165,20 +187,28 @@ define('LOGIN_CODE_EXPIRY', 900);
 define('MAX_LOGIN_ATTEMPTS', 3);
 define('LOGIN_LOCKOUT_DURATION', 600);
 define('ADMIN_INVITE_EXPIRY', 3600);
+define('MAIL_FROM_ADDRESS', '');
 define('MAX_IMAGE_SIZE', 5 * 1024 * 1024);
 define('MAX_DOWNLOAD_SIZE', 50 * 1024 * 1024);
 define('ALLOWED_IMAGE_EXTENSIONS', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
 define('ALLOWED_DOWNLOAD_EXTENSIONS', ['pdf', 'docx', 'xlsx', 'zip', 'pptx']);
 CONFIG;
-                file_put_contents($configFile, $configContent);
+                if (file_put_contents($configFile, $configContent) === false) {
+                    $errors[] = 'config.php konnte nicht erstellt werden';
+                }
             }
         }
+
+        if (empty($errors) && !(new ConfigService($configFile))->updateMailFromAddress($mailFromAddress)) {
+            $errors[] = 'MAIL_FROM_ADDRESS konnte nicht in config.php gespeichert werden';
+        }
         
-        // .htaccess in /backend/ NICHT überschreiben wenn bereits vorhanden
-        // Die bestehende .htaccess ist besser konfiguriert
-        $htaccessFile = __DIR__ . '/.htaccess';
-        if (!file_exists($htaccessFile)) {
-            $htaccess = <<<'HTACCESS'
+        if (empty($errors)) {
+            // .htaccess in /backend/ NICHT überschreiben wenn bereits vorhanden
+            // Die bestehende .htaccess ist besser konfiguriert
+            $htaccessFile = __DIR__ . '/.htaccess';
+            if (!file_exists($htaccessFile)) {
+                $htaccess = <<<'HTACCESS'
 # Info-Hub Backend Security Rules
 
 # Shared-Hosting-Hinweis:
@@ -230,16 +260,17 @@ Options -Indexes
 # - api/endpoints.php bleibt erreichbar
 # - interne Services, Tiles, Templates und Daten bleiben von außen blockiert
 HTACCESS;
-            file_put_contents($htaccessFile, $htaccess);
-        }
-        
-        $success = true;
-        
-        // Setup-Datei löschen — außer in lokaler Dev-Umgebung oder DEBUG_MODE
-        $isLocalhost = in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1', '::1']);
-        $isDebug = defined('DEBUG_MODE') && DEBUG_MODE;
-        if (!$isLocalhost && !$isDebug) {
-            unlink(__FILE__);
+                file_put_contents($htaccessFile, $htaccess);
+            }
+            
+            $success = true;
+            
+            // Setup-Datei löschen — außer in lokaler Dev-Umgebung oder DEBUG_MODE
+            $isLocalhost = in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1', '::1']);
+            $isDebug = defined('DEBUG_MODE') && DEBUG_MODE;
+            if (!$isLocalhost && !$isDebug) {
+                unlink(__FILE__);
+            }
         }
     }
 }
@@ -497,6 +528,21 @@ HTACCESS;
                         required
                     >
                     <p class="hint">Diese Email wird für den Login verwendet (Email-Code-Verfahren)</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="mailFromAddress">
+                        Absender-Adresse für System-Emails *
+                    </label>
+                    <input 
+                        type="email" 
+                        id="mailFromAddress" 
+                        name="mailFromAddress"
+                        placeholder="noreply@example.com"
+                        value="<?= htmlspecialchars($mailFromSuggestion) ?>"
+                        required
+                    >
+                    <p class="hint">Empfehlung: Eine freigeschaltete Adresse aus der Hauptdomain ohne Subdomain verwenden, z.B. noreply@sv-wolken.de statt noreply@ovv.sv-wolken.de.</p>
                 </div>
                 
                 <div class="form-group">

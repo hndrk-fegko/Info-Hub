@@ -14,6 +14,8 @@ class UploadService {
     
     private const ALLOWED_IMAGES = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
     private const ALLOWED_DOWNLOADS = ['pdf', 'docx', 'xlsx', 'zip', 'doc', 'xls', 'pptx', 'ppt', 'txt'];
+    private const HEADER_MAX_DIMENSION = 1920;
+    private const HEADER_PLACEHOLDER_WIDTH = 32;
     
     // Größenlimits aus config.php oder Fallbacks
     private int $maxImageSize;
@@ -53,7 +55,205 @@ class UploadService {
      * Lädt ein Header-Bild hoch
      */
     public function uploadHeader(array $file): array {
-        return $this->upload($file, 'header', self::ALLOWED_IMAGES, $this->maxImageSize);
+        $result = $this->upload($file, 'header', self::ALLOWED_IMAGES, $this->maxImageSize);
+        if (!$result['success']) {
+            return $result;
+        }
+
+        $absolutePath = self::MEDIA_PATH . 'header/' . $result['filename'];
+        $derivatives = $this->createHeaderDerivatives($absolutePath);
+
+        if (!empty($derivatives)) {
+            $result = array_merge($result, $derivatives);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Erstellt optimierte Header-Derivate (optimiertes Hauptbild + Blur-Placeholder).
+     *
+     * @return array{placeholder?: string|null, width?: int, height?: int}
+     */
+    private function createHeaderDerivatives(string $absolutePath): array {
+        $imageInfo = @getimagesize($absolutePath);
+        if ($imageInfo === false) {
+            LogService::warning('UploadService', 'Could not read header image info', ['path' => $absolutePath]);
+            return [];
+        }
+
+        $sourceWidth = (int)($imageInfo[0] ?? 0);
+        $sourceHeight = (int)($imageInfo[1] ?? 0);
+        $mime = $imageInfo['mime'] ?? '';
+
+        if ($sourceWidth <= 0 || $sourceHeight <= 0) {
+            return [];
+        }
+
+        $result = [
+            'width' => $sourceWidth,
+            'height' => $sourceHeight,
+            'placeholder' => null
+        ];
+
+        if (!extension_loaded('gd')) {
+            LogService::warning('UploadService', 'GD extension not available, skipping header derivatives', ['path' => $absolutePath]);
+            return $result;
+        }
+
+        $sourceImage = $this->createImageResource($absolutePath, $mime);
+        if (!$sourceImage) {
+            LogService::warning('UploadService', 'Unsupported header image format for derivatives', [
+                'path' => $absolutePath,
+                'mime' => $mime
+            ]);
+            return $result;
+        }
+
+        $optimizedImage = $sourceImage;
+        $optimizedWidth = $sourceWidth;
+        $optimizedHeight = $sourceHeight;
+        $placeholderImage = null;
+
+        try {
+            $longestEdge = max($sourceWidth, $sourceHeight);
+            if ($longestEdge > self::HEADER_MAX_DIMENSION) {
+                $scale = self::HEADER_MAX_DIMENSION / $longestEdge;
+                $optimizedWidth = max(1, (int)round($sourceWidth * $scale));
+                $optimizedHeight = max(1, (int)round($sourceHeight * $scale));
+                $optimizedImage = $this->resampleImage($sourceImage, $optimizedWidth, $optimizedHeight, $mime);
+            }
+
+            if ($mime !== 'image/gif') {
+                $this->saveImageResource($optimizedImage, $absolutePath, $mime);
+            }
+
+            $result['width'] = $optimizedWidth;
+            $result['height'] = $optimizedHeight;
+
+            $placeholderWidth = min(self::HEADER_PLACEHOLDER_WIDTH, $optimizedWidth);
+            $placeholderHeight = max(1, (int)round($optimizedHeight * ($placeholderWidth / $optimizedWidth)));
+            $placeholderImage = $this->resampleImage($optimizedImage, $placeholderWidth, $placeholderHeight, $mime);
+            $result['placeholder'] = $this->encodePlaceholderDataUri($placeholderImage);
+        } catch (Throwable $e) {
+            LogService::warning('UploadService', 'Failed to generate header derivatives', [
+                'path' => $absolutePath,
+                'error' => $e->getMessage()
+            ]);
+        } finally {
+            $this->destroyImageResource($placeholderImage, $optimizedImage);
+            $this->destroyImageResource($optimizedImage, $sourceImage);
+            $this->destroyImageResource($sourceImage);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return resource|GdImage|null
+     */
+    private function createImageResource(string $path, string $mime) {
+        switch ($mime) {
+            case 'image/jpeg':
+                return function_exists('imagecreatefromjpeg') ? @imagecreatefromjpeg($path) : null;
+            case 'image/png':
+                return function_exists('imagecreatefrompng') ? @imagecreatefrompng($path) : null;
+            case 'image/gif':
+                return function_exists('imagecreatefromgif') ? @imagecreatefromgif($path) : null;
+            case 'image/webp':
+                return function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : null;
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * @param resource|GdImage $sourceImage
+     * @return resource|GdImage
+     */
+    private function resampleImage($sourceImage, int $targetWidth, int $targetHeight, string $mime) {
+        $targetImage = imagecreatetruecolor($targetWidth, $targetHeight);
+
+        if (in_array($mime, ['image/png', 'image/webp', 'image/gif'], true)) {
+            imagealphablending($targetImage, false);
+            imagesavealpha($targetImage, true);
+            $transparent = imagecolorallocatealpha($targetImage, 0, 0, 0, 127);
+            imagefill($targetImage, 0, 0, $transparent);
+        }
+
+        imagecopyresampled(
+            $targetImage,
+            $sourceImage,
+            0,
+            0,
+            0,
+            0,
+            $targetWidth,
+            $targetHeight,
+            imagesx($sourceImage),
+            imagesy($sourceImage)
+        );
+
+        return $targetImage;
+    }
+
+    /**
+     * @param resource|GdImage $image
+     */
+    private function saveImageResource($image, string $path, string $mime): void {
+        switch ($mime) {
+            case 'image/jpeg':
+                imagejpeg($image, $path, 82);
+                break;
+            case 'image/png':
+                imagepng($image, $path, 6);
+                break;
+            case 'image/webp':
+                if (function_exists('imagewebp')) {
+                    imagewebp($image, $path, 82);
+                } else {
+                    imagepng($image, $path, 6);
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * @param resource|GdImage $image
+     */
+    private function encodePlaceholderDataUri($image): ?string {
+        ob_start();
+
+        if (function_exists('imagewebp')) {
+            imagewebp($image, null, 35);
+            $data = ob_get_clean();
+            return $data === false ? null : 'data:image/webp;base64,' . base64_encode($data);
+        }
+
+        if (function_exists('imagejpeg')) {
+            imagejpeg($image, null, 35);
+            $data = ob_get_clean();
+            return $data === false ? null : 'data:image/jpeg;base64,' . base64_encode($data);
+        }
+
+        ob_end_clean();
+        return null;
+    }
+
+    /**
+     * @param resource|GdImage|null $image
+     * @param resource|GdImage|null $except
+     */
+    private function destroyImageResource($image, $except = null): void {
+        if ($image === null || $image === $except) {
+            return;
+        }
+
+        if (is_resource($image) || is_object($image)) {
+            imagedestroy($image);
+        }
     }
     
     /**

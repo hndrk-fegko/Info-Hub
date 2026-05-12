@@ -56,12 +56,11 @@ define('ADMIN_INVITE_EXPIRY', 3600);
 // ============================================
 
 // Absender-Adresse für System-Emails (Login-Codes, Einladungen)
+// Wird im Setup als Pflichtfeld abgefragt.
 // WICHTIG: Muss eine Domain sein, für die der Server senden darf (SPF)!
-// Wenn die Subdomain auf einem fremden Server liegt, hier die
-// Hauptdomain des Hosters verwenden.
-// Leer lassen = automatisch aus HTTP_HOST (funktioniert nur wenn
-// der Server auch für diese Domain mailen darf)
-// Beispiel: 'noreply@mein-hoster.de'
+// Empfehlung: Hauptdomain ohne Subdomain verwenden, z.B.
+// 'noreply@sv-wolken.de' statt 'noreply@ovv.sv-wolken.de'.
+// Wenn du ohne setup installierst, diesen Wert manuell setzen.
 define('MAIL_FROM_ADDRESS', '');
 
 // ============================================

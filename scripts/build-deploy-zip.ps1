@@ -36,6 +36,12 @@ try {
         ':(exclude)tests/**'
     )
 
+    $untrackedFiles = & git ls-files --others --exclude-standard -- @pathspecs
+    if ($untrackedFiles) {
+        $fileList = ($untrackedFiles | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join [Environment]::NewLine
+        Write-Error "Untracked files würden im Deploy-ZIP fehlen. Bitte zuerst git add ausführen oder die Dateien entfernen.`n$fileList"
+    }
+
     $trackedFiles = & git ls-files -- @pathspecs
 
     if (Test-Path -LiteralPath $archivePath) {

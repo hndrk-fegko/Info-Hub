@@ -2,6 +2,9 @@
     "site": {
         "title": "Meine Info-Seite",
         "headerImage": null,
+        "headerImagePlaceholder": null,
+        "headerImageWidth": null,
+        "headerImageHeight": null,
         "footerText": ""
     },
     "theme": {

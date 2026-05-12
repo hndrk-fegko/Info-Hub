@@ -8,11 +8,22 @@
 // ===== Settings Modal =====
 function openSettingsModal() {
     document.getElementById('settingsModal').classList.add('active');
+    switchSettingsTab('design');
     loadAdminEmails();
 }
 
 function closeSettingsModal() {
     document.getElementById('settingsModal').classList.remove('active');
+}
+
+function switchSettingsTab(tabName) {
+    document.querySelectorAll('[data-settings-tab]').forEach((tab) => {
+        tab.classList.toggle('active', tab.dataset.settingsTab === tabName);
+    });
+
+    document.querySelectorAll('[data-settings-panel]').forEach((panel) => {
+        panel.classList.toggle('active', panel.dataset.settingsPanel === tabName);
+    });
 }
 
 // ===== Narrow Layout Toggle =====
@@ -58,6 +69,9 @@ async function saveSettings(event) {
             accentColor3: formData.get('accentColor3'),
             narrowLayout: document.getElementById('narrowLayout')?.checked || false,
             narrowWidth: parseInt(document.getElementById('narrowWidth')?.value, 10) || 960
+        },
+        system: {
+            mailFromAddress: (formData.get('mailFromAddress') || '').trim()
         }
     };
     
@@ -88,6 +102,8 @@ async function saveSettings(event) {
 // ===== Admin Email Management =====
 let adminEmailsCache = [];
 let adminInvitesCache = [];
+
+window.switchSettingsTab = switchSettingsTab;
 
 async function loadAdminEmails() {
     const listEl = document.getElementById('adminEmailList');
@@ -240,12 +256,73 @@ window.removeAdminEmail = removeAdminEmail;
 window.removeAdminInvite = removeAdminInvite;
 
 // ===== Header Image Upload =====
+async function generateHeaderPlaceholder(file) {
+    if (!file || !file.type.startsWith('image/')) {
+        return null;
+    }
+
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onerror = () => resolve(null);
+        reader.onload = () => {
+            const image = new Image();
+            image.onerror = () => resolve(null);
+            image.onload = () => {
+                const targetWidth = Math.min(32, image.naturalWidth || 32);
+                const targetHeight = Math.max(1, Math.round((image.naturalHeight || 1) * (targetWidth / Math.max(1, image.naturalWidth || 1))));
+
+                const canvas = document.createElement('canvas');
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+
+                const context = canvas.getContext('2d', { alpha: false });
+                if (!context) {
+                    resolve(null);
+                    return;
+                }
+
+                context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+                let placeholder = null;
+                try {
+                    placeholder = canvas.toDataURL('image/webp', 0.35);
+                    if (!placeholder.startsWith('data:image/webp')) {
+                        placeholder = canvas.toDataURL('image/jpeg', 0.35);
+                    }
+                } catch (error) {
+                    placeholder = canvas.toDataURL('image/jpeg', 0.35);
+                }
+
+                resolve({
+                    placeholder,
+                    width: image.naturalWidth || null,
+                    height: image.naturalHeight || null
+                });
+            };
+            image.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
 async function uploadHeaderImage(input) {
     if (!input.files[0]) return;
+
+    const file = input.files[0];
+    const clientPlaceholder = await generateHeaderPlaceholder(file);
     
     const formData = new FormData();
     formData.append('action', 'upload_header');
-    formData.append('file', input.files[0]);
+    formData.append('file', file);
+    if (clientPlaceholder?.placeholder) {
+        formData.append('headerPlaceholder', clientPlaceholder.placeholder);
+    }
+    if (clientPlaceholder?.width) {
+        formData.append('headerImageWidth', String(clientPlaceholder.width));
+    }
+    if (clientPlaceholder?.height) {
+        formData.append('headerImageHeight', String(clientPlaceholder.height));
+    }
     
     showToast('info', 'Header-Bild wird hochgeladen...');
     
@@ -255,6 +332,12 @@ async function uploadHeaderImage(input) {
         if (result.success) {
             // Pfad im Hidden-Field speichern
             document.getElementById('headerImagePath').value = result.path;
+
+            settings.site = settings.site || {};
+            settings.site.headerImage = result.path;
+            settings.site.headerImagePlaceholder = result.placeholder || null;
+            settings.site.headerImageWidth = result.width || null;
+            settings.site.headerImageHeight = result.height || null;
             
             // Preview aktualisieren
             document.getElementById('headerPreview').innerHTML = 
@@ -287,6 +370,12 @@ function removeHeaderImage() {
     document.getElementById('headerImagePath').value = '';
     document.getElementById('headerImageFile').value = '';
     document.getElementById('headerPreview').innerHTML = '<span class="no-image">Kein Header-Bild</span>';
+
+    settings.site = settings.site || {};
+    settings.site.headerImage = null;
+    settings.site.headerImagePlaceholder = null;
+    settings.site.headerImageWidth = null;
+    settings.site.headerImageHeight = null;
 }
 
 // ===== Publish & Preview =====

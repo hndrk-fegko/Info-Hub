@@ -24,6 +24,33 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+html.js .site-header .site-title,
+html.js .tile-grid {
+    transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+html.js.page-enter .site-header:not(.site-header--minimal) .site-title {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+}
+
+html.js.page-ready .site-header:not(.site-header--minimal) .site-title {
+    opacity: 1;
+    transform: translateX(-50%);
+}
+
+html.js.page-enter .site-header--minimal .site-title,
+html.js.page-enter .tile-grid {
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+html.js.page-ready .site-header--minimal .site-title,
+html.js.page-ready .tile-grid {
+    opacity: 1;
+    transform: none;
+}
+
 /* Auswahl-Farbe */
 ::selection {
     background: var(--accent-color);

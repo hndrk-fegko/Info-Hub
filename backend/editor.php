@@ -20,6 +20,7 @@ require_once __DIR__ . '/core/AuthService.php';
 require_once __DIR__ . '/core/TileService.php';
 require_once __DIR__ . '/core/StorageService.php';
 require_once __DIR__ . '/core/SecurityHelper.php';
+require_once __DIR__ . '/core/ConfigService.php';
 
 // Auth prüfen
 $auth = new AuthService();
@@ -36,6 +37,11 @@ $tileService = new TileService();
 $tiles = $tileService->getTiles();
 $settingsStorage = new StorageService('settings.json');
 $settings = $settingsStorage->read();
+$configService = new ConfigService(__DIR__ . '/config.php');
+$settings['system']['mailFromAddress'] = $configService->getMailFromAddress(
+    $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '',
+    $_SESSION['auth_email'] ?? ''
+);
 
 // Daten-Bereinigung: headerImage muss String oder null sein
 if (isset($settings['site']['headerImage']) && !is_string($settings['site']['headerImage'])) {
@@ -222,6 +228,12 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                 <button type="button" class="modal-close" onclick="closeSettingsModal()">×</button>
             </div>
             <form id="settingsForm" onsubmit="saveSettings(event)">
+                <div class="settings-tabs" role="tablist" aria-label="Einstellungsbereiche">
+                    <button type="button" class="settings-tab active" data-settings-tab="design" onclick="switchSettingsTab('design')">Design</button>
+                    <button type="button" class="settings-tab" data-settings-tab="system" onclick="switchSettingsTab('system')">System</button>
+                </div>
+
+                <div class="settings-tab-panel active" data-settings-panel="design">
                 <div class="settings-section">
                     <h3>Seite</h3>
                     <div class="form-group">
@@ -277,17 +289,6 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                         <small>Bestimmt, welcher Bildbereich beim Zuschneiden sichtbar bleibt</small>
                     </div>
                 </div>
-
-                <div class="settings-section">
-                    <h3>Admin-Benutzer</h3>
-                    <div id="adminEmailList" class="admin-email-list"></div>
-                    <div class="admin-actions">
-                        <button type="button" class="btn btn-secondary" onclick="openInviteAdminModal()">
-                            Neuen Admin einladen
-                        </button>
-                    </div>
-                    <small>Ausstehende Einladungen laufen nach 60 Minuten ab. Die letzte Admin-Adresse kann nicht gelöscht werden.</small>
-                </div>
                 
                 <div class="settings-section">
                     <h3>Farben</h3>
@@ -327,6 +328,29 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                                value="<?= intval($settings['theme']['narrowWidth'] ?? 960) ?>">
                         <div class="range-labels"><span>600px</span><span>1400px</span></div>
                     </div>
+                </div>
+                </div>
+
+                <div class="settings-tab-panel" data-settings-panel="system">
+                <div class="settings-section">
+                    <h3>System-Mail</h3>
+                    <div class="form-group">
+                        <label for="mailFromAddress">Absender-Adresse</label>
+                        <input type="email" name="mailFromAddress" id="mailFromAddress" value="<?= htmlspecialchars($settings['system']['mailFromAddress'] ?? '') ?>" required>
+                        <small>Für Login-Codes und Einladungen. Empfehlung: Hauptdomain ohne Subdomain, z.B. noreply@sv-wolken.de.</small>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>Admin-Benutzer</h3>
+                    <div id="adminEmailList" class="admin-email-list"></div>
+                    <div class="admin-actions">
+                        <button type="button" class="btn btn-secondary" onclick="openInviteAdminModal()">
+                            Neuen Admin einladen
+                        </button>
+                    </div>
+                    <small>Ausstehende Einladungen laufen nach 60 Minuten ab. Die letzte Admin-Adresse kann nicht gelöscht werden.</small>
+                </div>
                 </div>
                 
                 <div class="form-actions">
