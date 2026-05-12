@@ -11,10 +11,14 @@ window.V2Settings = (function() {
     'use strict';
     
     let _overlay = null;
+    let _parallaxQueued = false;
     
     function init() {
         // Listen for settings changes to update canvas header/footer
         V2State.on('state:settings-changed', onSettingsChanged);
+        window.addEventListener('scroll', syncParallaxOffset, { passive: true });
+        window.addEventListener('resize', syncParallaxOffset);
+        onSettingsChanged({ settings: V2State.getSettings() });
     }
     
     /**
@@ -48,23 +52,9 @@ window.V2Settings = (function() {
         
         // Highlight header & footer on canvas
         _highlightRegions(true);
-        
-        // Toggle narrow width field visibility
-        const narrowCheck = document.getElementById('v2SetNarrowLayout');
-        const narrowField = document.getElementById('v2NarrowWidthField');
-        if (narrowCheck && narrowField) {
-            narrowCheck.addEventListener('change', () => {
-                narrowField.style.display = narrowCheck.checked ? '' : 'none';
-            });
-        }
-        // Sync range value display
-        const widthRange = document.getElementById('v2SetNarrowWidth');
-        const widthValue = document.getElementById('v2NarrowWidthValue');
-        if (widthRange && widthValue) {
-            widthRange.addEventListener('input', () => {
-                widthValue.textContent = widthRange.value;
-            });
-        }
+
+        refreshNarrowSettingsUI();
+        syncNarrowRangeLabels();
     }
     
     function buildModalHTML(settings) {
@@ -75,6 +65,10 @@ window.V2Settings = (function() {
         const headerImage = site.headerImage || '';
         const focusPoint = site.headerFocusPoint || 'center center';
         const narrowLayout = theme.narrowLayout ? 'checked' : '';
+        const narrowMode = normalizeOption(theme.narrowBackgroundMode, ['solid', 'gradient', 'image'], 'solid');
+        const narrowBackgroundImage = theme.narrowBackgroundImage || '';
+        const overlayEnabled = theme.narrowBackgroundOverlayEnabled ? 'checked' : '';
+        const contentShadow = theme.narrowContentShadow === false ? '' : 'checked';
         
         const focusOptions = [
             ['center center', 'Mitte'],
@@ -91,6 +85,19 @@ window.V2Settings = (function() {
         const focusOptionsHTML = focusOptions.map(([val, label]) =>
             `<option value="${val}" ${focusPoint === val ? 'selected' : ''}>${label}</option>`
         ).join('');
+
+        const narrowModeOptions = [
+            ['solid', 'Einfarbig'],
+            ['gradient', 'Farbverlauf'],
+            ['image', 'Bild']
+        ].map(([value, label]) =>
+            `<option value="${value}" ${narrowMode === value ? 'selected' : ''}>${label}</option>`
+        ).join('');
+
+        const imageDisplay = normalizeOption(theme.narrowBackgroundImageDisplay, ['cover', 'tile'], 'cover');
+        const imageMotion = normalizeOption(theme.narrowBackgroundImageMotion, ['fixed', 'parallax'], 'fixed');
+        const gradientAngle = clampNumber(theme.narrowGradientAngle, 0, 360, 180);
+        const overlayOpacity = clampNumber(theme.narrowBackgroundOverlayOpacity, 0, 100, 35);
         
         return `
         <div class="v2-modal" style="max-width: 640px;">
@@ -191,9 +198,9 @@ window.V2Settings = (function() {
                     <div class="v2-field">
                         <label class="v2-checkbox-label">
                             <input type="checkbox" id="v2SetNarrowLayout" ${narrowLayout}>
-                            Schmales Layout (begrenzte Breite mit dunklem Hintergrund)
+                            Schmales Layout (begrenzte Breite mit eigener Hintergrundfläche)
                         </label>
-                        <small class="v2-hint">Rendert die statische Seite zentriert mit begrenzter Breite, ähnlich der Editor-Ansicht</small>
+                        <small class="v2-hint">Rendert die statische Seite zentriert mit eigener Backdrop-Fläche. Diese erweiterten Optionen gibt es nur im WYSIWYG.</small>
                     </div>
                     <div class="v2-field v2-narrow-width-field" id="v2NarrowWidthField" style="${narrowLayout ? '' : 'display:none'}">
                         <label class="v2-label">Maximale Breite: <span id="v2NarrowWidthValue">${theme.narrowWidth || 960}</span>px</label>
@@ -201,6 +208,101 @@ window.V2Settings = (function() {
                                min="600" max="1400" step="20"
                                value="${theme.narrowWidth || 960}">
                         <div class="v2-range-labels"><span>600px</span><span>1400px</span></div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="v2-modal-fieldset" id="v2NarrowBackgroundFieldset" style="${narrowLayout ? '' : 'display:none'}">
+                    <legend>Schmaler Hintergrund</legend>
+                    <div class="v2-field">
+                        <label class="v2-label">Modus</label>
+                        <select class="v2-input" id="v2SetNarrowMode">
+                            ${narrowModeOptions}
+                        </select>
+                    </div>
+
+                    <div class="v2-settings-grid" id="v2NarrowSolidFields" style="${narrowMode === 'solid' ? '' : 'display:none'}">
+                        <div class="v2-field">
+                            <label class="v2-label">Fläche</label>
+                            <input type="color" class="v2-color-input" id="v2SetNarrowBgColor"
+                                   value="${sanitizeHexColor(theme.narrowBackgroundColor, '#1a1a2e')}">
+                        </div>
+                    </div>
+
+                    <div class="v2-settings-grid" id="v2NarrowGradientFields" style="${narrowMode === 'gradient' ? '' : 'display:none'}">
+                        <div class="v2-field">
+                            <label class="v2-label">Farbe 1</label>
+                            <input type="color" class="v2-color-input" id="v2SetNarrowGradient1"
+                                   value="${sanitizeHexColor(theme.narrowGradientColor1, '#1a1a2e')}">
+                        </div>
+                        <div class="v2-field">
+                            <label class="v2-label">Farbe 2</label>
+                            <input type="color" class="v2-color-input" id="v2SetNarrowGradient2"
+                                   value="${sanitizeHexColor(theme.narrowGradientColor2, '#16213e')}">
+                        </div>
+                        <div class="v2-field">
+                            <label class="v2-label">Winkel: <span id="v2NarrowAngleValue">${gradientAngle}</span>°</label>
+                            <input type="range" class="v2-range-input" id="v2SetNarrowGradientAngle"
+                                   min="0" max="360" step="5" value="${gradientAngle}">
+                        </div>
+                    </div>
+
+                    <div class="v2-settings-stack" id="v2NarrowImageFields" style="${narrowMode === 'image' ? '' : 'display:none'}">
+                        <div class="v2-field">
+                            <div class="v2-settings-media-preview" id="v2SetBackgroundPreview">
+                                ${narrowBackgroundImage
+                                    ? `<img src="${escAttr(narrowBackgroundImage)}" alt="Hintergrundbild" style="max-width:100%;max-height:160px;border-radius:8px;">
+                                       <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" onclick="V2Settings.removeBackground()">Entfernen</button>`
+                                    : '<span class="v2-hint">Kein Hintergrundbild</span>'
+                                }
+                            </div>
+                            <input type="hidden" id="v2SetBackgroundPath" value="${escAttr(narrowBackgroundImage)}">
+                            <input type="file" id="v2SetBackgroundFile" accept="image/*" style="margin-top:8px">
+                        </div>
+
+                        <div class="v2-settings-grid">
+                            <div class="v2-field">
+                                <label class="v2-label">Darstellung</label>
+                                <select class="v2-input" id="v2SetNarrowImageDisplay">
+                                    <option value="cover" ${imageDisplay === 'cover' ? 'selected' : ''}>Füllend</option>
+                                    <option value="tile" ${imageDisplay === 'tile' ? 'selected' : ''}>Kacheln</option>
+                                </select>
+                            </div>
+                            <div class="v2-field">
+                                <label class="v2-label">Bewegung</label>
+                                <select class="v2-input" id="v2SetNarrowImageMotion">
+                                    <option value="fixed" ${imageMotion === 'fixed' ? 'selected' : ''}>Fixiert</option>
+                                    <option value="parallax" ${imageMotion === 'parallax' ? 'selected' : ''}>Parallax</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="v2-field">
+                            <label class="v2-checkbox-label">
+                                <input type="checkbox" id="v2SetNarrowOverlayEnabled" ${overlayEnabled}>
+                                Overlay einschalten (statt Blur)
+                            </label>
+                            <small class="v2-hint">Dunkelt das Bild für bessere Lesbarkeit leicht ab.</small>
+                        </div>
+
+                        <div class="v2-settings-grid" id="v2NarrowOverlayFields" style="${theme.narrowBackgroundOverlayEnabled ? '' : 'display:none'}">
+                            <div class="v2-field">
+                                <label class="v2-label">Overlay-Farbe</label>
+                                <input type="color" class="v2-color-input" id="v2SetNarrowOverlayColor"
+                                       value="${sanitizeHexColor(theme.narrowBackgroundOverlayColor, '#000000')}">
+                            </div>
+                            <div class="v2-field">
+                                <label class="v2-label">Deckkraft: <span id="v2NarrowOverlayOpacityValue">${overlayOpacity}</span>%</label>
+                                <input type="range" class="v2-range-input" id="v2SetNarrowOverlayOpacity"
+                                       min="0" max="100" step="5" value="${overlayOpacity}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="v2-field">
+                        <label class="v2-checkbox-label">
+                            <input type="checkbox" id="v2SetNarrowShadow" ${contentShadow}>
+                            Schatten für Inhaltsbereich
+                        </label>
                     </div>
                 </fieldset>
                 </div>
@@ -269,6 +371,44 @@ window.V2Settings = (function() {
                 }
             });
         }
+
+        const backgroundInput = document.getElementById('v2SetBackgroundFile');
+        if (backgroundInput) {
+            backgroundInput.addEventListener('change', async function() {
+                if (!this.files[0]) return;
+                V2.toast('Hintergrundbild wird hochgeladen...', 'info');
+                try {
+                    const result = await V2Api.uploadBackground(this.files[0]);
+                    if (result.success) {
+                        document.getElementById('v2SetBackgroundPath').value = result.path;
+                        const preview = document.getElementById('v2SetBackgroundPreview');
+                        preview.innerHTML = `
+                            <img src="${result.path}" alt="Hintergrundbild" style="max-width:100%;max-height:160px;border-radius:8px;">
+                            <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" onclick="V2Settings.removeBackground()">Entfernen</button>`;
+                        V2.toast('Hintergrundbild hochgeladen', 'success');
+                    } else {
+                        V2.toast('Upload fehlgeschlagen: ' + (result.error || ''), 'error');
+                    }
+                } catch (err) {
+                    console.error('[Settings] Background upload failed:', err);
+                    V2.toast('Upload fehlgeschlagen', 'error');
+                }
+            });
+        }
+
+        ['v2SetNarrowLayout', 'v2SetNarrowMode', 'v2SetNarrowOverlayEnabled'].forEach((id) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('change', refreshNarrowSettingsUI);
+            }
+        });
+
+        ['v2SetNarrowWidth', 'v2SetNarrowGradientAngle', 'v2SetNarrowOverlayOpacity'].forEach((id) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('input', syncNarrowRangeLabels);
+            }
+        });
         
         // Load admin list
         loadAdminList();
@@ -293,6 +433,14 @@ window.V2Settings = (function() {
         if (preview) preview.innerHTML = '<span class="v2-hint">Kein Header-Bild</span>';
     }
 
+    function removeBackground() {
+        document.getElementById('v2SetBackgroundPath').value = '';
+        const fileInput = document.getElementById('v2SetBackgroundFile');
+        if (fileInput) fileInput.value = '';
+        const preview = document.getElementById('v2SetBackgroundPreview');
+        if (preview) preview.innerHTML = '<span class="v2-hint">Kein Hintergrundbild</span>';
+    }
+
     function switchTab(tabName) {
         document.querySelectorAll('[data-v2-settings-tab]').forEach((tab) => {
             tab.classList.toggle('active', tab.dataset.v2SettingsTab === tabName);
@@ -304,6 +452,8 @@ window.V2Settings = (function() {
     }
     
     async function save() {
+        const narrowBackgroundImage = document.getElementById('v2SetBackgroundPath')?.value || null;
+
         const newSettings = {
             site: {
                 title: document.getElementById('v2SetTitle').value.trim(),
@@ -318,7 +468,19 @@ window.V2Settings = (function() {
                 accentColor2: document.getElementById('v2SetAccent2').value,
                 accentColor3: document.getElementById('v2SetAccent3').value,
                 narrowLayout: document.getElementById('v2SetNarrowLayout').checked,
-                narrowWidth: parseInt(document.getElementById('v2SetNarrowWidth').value, 10) || 960
+                narrowWidth: parseInt(document.getElementById('v2SetNarrowWidth').value, 10) || 960,
+                narrowBackgroundMode: document.getElementById('v2SetNarrowMode').value,
+                narrowBackgroundColor: document.getElementById('v2SetNarrowBgColor').value,
+                narrowGradientColor1: document.getElementById('v2SetNarrowGradient1').value,
+                narrowGradientColor2: document.getElementById('v2SetNarrowGradient2').value,
+                narrowGradientAngle: parseInt(document.getElementById('v2SetNarrowGradientAngle').value, 10) || 180,
+                narrowBackgroundImage,
+                narrowBackgroundImageDisplay: document.getElementById('v2SetNarrowImageDisplay').value,
+                narrowBackgroundImageMotion: document.getElementById('v2SetNarrowImageMotion').value,
+                narrowBackgroundOverlayEnabled: document.getElementById('v2SetNarrowOverlayEnabled').checked,
+                narrowBackgroundOverlayColor: document.getElementById('v2SetNarrowOverlayColor').value,
+                narrowBackgroundOverlayOpacity: parseInt(document.getElementById('v2SetNarrowOverlayOpacity').value, 10) || 0,
+                narrowContentShadow: document.getElementById('v2SetNarrowShadow').checked
             },
             system: {
                 mailFromAddress: document.getElementById('v2SetMailFromAddress').value.trim()
@@ -373,7 +535,132 @@ window.V2Settings = (function() {
             if (theme.accentColor) root.style.setProperty('--accent-color', theme.accentColor);
             if (theme.accentColor2) root.style.setProperty('--accent-color-2', theme.accentColor2);
             if (theme.accentColor3) root.style.setProperty('--accent-color-3', theme.accentColor3);
+            applyNarrowPreview(theme);
         }
+    }
+
+    function refreshNarrowSettingsUI() {
+        const narrowEnabled = !!document.getElementById('v2SetNarrowLayout')?.checked;
+        const mode = document.getElementById('v2SetNarrowMode')?.value || 'solid';
+        const overlayEnabled = !!document.getElementById('v2SetNarrowOverlayEnabled')?.checked;
+
+        toggleDisplay('v2NarrowWidthField', narrowEnabled);
+        toggleDisplay('v2NarrowBackgroundFieldset', narrowEnabled);
+        toggleDisplay('v2NarrowSolidFields', narrowEnabled && mode === 'solid');
+        toggleDisplay('v2NarrowGradientFields', narrowEnabled && mode === 'gradient');
+        toggleDisplay('v2NarrowImageFields', narrowEnabled && mode === 'image');
+        toggleDisplay('v2NarrowOverlayFields', narrowEnabled && mode === 'image' && overlayEnabled);
+    }
+
+    function syncNarrowRangeLabels() {
+        const widthValue = document.getElementById('v2NarrowWidthValue');
+        const widthRange = document.getElementById('v2SetNarrowWidth');
+        if (widthValue && widthRange) {
+            widthValue.textContent = widthRange.value;
+        }
+
+        const angleValue = document.getElementById('v2NarrowAngleValue');
+        const angleRange = document.getElementById('v2SetNarrowGradientAngle');
+        if (angleValue && angleRange) {
+            angleValue.textContent = angleRange.value;
+        }
+
+        const opacityValue = document.getElementById('v2NarrowOverlayOpacityValue');
+        const opacityRange = document.getElementById('v2SetNarrowOverlayOpacity');
+        if (opacityValue && opacityRange) {
+            opacityValue.textContent = opacityRange.value;
+        }
+    }
+
+    function toggleDisplay(id, visible) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.style.display = visible ? '' : 'none';
+        }
+    }
+
+    function applyNarrowPreview(theme) {
+        const wrapper = document.querySelector('.v2-canvas-wrapper');
+        const canvas = document.getElementById('wysiwyg-canvas');
+        if (!wrapper || !canvas) return;
+
+        const narrowLayout = !!theme.narrowLayout;
+        const mode = normalizeOption(theme.narrowBackgroundMode, ['solid', 'gradient', 'image'], 'solid');
+        const imagePath = typeof theme.narrowBackgroundImage === 'string' ? theme.narrowBackgroundImage : '';
+        const imageDisplay = normalizeOption(theme.narrowBackgroundImageDisplay, ['cover', 'tile'], 'cover');
+        const imageMotion = normalizeOption(theme.narrowBackgroundImageMotion, ['fixed', 'parallax'], 'fixed');
+        const overlayEnabled = !!theme.narrowBackgroundOverlayEnabled;
+        const overlayOpacity = clampNumber(theme.narrowBackgroundOverlayOpacity, 0, 100, 35) / 100;
+        const width = clampNumber(theme.narrowWidth, 600, 1400, 960);
+        const hasImage = mode === 'image' && imagePath;
+        const contentShadow = theme.narrowContentShadow === false ? 'none' : '0 0 60px rgba(0,0,0,0.4)';
+
+        wrapper.classList.toggle('v2-canvas-wrapper--narrow', narrowLayout);
+        wrapper.classList.toggle('v2-canvas-wrapper--parallax', narrowLayout && hasImage && imageMotion === 'parallax');
+        wrapper.style.setProperty('--v2-narrow-width', `${width}px`);
+        wrapper.style.setProperty('--v2-narrow-backdrop', buildNarrowBackdrop(theme));
+        wrapper.style.setProperty('--v2-narrow-background-repeat', imageDisplay === 'tile' ? 'repeat' : 'no-repeat');
+        wrapper.style.setProperty('--v2-narrow-background-size', imageDisplay === 'tile' ? 'auto' : 'cover');
+        wrapper.style.setProperty('--v2-narrow-background-attachment', imageMotion === 'fixed' ? 'fixed' : 'scroll');
+        wrapper.style.setProperty('--v2-narrow-overlay-display', narrowLayout && hasImage && overlayEnabled ? 'block' : 'none');
+        wrapper.style.setProperty('--v2-narrow-overlay-color', sanitizeHexColor(theme.narrowBackgroundOverlayColor, '#000000'));
+        wrapper.style.setProperty('--v2-narrow-overlay-opacity', String(narrowLayout && hasImage && overlayEnabled ? overlayOpacity : 0));
+        canvas.style.boxShadow = narrowLayout ? contentShadow : '';
+
+        syncParallaxOffset();
+    }
+
+    function syncParallaxOffset() {
+        if (_parallaxQueued) return;
+
+        _parallaxQueued = true;
+        requestAnimationFrame(() => {
+            _parallaxQueued = false;
+            const wrapper = document.querySelector('.v2-canvas-wrapper');
+            if (!wrapper) return;
+
+            if (!wrapper.classList.contains('v2-canvas-wrapper--parallax')) {
+                wrapper.style.setProperty('--v2-parallax-offset', '0px');
+                return;
+            }
+
+            const rect = wrapper.getBoundingClientRect();
+            const viewportCenter = window.innerHeight / 2;
+            const wrapperCenter = rect.top + rect.height / 2;
+            const offset = Math.round((viewportCenter - wrapperCenter) * 0.08);
+            wrapper.style.setProperty('--v2-parallax-offset', `${offset}px`);
+        });
+    }
+
+    function normalizeOption(value, allowed, fallback) {
+        return allowed.includes(value) ? value : fallback;
+    }
+
+    function clampNumber(value, min, max, fallback) {
+        const parsed = Number.parseInt(value, 10);
+        if (Number.isNaN(parsed)) return fallback;
+        return Math.min(max, Math.max(min, parsed));
+    }
+
+    function sanitizeHexColor(value, fallback) {
+        return /^#[0-9a-f]{6}$/i.test(String(value || '')) ? String(value) : fallback;
+    }
+
+    function buildNarrowBackdrop(theme) {
+        const mode = normalizeOption(theme.narrowBackgroundMode, ['solid', 'gradient', 'image'], 'solid');
+        if (mode === 'gradient') {
+            const angle = clampNumber(theme.narrowGradientAngle, 0, 360, 180);
+            const color1 = sanitizeHexColor(theme.narrowGradientColor1, '#1a1a2e');
+            const color2 = sanitizeHexColor(theme.narrowGradientColor2, '#16213e');
+            return `linear-gradient(${angle}deg, ${color1}, ${color2})`;
+        }
+
+        if (mode === 'image' && typeof theme.narrowBackgroundImage === 'string' && theme.narrowBackgroundImage) {
+            const safePath = theme.narrowBackgroundImage.replace(/'/g, '%27');
+            return `url('${safePath}')`;
+        }
+
+        return sanitizeHexColor(theme.narrowBackgroundColor, '#1a1a2e');
     }
     
     // ===== Admin Management =====
@@ -509,6 +796,7 @@ window.V2Settings = (function() {
         save,
         switchTab,
         removeHeader,
+        removeBackground,
         inviteAdmin,
         removeAdminEmail,
         removeAdminInvite

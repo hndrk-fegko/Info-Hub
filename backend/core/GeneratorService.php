@@ -369,6 +369,68 @@ JS;
         
         return $css;
     }
+
+    /**
+     * Baut die Narrow-Layout-Konfiguration mit defensiven Defaults.
+     */
+    private function getNarrowConfig(array $theme): array {
+        $isValidHexColor = static function($value, string $fallback): string {
+            return is_string($value) && preg_match('/^#[0-9a-fA-F]{6}$/', $value) === 1 ? $value : $fallback;
+        };
+
+        $mode = in_array(($theme['narrowBackgroundMode'] ?? ''), ['solid', 'gradient', 'image'], true)
+            ? $theme['narrowBackgroundMode']
+            : 'solid';
+        $display = in_array(($theme['narrowBackgroundImageDisplay'] ?? ''), ['cover', 'tile'], true)
+            ? $theme['narrowBackgroundImageDisplay']
+            : 'cover';
+        $motion = in_array(($theme['narrowBackgroundImageMotion'] ?? ''), ['fixed', 'parallax'], true)
+            ? $theme['narrowBackgroundImageMotion']
+            : 'fixed';
+        $angle = (int)($theme['narrowGradientAngle'] ?? 180);
+        if ($angle < 0 || $angle > 360) {
+            $angle = 180;
+        }
+        $overlayOpacity = (int)($theme['narrowBackgroundOverlayOpacity'] ?? 35);
+        if ($overlayOpacity < 0 || $overlayOpacity > 100) {
+            $overlayOpacity = 35;
+        }
+
+        $image = is_string($theme['narrowBackgroundImage'] ?? null) ? trim($theme['narrowBackgroundImage']) : '';
+        if (!preg_match('#^/backend/media/[a-z0-9/_\-.]+$#i', $image)) {
+            $image = '';
+        }
+
+        return [
+            'mode' => $mode,
+            'color' => $isValidHexColor($theme['narrowBackgroundColor'] ?? null, '#1a1a2e'),
+            'gradientColor1' => $isValidHexColor($theme['narrowGradientColor1'] ?? null, '#1a1a2e'),
+            'gradientColor2' => $isValidHexColor($theme['narrowGradientColor2'] ?? null, '#16213e'),
+            'gradientAngle' => $angle,
+            'image' => $image,
+            'imageDisplay' => $display,
+            'imageMotion' => $motion,
+            'overlayEnabled' => !empty($theme['narrowBackgroundOverlayEnabled']),
+            'overlayColor' => $isValidHexColor($theme['narrowBackgroundOverlayColor'] ?? null, '#000000'),
+            'overlayOpacity' => $overlayOpacity / 100,
+            'contentShadow' => !array_key_exists('narrowContentShadow', $theme) || !empty($theme['narrowContentShadow'])
+        ];
+    }
+
+    /**
+     * Erstellt den CSS-Background für den Narrow-Backdrop.
+     */
+    private function buildNarrowBackdropCSS(array $narrowConfig): string {
+        if ($narrowConfig['mode'] === 'gradient') {
+            return 'linear-gradient(' . $narrowConfig['gradientAngle'] . 'deg, ' . $narrowConfig['gradientColor1'] . ', ' . $narrowConfig['gradientColor2'] . ')';
+        }
+
+        if ($narrowConfig['mode'] === 'image' && $narrowConfig['image'] !== '') {
+            return "url('" . $narrowConfig['image'] . "')";
+        }
+
+        return $narrowConfig['color'];
+    }
     
     /**
      * Rendert die komplette Seite
@@ -384,25 +446,35 @@ JS;
         $sharedCSS = $this->loadSharedCSS();
         
         // Defaults
-        $siteTitle = htmlspecialchars($settings['site']['title'] ?? '');
-        $siteTitleRaw = $settings['site']['title'] ?? '';
-        $headerImage = $settings['site']['headerImage'] ?? null;
-        $headerImagePlaceholder = $settings['site']['headerImagePlaceholder'] ?? null;
-        $headerImageWidth = (int)($settings['site']['headerImageWidth'] ?? 0);
-        $headerImageHeight = (int)($settings['site']['headerImageHeight'] ?? 0);
-        $headerFocusPoint = htmlspecialchars($settings['site']['headerFocusPoint'] ?? 'center center');
-        $footerText = nl2br(htmlspecialchars($settings['site']['footerText'] ?? ''));
-        $bgColor = htmlspecialchars($settings['theme']['backgroundColor'] ?? '#f5f5f5');
+        $site = $settings['site'] ?? [];
+        $theme = $settings['theme'] ?? [];
+        $siteTitle = htmlspecialchars($site['title'] ?? '');
+        $siteTitleRaw = $site['title'] ?? '';
+        $headerImage = $site['headerImage'] ?? null;
+        $headerImagePlaceholder = $site['headerImagePlaceholder'] ?? null;
+        $headerImageWidth = (int)($site['headerImageWidth'] ?? 0);
+        $headerImageHeight = (int)($site['headerImageHeight'] ?? 0);
+        $headerFocusPoint = htmlspecialchars($site['headerFocusPoint'] ?? 'center center');
+        $footerText = nl2br(htmlspecialchars($site['footerText'] ?? ''));
+        $bgColor = htmlspecialchars($theme['backgroundColor'] ?? '#f5f5f5');
         // primaryColor als Fallback für alte settings.json Dateien, accentColor ist der aktuelle Name
-        $accentColor = htmlspecialchars($settings['theme']['accentColor'] ?? $settings['theme']['primaryColor'] ?? '#667eea');
-        $accentColor2 = htmlspecialchars($settings['theme']['accentColor2'] ?? '#48bb78');
-        $accentColor3 = htmlspecialchars($settings['theme']['accentColor3'] ?? '#ed8936');
-        $narrowLayout = !empty($settings['theme']['narrowLayout']);
-        $narrowWidth = intval($settings['theme']['narrowWidth'] ?? 960);
+        $accentColor = htmlspecialchars($theme['accentColor'] ?? $theme['primaryColor'] ?? '#667eea');
+        $accentColor2 = htmlspecialchars($theme['accentColor2'] ?? '#48bb78');
+        $accentColor3 = htmlspecialchars($theme['accentColor3'] ?? '#ed8936');
+        $narrowLayout = !empty($theme['narrowLayout']);
+        $narrowWidth = intval($theme['narrowWidth'] ?? 960);
         if ($narrowWidth < 600 || $narrowWidth > 1400) $narrowWidth = 960;
+        $narrowConfig = $this->getNarrowConfig($theme);
+        $narrowBackdrop = $this->buildNarrowBackdropCSS($narrowConfig);
+        $narrowOverlayDisplay = $narrowConfig['overlayEnabled'] ? 'block' : 'none';
+        $narrowShadow = $narrowConfig['contentShadow'] ? '0 0 60px rgba(0,0,0,0.4)' : 'none';
+        $narrowImageSize = $narrowConfig['imageDisplay'] === 'tile' ? 'auto' : 'cover';
+        $narrowImageRepeat = $narrowConfig['imageDisplay'] === 'tile' ? 'repeat' : 'no-repeat';
+        $narrowImageAttachment = $narrowConfig['imageMotion'] === 'fixed' ? 'fixed' : 'scroll';
+        $narrowMotionClass = $narrowConfig['mode'] === 'image' && $narrowConfig['imageMotion'] === 'parallax' ? ' has-parallax' : '';
         
         // Title für <title>-Tag (pageTitle hat Priorität, dann title, dann Fallback)
-        $pageTitleRaw = $settings['site']['pageTitle'] ?? '';
+        $pageTitleRaw = $site['pageTitle'] ?? '';
         if (!empty($pageTitleRaw)) {
             $pageTitle = htmlspecialchars($pageTitleRaw);
         } elseif (!empty($siteTitleRaw)) {
@@ -457,17 +529,74 @@ HTML;
         $narrowCSS = '';
         $narrowOpen = '';
         $narrowClose = '';
+        $bodyClassAttr = '';
         if ($narrowLayout) {
             $narrowCSS = <<<CSS
         /* Narrow Layout */
-        html { background: #1a1a2e; }
-        body {
-            max-width: {$narrowWidth}px;
-            margin: 0 auto;
+        body.narrow-layout {
+            background-color: transparent;
+        }
+        .page-shell {
+            display: flex;
+            flex: 1 0 auto;
             min-height: 100vh;
-            box-shadow: 0 0 60px rgba(0,0,0,0.4);
+        }
+        .page-shell__backdrop {
+            position: relative;
+            flex: 1 1 auto;
+            display: flex;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .page-shell__backdrop-media {
+            position: absolute;
+            inset: 0;
+            background: {$narrowBackdrop};
+            background-position: center center;
+            background-repeat: {$narrowImageRepeat};
+            background-size: {$narrowImageSize};
+            background-attachment: {$narrowImageAttachment};
+        }
+        .page-shell__backdrop.has-parallax .page-shell__backdrop-media {
+            inset: -10%;
+            background-attachment: scroll;
+            transform: scale(1.08) translateY(var(--narrow-parallax-offset, 0px));
+            will-change: transform;
+        }
+        .page-shell__backdrop::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: {$narrowConfig['overlayColor']};
+            opacity: {$narrowConfig['overlayOpacity']};
+            display: {$narrowOverlayDisplay};
+            pointer-events: none;
+        }
+        .page-shell__surface {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: {$narrowWidth}px;
+            min-height: 100vh;
+            margin: 0 auto;
+            background: var(--bg-color);
+            box-shadow: {$narrowShadow};
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .page-shell__backdrop.has-parallax .page-shell__backdrop-media {
+                transform: none;
+            }
+        }
+        @media (max-width: 900px) {
+            .page-shell__backdrop-media {
+                background-attachment: scroll;
+            }
         }
 CSS;
+
+            $narrowOpen = '<div class="page-shell"><div class="page-shell__backdrop' . $narrowMotionClass . '"><div class="page-shell__backdrop-media" aria-hidden="true"></div><div class="page-shell__surface">';
+            $narrowClose = '</div></div></div>';
+            $bodyClassAttr = ' class="narrow-layout"';
         }
         
         // Komplette Seite
@@ -492,7 +621,7 @@ CSS;
 {$narrowCSS}
     </style>
 </head>
-<body>
+<body{$bodyClassAttr}>
 {$narrowOpen}
 {$headerHtml}
 
@@ -589,11 +718,42 @@ CSS;
                 });
             });
         }
+
+        function initNarrowParallax() {
+            const backdrop = document.querySelector('.page-shell__backdrop.has-parallax');
+            if (!backdrop || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                return;
+            }
+
+            let frameRequested = false;
+
+            const update = () => {
+                frameRequested = false;
+                const rect = backdrop.getBoundingClientRect();
+                const viewportCenter = window.innerHeight / 2;
+                const backdropCenter = rect.top + rect.height / 2;
+                const offset = Math.round((viewportCenter - backdropCenter) * 0.08);
+                backdrop.style.setProperty('--narrow-parallax-offset', String(offset) + 'px');
+            };
+
+            const requestUpdate = () => {
+                if (frameRequested) {
+                    return;
+                }
+                frameRequested = true;
+                requestAnimationFrame(update);
+            };
+
+            requestUpdate();
+            window.addEventListener('scroll', requestUpdate, { passive: true });
+            window.addEventListener('resize', requestUpdate);
+        }
         
         // Bei Seitenladung ausführen
         document.addEventListener('DOMContentLoaded', () => {
             initHeaderReveal();
             initEntranceMotion();
+            initNarrowParallax();
             applyUrlParams();
             // Kontrast NUR berechnen wenn NICHT minimalbox
             const params = new URLSearchParams(window.location.search);

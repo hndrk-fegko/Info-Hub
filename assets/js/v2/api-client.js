@@ -193,6 +193,21 @@ window.V2Api = (function() {
         
         return await res.json();
     }
+
+    async function uploadBackground(file) {
+        const formData = new FormData();
+        formData.append('action', 'upload_background');
+        formData.append('csrf_token', getCsrfToken());
+        formData.append('file', file);
+
+        const res = await fetch(getApiUrl(), {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: formData
+        });
+
+        return await res.json();
+    }
     
     // === Generator ===
     
@@ -224,7 +239,7 @@ window.V2Api = (function() {
         getTiles, renderAllTiles, renderTile,
         saveTile, deleteTile, updatePositions,
         getSettings, saveSettings,
-        uploadImage, uploadDownload, uploadHeader,
+        uploadImage, uploadDownload, uploadHeader, uploadBackground,
         publish, preview,
         extendSession
     };

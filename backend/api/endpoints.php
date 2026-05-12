@@ -16,6 +16,7 @@
  * - upload_image: Bild hochladen
  * - upload_download: Download-Datei hochladen
  * - upload_header: Header-Bild hochladen
+ * - upload_background: Narrow-Hintergrund hochladen
  * - delete_file: Datei löschen
  * - list_files: Dateien auflisten
  * - generate: HTML generieren
@@ -52,6 +53,23 @@ try {
     require_once __DIR__ . '/../core/GeneratorService.php';
     require_once __DIR__ . '/../core/StorageService.php';
     require_once __DIR__ . '/../core/ConfigService.php';
+
+    $isValidHexColor = static function($value): bool {
+        return is_string($value) && preg_match('/^#[0-9a-fA-F]{6}$/', $value) === 1;
+    };
+
+    $sanitizeMediaPath = static function($value): ?string {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        return preg_match('#^/backend/media/[a-z0-9/_\-.]+$#i', $value) ? $value : null;
+    };
     
     // Auth prüfen (außer für bestimmte Actions)
     $auth = new AuthService();
@@ -272,19 +290,55 @@ try {
             }
             if (isset($newSettings['theme'])) {
                 // Theme-Farben: nur gültige Hex-Werte (#RRGGBB) erlauben
-                $colorKeys = ['backgroundColor', 'accentColor', 'accentColor2', 'accentColor3'];
+                $colorKeys = [
+                    'backgroundColor',
+                    'accentColor',
+                    'accentColor2',
+                    'accentColor3',
+                    'narrowBackgroundColor',
+                    'narrowGradientColor1',
+                    'narrowGradientColor2',
+                    'narrowBackgroundOverlayColor'
+                ];
                 foreach ($colorKeys as $key) {
                     if (isset($newSettings['theme'][$key])) {
                         $color = $newSettings['theme'][$key];
-                        if (preg_match('/^#[0-9a-fA-F]{6}$/', $color)) {
+                        if ($isValidHexColor($color)) {
                             $settings['theme'][$key] = $color;
                         }
+                    }
+                }
+
+                if (isset($newSettings['theme']['narrowBackgroundMode'])) {
+                    $mode = (string) $newSettings['theme']['narrowBackgroundMode'];
+                    if (in_array($mode, ['solid', 'gradient', 'image'], true)) {
+                        $settings['theme']['narrowBackgroundMode'] = $mode;
+                    }
+                }
+
+                if (isset($newSettings['theme']['narrowBackgroundImageDisplay'])) {
+                    $display = (string) $newSettings['theme']['narrowBackgroundImageDisplay'];
+                    if (in_array($display, ['cover', 'tile'], true)) {
+                        $settings['theme']['narrowBackgroundImageDisplay'] = $display;
+                    }
+                }
+
+                if (isset($newSettings['theme']['narrowBackgroundImageMotion'])) {
+                    $motion = (string) $newSettings['theme']['narrowBackgroundImageMotion'];
+                    if (in_array($motion, ['fixed', 'parallax'], true)) {
+                        $settings['theme']['narrowBackgroundImageMotion'] = $motion;
                     }
                 }
                 
                 // Boolean-Felder
                 if (isset($newSettings['theme']['narrowLayout'])) {
                     $settings['theme']['narrowLayout'] = (bool) $newSettings['theme']['narrowLayout'];
+                }
+                if (isset($newSettings['theme']['narrowBackgroundOverlayEnabled'])) {
+                    $settings['theme']['narrowBackgroundOverlayEnabled'] = (bool) $newSettings['theme']['narrowBackgroundOverlayEnabled'];
+                }
+                if (isset($newSettings['theme']['narrowContentShadow'])) {
+                    $settings['theme']['narrowContentShadow'] = (bool) $newSettings['theme']['narrowContentShadow'];
                 }
                 
                 // Numerische Felder
@@ -293,6 +347,22 @@ try {
                     if ($w >= 600 && $w <= 1400) {
                         $settings['theme']['narrowWidth'] = $w;
                     }
+                }
+                if (isset($newSettings['theme']['narrowGradientAngle'])) {
+                    $angle = (int) $newSettings['theme']['narrowGradientAngle'];
+                    if ($angle >= 0 && $angle <= 360) {
+                        $settings['theme']['narrowGradientAngle'] = $angle;
+                    }
+                }
+                if (isset($newSettings['theme']['narrowBackgroundOverlayOpacity'])) {
+                    $opacity = (int) $newSettings['theme']['narrowBackgroundOverlayOpacity'];
+                    if ($opacity >= 0 && $opacity <= 100) {
+                        $settings['theme']['narrowBackgroundOverlayOpacity'] = $opacity;
+                    }
+                }
+
+                if (array_key_exists('narrowBackgroundImage', $newSettings['theme'])) {
+                    $settings['theme']['narrowBackgroundImage'] = $sanitizeMediaPath($newSettings['theme']['narrowBackgroundImage']);
                 }
             }
 
@@ -442,6 +512,26 @@ try {
             } else {
                 http_response_code(400);
             }
+            echo json_encode($result);
+            break;
+
+        case 'upload_background':
+            if (empty($_FILES['file'])) {
+                throw new InvalidArgumentException('Keine Datei hochgeladen');
+            }
+
+            $uploadService = new UploadService();
+            $result = $uploadService->uploadBackground($_FILES['file']);
+
+            if ($result['success']) {
+                $storage = new StorageService('settings.json');
+                $settings = $storage->read();
+                $settings['theme']['narrowBackgroundImage'] = $result['path'];
+                $storage->write($settings);
+            } else {
+                http_response_code(400);
+            }
+
             echo json_encode($result);
             break;
             

@@ -328,6 +328,7 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                                value="<?= intval($settings['theme']['narrowWidth'] ?? 960) ?>">
                         <div class="range-labels"><span>600px</span><span>1400px</span></div>
                     </div>
+                    <small class="hint">Erweiterte Hintergründe und Schatten für den schmalen Modus werden nur im WYSIWYG-Editor gepflegt.</small>
                 </div>
                 </div>
 

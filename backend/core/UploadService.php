@@ -71,6 +71,13 @@ class UploadService {
     }
 
     /**
+     * Lädt ein Hintergrund-Bild hoch
+     */
+    public function uploadBackground(array $file): array {
+        return $this->upload($file, 'backgrounds', self::ALLOWED_IMAGES, $this->maxImageSize);
+    }
+
+    /**
      * Erstellt optimierte Header-Derivate (optimiertes Hauptbild + Blur-Placeholder).
      *
      * @return array{placeholder?: string|null, width?: int, height?: int}
@@ -283,7 +290,7 @@ class UploadService {
         }
         
         // 4. Validierung: MIME-Type (für Bilder)
-        if ($type === 'images' || $type === 'header') {
+        if ($type === 'images' || $type === 'header' || $type === 'backgrounds') {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             $mime = finfo_file($finfo, $file['tmp_name']);
             finfo_close($finfo);

@@ -11,7 +11,21 @@
         "backgroundColor": "#f5f5f5",
         "accentColor": "#667eea",
         "accentColor2": "#48bb78",
-        "accentColor3": "#ed8936"
+        "accentColor3": "#ed8936",
+        "narrowLayout": false,
+        "narrowWidth": 960,
+        "narrowBackgroundMode": "solid",
+        "narrowBackgroundColor": "#1a1a2e",
+        "narrowGradientColor1": "#1a1a2e",
+        "narrowGradientColor2": "#16213e",
+        "narrowGradientAngle": 180,
+        "narrowBackgroundImage": null,
+        "narrowBackgroundImageDisplay": "cover",
+        "narrowBackgroundImageMotion": "fixed",
+        "narrowBackgroundOverlayEnabled": false,
+        "narrowBackgroundOverlayColor": "#000000",
+        "narrowBackgroundOverlayOpacity": 35,
+        "narrowContentShadow": true
     },
     "auth": {
         "emails": [""],
