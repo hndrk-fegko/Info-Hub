@@ -38,7 +38,8 @@
 
 .tile.style-flat {
     background: transparent;
-    border-radius: 8px;
+    padding: 0;
+    border-radius: 0;
     box-shadow: none;
 }
 
@@ -109,43 +110,4 @@
 
 .tile a:hover {
     text-decoration: underline;
-}
-
-/* ===== Download Button ===== */
-
-.tile-download {
-    text-align: center;
-}
-
-.tile-download .download-content {
-    text-align: left;
-}
-
-.tile-download .download-action {
-    margin-top: auto;
-    padding-top: 12px;
-    text-align: center;
-}
-
-.tile-download.style-flat .download-action {
-    margin-top: 12px;
-}
-
-.tile .download-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--accent-color);
-    color: white;
-    padding: 12px 24px;
-    border-radius: 8px;
-    text-decoration: none;
-    font-weight: 500;
-    transition: filter 0.2s ease, transform 0.2s ease;
-}
-
-.tile .download-btn:hover {
-    filter: brightness(0.9);
-    transform: translateY(-1px);
-    text-decoration: none;
 }

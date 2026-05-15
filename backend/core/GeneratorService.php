@@ -371,6 +371,20 @@ JS;
     }
 
     /**
+     * Lädt eine einzelne Shared-CSS-Datei.
+     */
+    private function loadSharedCSSFile(string $file): string {
+        $path = __DIR__ . '/../../assets/css/shared/' . $file;
+
+        if (!file_exists($path)) {
+            LogService::warning('GeneratorService', 'Shared CSS file missing', ['file' => $path]);
+            return '';
+        }
+
+        return "/* {$file} */\n" . file_get_contents($path) . "\n";
+    }
+
+    /**
      * Baut die Narrow-Layout-Konfiguration mit defensiven Defaults.
      */
     private function getNarrowConfig(array $theme): array {
@@ -527,70 +541,27 @@ HTML;
         
         // Narrow Layout (optional: zentrierter Container mit begrenzter Breite)
         $narrowCSS = '';
+        $narrowSharedCSS = '';
         $narrowOpen = '';
         $narrowClose = '';
         $bodyClassAttr = '';
         if ($narrowLayout) {
+            $narrowSharedCSS = $this->loadSharedCSSFile('narrow.css');
             $narrowCSS = <<<CSS
         /* Narrow Layout */
         body.narrow-layout {
-            background-color: transparent;
-        }
-        .page-shell {
-            display: flex;
-            flex: 1 0 auto;
-            min-height: 100vh;
-        }
-        .page-shell__backdrop {
-            position: relative;
-            flex: 1 1 auto;
-            display: flex;
-            justify-content: center;
-            overflow: hidden;
-        }
-        .page-shell__backdrop-media {
-            position: absolute;
-            inset: 0;
-            background: {$narrowBackdrop};
-            background-position: center center;
-            background-repeat: {$narrowImageRepeat};
-            background-size: {$narrowImageSize};
-            background-attachment: {$narrowImageAttachment};
-        }
-        .page-shell__backdrop.has-parallax .page-shell__backdrop-media {
-            inset: -10%;
-            background-attachment: scroll;
-            transform: scale(1.08) translateY(var(--narrow-parallax-offset, 0px));
-            will-change: transform;
-        }
-        .page-shell__backdrop::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: {$narrowConfig['overlayColor']};
-            opacity: {$narrowConfig['overlayOpacity']};
-            display: {$narrowOverlayDisplay};
-            pointer-events: none;
+            --narrow-width: {$narrowWidth}px;
+            --narrow-backdrop: {$narrowBackdrop};
+            --narrow-image-repeat: {$narrowImageRepeat};
+            --narrow-image-size: {$narrowImageSize};
+            --narrow-image-attachment: {$narrowImageAttachment};
+            --narrow-overlay-color: {$narrowConfig['overlayColor']};
+            --narrow-overlay-opacity: {$narrowConfig['overlayOpacity']};
+            --narrow-overlay-display: {$narrowOverlayDisplay};
+            --narrow-surface-shadow: {$narrowShadow};
         }
         .page-shell__surface {
-            position: relative;
-            z-index: 1;
-            width: 100%;
             max-width: {$narrowWidth}px;
-            min-height: 100vh;
-            margin: 0 auto;
-            background: var(--bg-color);
-            box-shadow: {$narrowShadow};
-        }
-        @media (prefers-reduced-motion: reduce) {
-            .page-shell__backdrop.has-parallax .page-shell__backdrop-media {
-                transform: none;
-            }
-        }
-        @media (max-width: 900px) {
-            .page-shell__backdrop-media {
-                background-attachment: scroll;
-            }
         }
 CSS;
 
@@ -617,6 +588,7 @@ CSS;
             --accent-color-3: {$accentColor3};
         }
 {$sharedCSS}
+{$narrowSharedCSS}
 {$tileCSS}
 {$narrowCSS}
     </style>

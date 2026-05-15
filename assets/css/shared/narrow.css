@@ -1,0 +1,78 @@
+/* ===== Narrow Layout ===== */
+
+body.narrow-layout {
+    background-color: transparent;
+    --narrow-width: 960px;
+    --narrow-backdrop: #1a1a2e;
+    --narrow-image-repeat: no-repeat;
+    --narrow-image-size: cover;
+    --narrow-image-attachment: fixed;
+    --narrow-overlay-color: #000000;
+    --narrow-overlay-opacity: 0.35;
+    --narrow-overlay-display: block;
+    --narrow-surface-shadow: none;
+}
+
+.page-shell {
+    display: flex;
+    flex: 1 0 auto;
+    min-height: 100vh;
+}
+
+.page-shell__backdrop {
+    position: relative;
+    flex: 1 1 auto;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.page-shell__backdrop-media {
+    position: absolute;
+    inset: 0;
+    background: var(--narrow-backdrop);
+    background-position: center center;
+    background-repeat: var(--narrow-image-repeat);
+    background-size: var(--narrow-image-size);
+    background-attachment: var(--narrow-image-attachment);
+}
+
+.page-shell__backdrop.has-parallax .page-shell__backdrop-media {
+    inset: -10%;
+    background-attachment: scroll;
+    transform: scale(1.08) translateY(var(--narrow-parallax-offset, 0px));
+    will-change: transform;
+}
+
+.page-shell__backdrop::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--narrow-overlay-color);
+    opacity: var(--narrow-overlay-opacity);
+    display: var(--narrow-overlay-display);
+    pointer-events: none;
+}
+
+.page-shell__surface {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: var(--narrow-width);
+    min-height: 100vh;
+    margin: 0 auto;
+    background: var(--bg-color);
+    box-shadow: var(--narrow-surface-shadow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .page-shell__backdrop.has-parallax .page-shell__backdrop-media {
+        transform: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .page-shell__backdrop-media {
+        background-attachment: scroll;
+    }
+}
