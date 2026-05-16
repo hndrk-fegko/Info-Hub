@@ -38,8 +38,8 @@ class GeneratorService {
             $settings = $this->settingsStorage->read();
             $tiles = $this->tileService->getTiles();
             
-            // 2. Tiles rendern
-            $tilesHtml = $this->renderTiles($tiles);
+            // 2. Seiten-Abschnitte rendern
+            $tilesHtml = $this->renderPageSections($tiles);
             
             // 3. Template laden und füllen
             $html = $this->renderPage($settings, $tilesHtml);
@@ -174,7 +174,7 @@ class GeneratorService {
         $instance = new $class();
         
         // Tile-Wrapper mit gemeinsamen Klassen
-        $size = ($type === 'separator') ? 'full' : htmlspecialchars($tile['size'] ?? 'medium');
+        $size = $this->isFullWidthType($type) ? 'full' : htmlspecialchars($tile['size'] ?? 'medium');
         $style = htmlspecialchars($tile['style'] ?? 'card');
         $colorScheme = htmlspecialchars($tile['colorScheme'] ?? 'default');
         $id = htmlspecialchars($tile['id'] ?? '');
@@ -199,6 +199,48 @@ class GeneratorService {
         $html .= "</div>\n";
         
         return $html;
+    }
+
+    /**
+     * Rendert die Abschnittsstruktur für den WYSIWYG-Canvas.
+     *
+     * PARALLEL RENDER CONTRACT:
+     * Diese Rückgabe wird direkt von backend/v2/editor.php und assets/js/v2/canvas.js konsumiert.
+     * Änderungen an Struktur oder Metadaten hier müssen dort mitgepflegt werden.
+     *
+     * @return array [{id, html, markerTileId, tileIds, backgroundMode, visible}, ...]
+     */
+    public function renderCanvasSections(): array {
+        $tiles = $this->tileService->getTiles();
+        $sections = $this->buildSectionLayout($tiles, true, true);
+        $result = [];
+
+        foreach ($sections as $section) {
+            $markerTile = $section['markerTile'];
+            $html = $this->renderSectionHtml($section, false);
+            if ($html === '') {
+                continue;
+            }
+
+            $result[] = [
+                'id' => $section['id'],
+                'html' => $html,
+                'markerTileId' => $markerTile['id'] ?? null,
+                'markerTitle' => $section['config']['title'],
+                'backgroundMode' => $section['config']['backgroundMode'],
+                'backgroundAttachment' => $section['config']['backgroundAttachment'],
+                'backgroundDisplay' => $section['config']['backgroundDisplay'],
+                'overlayEnabled' => $section['config']['overlayColorEnabled'] || $section['config']['overlayBlurEnabled'],
+                'overlayOpacity' => $section['config']['overlayOpacity'],
+                'visible' => $markerTile['visible'] ?? true,
+                'tileIds' => array_values(array_map(static function($tile) {
+                    return $tile['id'] ?? '';
+                }, $section['tiles'])),
+                'isImplicit' => $markerTile === null
+            ];
+        }
+
+        return $result;
     }
     
     /**
@@ -307,46 +349,292 @@ JS;
     }
     
     /**
-     * Rendert alle Tiles
+     * Rendert die veröffentlichte Abschnittsstruktur.
      */
-    private function renderTiles(array $tiles): string {
+    private function renderPageSections(array $tiles): string {
+        $sections = $this->buildSectionLayout($tiles, false, false);
         $html = '';
-        
-        foreach ($tiles as $tile) {
-            // Manuell versteckte Tiles komplett überspringen (nicht im HTML)
-            if (isset($tile['visible']) && $tile['visible'] === false) {
-                LogService::debug('GeneratorService', 'Skipping hidden tile', ['id' => $tile['id'] ?? 'unknown']);
+        foreach ($sections as $section) {
+            if (!$this->shouldExportSection($section)) {
+                $markerId = $section['markerTile']['id'] ?? 'implicit';
+                LogService::debug('GeneratorService', 'Skipping hidden section', ['id' => $markerId]);
                 continue;
             }
-            
-            $tileHtml = $this->renderSingleTile($tile);
-            if ($tileHtml !== null) {
-                $html .= $tileHtml;
+
+            $sectionHtml = $this->renderSectionHtml($section, true);
+            if ($sectionHtml !== '') {
+                $html .= $sectionHtml;
             }
         }
-        
+
         return $html;
     }
-    
+
     /**
-     * Generiert data-Attribute für Zeitsteuerung
+     * Baut aus der linearen Tile-Liste eine Abschnittsstruktur.
+     */
+    private function buildSectionLayout(array $tiles, bool $includeHiddenTiles = false, bool $keepEmptySections = false): array {
+        $sections = [];
+        $sectionIndex = 0;
+        $currentSection = $this->createSectionDescriptor(null, $sectionIndex);
+
+        foreach ($tiles as $tile) {
+            if ($this->isSectionTile($tile)) {
+                if ($keepEmptySections || $currentSection['markerTile'] !== null || !empty($currentSection['tiles'])) {
+                    $sections[] = $currentSection;
+                }
+
+                $sectionIndex++;
+                $currentSection = $this->createSectionDescriptor($tile, $sectionIndex);
+                continue;
+            }
+
+            if (!$includeHiddenTiles && isset($tile['visible']) && $tile['visible'] === false) {
+                continue;
+            }
+
+            $currentSection['tiles'][] = $tile;
+        }
+
+        if ($keepEmptySections || $currentSection['markerTile'] !== null || !empty($currentSection['tiles'])) {
+            $sections[] = $currentSection;
+        }
+
+        return array_values(array_filter($sections, static function($section) use ($keepEmptySections) {
+            return $keepEmptySections || $section['markerTile'] !== null || !empty($section['tiles']);
+        }));
+    }
+
+    /**
+     * Erstellt die interne Abschnittsbeschreibung.
+     */
+    private function createSectionDescriptor(?array $markerTile, int $index): array {
+        $idSeed = $markerTile['id'] ?? ('implicit_' . $index);
+        $safeId = preg_replace('/[^a-zA-Z0-9_-]/', '_', (string)$idSeed);
+
+        return [
+            'id' => 'section_' . $safeId,
+            'index' => $index,
+            'markerTile' => $markerTile,
+            'config' => $this->normalizeSectionConfig($markerTile['data'] ?? []),
+            'tiles' => []
+        ];
+    }
+
+    /**
+     * Normalisiert die Daten eines Abschnittsmarkers.
+     */
+    private function normalizeSectionConfig(array $data): array {
+        $backgroundMode = in_array(($data['backgroundMode'] ?? ''), ['default', 'accent1', 'accent2', 'accent3', 'image'], true)
+            ? $data['backgroundMode']
+            : 'default';
+
+        $backgroundAttachment = in_array(($data['backgroundAttachment'] ?? ''), ['content', 'viewport'], true)
+            ? $data['backgroundAttachment']
+            : 'content';
+
+        $backgroundDisplay = in_array(($data['backgroundDisplay'] ?? ''), ['cover', 'tile'], true)
+            ? $data['backgroundDisplay']
+            : 'cover';
+
+        $backgroundImage = is_string($data['backgroundImage'] ?? null) ? trim($data['backgroundImage']) : '';
+        if (!$this->isValidMediaPath($backgroundImage)) {
+            $backgroundImage = '';
+        }
+
+        $overlayEnabled = $backgroundMode === 'image' && !empty($data['overlayEnabled']);
+        $overlayColorEnabled = $overlayEnabled
+            && (!array_key_exists('overlayColorEnabled', $data) || !empty($data['overlayColorEnabled']));
+        $overlayBlurEnabled = $overlayEnabled && !empty($data['overlayBlurEnabled']);
+
+        $overlayColor = is_string($data['overlayColor'] ?? null) && preg_match('/^#[0-9a-fA-F]{6}$/', $data['overlayColor']) === 1
+            ? $data['overlayColor']
+            : '#000000';
+
+        $overlayOpacity = (int)($data['overlayOpacity'] ?? 35);
+        if ($overlayOpacity < 0 || $overlayOpacity > 100) {
+            $overlayOpacity = 35;
+        }
+
+        $overlayBlurStrength = (int)($data['overlayBlurStrength'] ?? 24);
+        if ($overlayBlurStrength < 0 || $overlayBlurStrength > 100) {
+            $overlayBlurStrength = 24;
+        }
+
+        return [
+            'title' => trim((string)($data['title'] ?? '')),
+            'backgroundMode' => $backgroundMode,
+            'backgroundImage' => $backgroundImage,
+            'backgroundAttachment' => $backgroundAttachment,
+            'backgroundDisplay' => $backgroundDisplay,
+            'overlayEnabled' => $overlayEnabled,
+            'overlayColorEnabled' => $overlayColorEnabled,
+            'overlayBlurEnabled' => $overlayBlurEnabled,
+            'overlayColor' => $overlayColor,
+            'overlayOpacity' => $overlayOpacity,
+            'overlayBlurStrength' => $overlayBlurStrength
+        ];
+    }
+
+    /**
+     * Rendert einen Abschnitts-Wrapper.
+     */
+    private function renderSectionHtml(array $section, bool $applyScheduledVisibility): string {
+        $sectionTileHtml = '';
+        foreach ($section['tiles'] as $tile) {
+            $tileHtml = $this->renderSingleTile($tile, $applyScheduledVisibility);
+            if ($tileHtml !== null) {
+                $sectionTileHtml .= $tileHtml;
+            }
+        }
+
+        if ($sectionTileHtml === '' && $section['markerTile'] === null) {
+            return '';
+        }
+
+        $config = $section['config'];
+        $markerTile = $section['markerTile'];
+        $sectionClasses = ['page-section', 'page-section--' . $config['backgroundMode']];
+
+        if ($markerTile !== null) {
+            $sectionClasses[] = 'page-section--marked';
+        } else {
+            $sectionClasses[] = 'page-section--implicit';
+        }
+
+        if ($config['backgroundMode'] === 'image' && $config['backgroundAttachment'] === 'viewport') {
+            $sectionClasses[] = 'page-section--viewport-bg';
+        }
+
+        $scheduleAttrs = $markerTile ? $this->getScheduleAttributes($markerTile) : '';
+        $styleDeclarations = $this->buildSectionStyleDeclarations($config);
+
+        if ($applyScheduledVisibility && $markerTile && $scheduleAttrs !== '' && !$this->isTileVisibleBySchedule($markerTile)) {
+            $styleDeclarations[] = 'display:none';
+        }
+
+        $sectionClassAttr = htmlspecialchars(implode(' ', $sectionClasses), ENT_QUOTES, 'UTF-8');
+        $sectionIdAttr = htmlspecialchars($section['id'], ENT_QUOTES, 'UTF-8');
+        $styleAttr = $this->buildStyleAttribute($styleDeclarations);
+        $markerIdAttr = $markerTile
+            ? ' data-section-marker-id="' . htmlspecialchars((string)$markerTile['id'], ENT_QUOTES, 'UTF-8') . '"'
+            : '';
+
+        return "<section class=\"{$sectionClassAttr}\" data-section-id=\"{$sectionIdAttr}\"{$markerIdAttr}{$scheduleAttrs}{$styleAttr}>\n"
+            . "    <div class=\"page-section__background\" aria-hidden=\"true\"></div>\n"
+            . "    <div class=\"page-section__surface\">\n"
+            . "        <div class=\"tile-grid\">\n"
+            . $sectionTileHtml
+            . "        </div>\n"
+            . "    </div>\n"
+            . "</section>\n";
+    }
+
+    /**
+     * Erzeugt CSS-Variablen für einen Abschnitt.
+     */
+    private function buildSectionStyleDeclarations(array $config): array {
+        $backgroundColor = 'transparent';
+        if ($config['backgroundMode'] === 'accent1') {
+            $backgroundColor = 'var(--accent-color)';
+        } elseif ($config['backgroundMode'] === 'accent2') {
+            $backgroundColor = 'var(--accent-color-2)';
+        } elseif ($config['backgroundMode'] === 'accent3') {
+            $backgroundColor = 'var(--accent-color-3)';
+        }
+
+        $backgroundImage = 'none';
+        if ($config['backgroundMode'] === 'image' && $config['backgroundImage'] !== '') {
+            $backgroundImage = "url('" . htmlspecialchars($config['backgroundImage'], ENT_QUOTES, 'UTF-8') . "')";
+        }
+
+        $backgroundBlur = $config['overlayBlurEnabled']
+            ? round(($config['overlayBlurStrength'] / 100) * 24, 2)
+            : 0;
+        $backgroundScale = $config['overlayBlurEnabled']
+            ? number_format(1 + ($config['overlayBlurStrength'] / 1000), 3, '.', '')
+            : '1';
+
+        return [
+            '--section-background-color:' . $backgroundColor,
+            '--section-background-image:' . $backgroundImage,
+            '--section-background-size:' . ($config['backgroundDisplay'] === 'tile' ? 'auto' : 'cover'),
+            '--section-background-repeat:' . ($config['backgroundDisplay'] === 'tile' ? 'repeat' : 'no-repeat'),
+            '--section-background-attachment:' . ($config['backgroundAttachment'] === 'viewport' ? 'fixed' : 'scroll'),
+            '--section-overlay-color:' . $config['overlayColor'],
+            '--section-overlay-opacity:' . ($config['overlayColorEnabled'] ? (string)($config['overlayOpacity'] / 100) : '0'),
+            '--section-background-blur:' . $backgroundBlur . 'px',
+            '--section-background-scale:' . $backgroundScale
+        ];
+    }
+
+    /**
+     * Baut ein style-Attribut aus CSS-Deklarationen.
+     */
+    private function buildStyleAttribute(array $declarations): string {
+        $declarations = array_values(array_filter($declarations, static function($value) {
+            return $value !== null && $value !== '';
+        }));
+
+        if (empty($declarations)) {
+            return '';
+        }
+
+        return ' style="' . htmlspecialchars(implode(';', $declarations) . ';', ENT_QUOTES, 'UTF-8') . '"';
+    }
+
+    /**
+     * Prüft, ob ein Abschnitt im Export grundsätzlich berücksichtigt wird.
+     */
+    private function shouldExportSection(array $section): bool {
+        $markerTile = $section['markerTile'];
+        if ($markerTile === null) {
+            return true;
+        }
+
+        return !isset($markerTile['visible']) || $markerTile['visible'] !== false;
+    }
+
+    /**
+     * Prüft, ob eine URL ein erlaubter Media-Pfad ist.
+     */
+    private function isValidMediaPath(string $path): bool {
+        return $path !== '' && preg_match('#^/backend/media/[a-z0-9/_\-.]+$#i', $path) === 1;
+    }
+
+    /**
+     * Prüft, ob eine Tile ein Abschnittsmarker ist.
+     */
+    private function isSectionTile(array $tile): bool {
+        return ($tile['type'] ?? '') === 'section';
+    }
+
+    /**
+     * Prüft, ob ein Tile-Typ immer über die volle Breite gerendert wird.
+     */
+    private function isFullWidthType(string $type): bool {
+        return in_array($type, ['separator', 'section'], true);
+    }
+
+    /**
+     * Generiert data-Attribute für Zeitsteuerung.
      */
     private function getScheduleAttributes(array $tile): string {
         if (!isset($tile['visibilitySchedule']) || empty($tile['visibilitySchedule'])) {
             return '';
         }
-        
+
         $schedule = $tile['visibilitySchedule'];
         $attrs = '';
-        
+
         if (!empty($schedule['showFrom'])) {
-            $attrs .= ' data-show-from="' . htmlspecialchars($schedule['showFrom']) . '"';
+            $attrs .= ' data-show-from="' . htmlspecialchars($schedule['showFrom'], ENT_QUOTES, 'UTF-8') . '"';
         }
-        
+
         if (!empty($schedule['showUntil'])) {
-            $attrs .= ' data-show-until="' . htmlspecialchars($schedule['showUntil']) . '"';
+            $attrs .= ' data-show-until="' . htmlspecialchars($schedule['showUntil'], ENT_QUOTES, 'UTF-8') . '"';
         }
-        
+
         return $attrs;
     }
     
@@ -355,7 +643,7 @@ JS;
      */
     private function loadSharedCSS(): string {
         $sharedDir = __DIR__ . '/../../assets/css/shared/';
-        $files = ['variables.css', 'base.css', 'grid.css', 'tiles.css', 'header.css', 'footer.css', 'components.css'];
+        $files = ['variables.css', 'base.css', 'grid.css', 'sections.css', 'tiles.css', 'header.css', 'footer.css', 'components.css'];
         
         $css = '';
         foreach ($files as $file) {
@@ -597,7 +885,7 @@ CSS;
 {$narrowOpen}
 {$headerHtml}
 
-    <main class="tile-grid">
+    <main class="page-sections">
 {$tilesHtml}
     </main>
 
@@ -814,7 +1102,7 @@ HTML;
     public function preview(): string {
         $settings = $this->settingsStorage->read();
         $tiles = $this->tileService->getTiles();
-        $tilesHtml = $this->renderTiles($tiles);
+        $tilesHtml = $this->renderPageSections($tiles);
         
         return $this->renderPage($settings, $tilesHtml);
     }

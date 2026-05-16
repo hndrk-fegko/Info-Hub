@@ -146,14 +146,13 @@ window.V2Settings = (function() {
                     
                     <div class="v2-field">
                         <div class="v2-settings-header-preview" id="v2SetHeaderPreview">
-                            ${headerImage 
-                                ? `<img src="${escAttr(headerImage)}" alt="Header" style="max-width:100%;max-height:150px;border-radius:8px;object-position:${focusPoint}">
-                                   <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" onclick="V2Settings.removeHeader()">Entfernen</button>`
-                                : '<span class="v2-hint">Kein Header-Bild</span>'
-                            }
+                            ${buildSettingsImagePreview(headerImage, 'Header', 150, 'Kein Header-Bild', focusPoint)}
                         </div>
                         <input type="hidden" id="v2SetHeaderPath" value="${escAttr(headerImage)}">
-                        <input type="file" id="v2SetHeaderFile" accept="image/*" style="margin-top:8px">
+                        <div class="v2-upload-controls" style="margin-top:8px">
+                            <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" id="v2SetHeaderSelectBtn">Auswählen</button>
+                            <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" id="v2SetHeaderRemoveBtn" style="${headerImage ? '' : 'display:none'}">Entfernen</button>
+                        </div>
                     </div>
                     
                     <div class="v2-field">
@@ -249,14 +248,13 @@ window.V2Settings = (function() {
                     <div class="v2-settings-stack" id="v2NarrowImageFields" style="${narrowMode === 'image' ? '' : 'display:none'}">
                         <div class="v2-field">
                             <div class="v2-settings-media-preview" id="v2SetBackgroundPreview">
-                                ${narrowBackgroundImage
-                                    ? `<img src="${escAttr(narrowBackgroundImage)}" alt="Hintergrundbild" style="max-width:100%;max-height:160px;border-radius:8px;">
-                                       <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" onclick="V2Settings.removeBackground()">Entfernen</button>`
-                                    : '<span class="v2-hint">Kein Hintergrundbild</span>'
-                                }
+                                ${buildSettingsImagePreview(narrowBackgroundImage, 'Hintergrundbild', 160, 'Kein Hintergrundbild')}
                             </div>
                             <input type="hidden" id="v2SetBackgroundPath" value="${escAttr(narrowBackgroundImage)}">
-                            <input type="file" id="v2SetBackgroundFile" accept="image/*" style="margin-top:8px">
+                            <div class="v2-upload-controls" style="margin-top:8px">
+                                <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" id="v2SetBackgroundSelectBtn">Auswählen</button>
+                                <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" id="v2SetBackgroundRemoveBtn" style="${narrowBackgroundImage ? '' : 'display:none'}">Entfernen</button>
+                            </div>
                         </div>
 
                         <div class="v2-settings-grid">
@@ -345,56 +343,33 @@ window.V2Settings = (function() {
             </div>
         </div>`;
     }
-    
-    function wireEvents(settings) {
-        // Header file upload
-        const fileInput = document.getElementById('v2SetHeaderFile');
-        if (fileInput) {
-            fileInput.addEventListener('change', async function() {
-                if (!this.files[0]) return;
-                V2.toast('Header-Bild wird hochgeladen...', 'info');
-                try {
-                    const result = await V2Api.uploadHeader(this.files[0]);
-                    if (result.success) {
-                        document.getElementById('v2SetHeaderPath').value = result.path;
-                        const preview = document.getElementById('v2SetHeaderPreview');
-                        preview.innerHTML = `
-                            <img src="${result.path}" alt="Header" style="max-width:100%;max-height:150px;border-radius:8px;">
-                            <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" onclick="V2Settings.removeHeader()">Entfernen</button>`;
-                        V2.toast('Header-Bild hochgeladen', 'success');
-                    } else {
-                        V2.toast('Upload fehlgeschlagen: ' + (result.error || ''), 'error');
-                    }
-                } catch(err) {
-                    console.error('[Settings] Header upload failed:', err);
-                    V2.toast('Upload fehlgeschlagen', 'error');
-                }
-            });
+
+    function buildSettingsImagePreview(path, alt, maxHeight, emptyText, objectPosition) {
+        if (!path) {
+            return `<span class="v2-hint">${escHTML(emptyText)}</span>`;
         }
 
-        const backgroundInput = document.getElementById('v2SetBackgroundFile');
-        if (backgroundInput) {
-            backgroundInput.addEventListener('change', async function() {
-                if (!this.files[0]) return;
-                V2.toast('Hintergrundbild wird hochgeladen...', 'info');
-                try {
-                    const result = await V2Api.uploadBackground(this.files[0]);
-                    if (result.success) {
-                        document.getElementById('v2SetBackgroundPath').value = result.path;
-                        const preview = document.getElementById('v2SetBackgroundPreview');
-                        preview.innerHTML = `
-                            <img src="${result.path}" alt="Hintergrundbild" style="max-width:100%;max-height:160px;border-radius:8px;">
-                            <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" onclick="V2Settings.removeBackground()">Entfernen</button>`;
-                        V2.toast('Hintergrundbild hochgeladen', 'success');
-                    } else {
-                        V2.toast('Upload fehlgeschlagen: ' + (result.error || ''), 'error');
-                    }
-                } catch (err) {
-                    console.error('[Settings] Background upload failed:', err);
-                    V2.toast('Upload fehlgeschlagen', 'error');
-                }
-            });
+        const imageStyle = [
+            'max-width:100%',
+            `max-height:${maxHeight}px`,
+            'border-radius:8px'
+        ];
+
+        if (objectPosition) {
+            imageStyle.push(`object-position:${escAttr(objectPosition)}`);
         }
+
+        return `<img src="${escAttr(path)}" alt="${escAttr(alt)}" style="${imageStyle.join(';')}">`;
+    }
+    
+    function wireEvents(settings) {
+        document.getElementById('v2SetHeaderSelectBtn')?.addEventListener('click', selectHeader);
+        document.getElementById('v2SetHeaderRemoveBtn')?.addEventListener('click', removeHeader);
+        document.getElementById('v2SetBackgroundSelectBtn')?.addEventListener('click', selectBackground);
+        document.getElementById('v2SetBackgroundRemoveBtn')?.addEventListener('click', removeBackground);
+        document.getElementById('v2SetFocusPoint')?.addEventListener('change', () => {
+            updateHeaderPreview(document.getElementById('v2SetHeaderPath')?.value || '');
+        });
 
         ['v2SetNarrowLayout', 'v2SetNarrowMode', 'v2SetNarrowOverlayEnabled'].forEach((id) => {
             const element = document.getElementById(id);
@@ -424,21 +399,74 @@ window.V2Settings = (function() {
             });
         }
     }
+
+    async function selectHeader() {
+        const pathInput = document.getElementById('v2SetHeaderPath');
+        const selectedPath = await V2MediaPicker.pickImage({
+            title: 'Header-Bild auswählen',
+            mediaType: 'header',
+            uploadAction: 'header',
+            currentPath: pathInput?.value || ''
+        });
+
+        if (!selectedPath || !pathInput) {
+            return;
+        }
+
+        pathInput.value = selectedPath;
+        updateHeaderPreview(selectedPath);
+    }
+
+    async function selectBackground() {
+        const pathInput = document.getElementById('v2SetBackgroundPath');
+        const selectedPath = await V2MediaPicker.pickImage({
+            title: 'Hintergrundbild auswählen',
+            mediaType: 'backgrounds',
+            uploadAction: 'background',
+            currentPath: pathInput?.value || ''
+        });
+
+        if (!selectedPath || !pathInput) {
+            return;
+        }
+
+        pathInput.value = selectedPath;
+        updateBackgroundPreview(selectedPath);
+    }
+
+    function updateHeaderPreview(path) {
+        const preview = document.getElementById('v2SetHeaderPreview');
+        const removeBtn = document.getElementById('v2SetHeaderRemoveBtn');
+        const focusPoint = document.getElementById('v2SetFocusPoint')?.value || 'center center';
+
+        if (preview) {
+            preview.innerHTML = buildSettingsImagePreview(path, 'Header', 150, 'Kein Header-Bild', focusPoint);
+        }
+        if (removeBtn) {
+            removeBtn.style.display = path ? 'inline-flex' : 'none';
+        }
+    }
+
+    function updateBackgroundPreview(path) {
+        const preview = document.getElementById('v2SetBackgroundPreview');
+        const removeBtn = document.getElementById('v2SetBackgroundRemoveBtn');
+
+        if (preview) {
+            preview.innerHTML = buildSettingsImagePreview(path, 'Hintergrundbild', 160, 'Kein Hintergrundbild');
+        }
+        if (removeBtn) {
+            removeBtn.style.display = path ? 'inline-flex' : 'none';
+        }
+    }
     
     function removeHeader() {
         document.getElementById('v2SetHeaderPath').value = '';
-        const fileInput = document.getElementById('v2SetHeaderFile');
-        if (fileInput) fileInput.value = '';
-        const preview = document.getElementById('v2SetHeaderPreview');
-        if (preview) preview.innerHTML = '<span class="v2-hint">Kein Header-Bild</span>';
+        updateHeaderPreview('');
     }
 
     function removeBackground() {
         document.getElementById('v2SetBackgroundPath').value = '';
-        const fileInput = document.getElementById('v2SetBackgroundFile');
-        if (fileInput) fileInput.value = '';
-        const preview = document.getElementById('v2SetBackgroundPreview');
-        if (preview) preview.innerHTML = '<span class="v2-hint">Kein Hintergrundbild</span>';
+        updateBackgroundPreview('');
     }
 
     function switchTab(tabName) {

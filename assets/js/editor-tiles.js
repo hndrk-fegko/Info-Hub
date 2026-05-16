@@ -687,19 +687,19 @@ async function saveTile(event) {
     const existingTile = formData.get('id') ? tiles.find(t => t.id === formData.get('id')) : null;
     const tileType = formData.get('type');
     
-    // Separator-Tiles bekommen immer size "full" und style "flat"
-    const isSeparator = tileType === 'separator';
+    // Separator- und Section-Tiles bekommen immer size "full" und style "flat"
+    const isFixedLayoutType = ['separator', 'section'].includes(tileType);
     
     const tileData = {
         id: formData.get('id') || null,
         type: tileType,
         position: parseInt(formData.get('position')) || 10,
-        size: isSeparator ? 'full' : (formData.get('size') || 'medium'),
-        style: isSeparator ? 'flat' : (formData.get('style') || 'card'),
-        colorScheme: isSeparator ? 'default' : (formData.get('colorScheme') || 'default'),
+        size: isFixedLayoutType ? 'full' : (formData.get('size') || 'medium'),
+        style: isFixedLayoutType ? 'flat' : (formData.get('style') || 'card'),
+        colorScheme: isFixedLayoutType ? 'default' : (formData.get('colorScheme') || 'default'),
         visible: existingTile?.visible ?? true,
         visibilitySchedule: existingTile?.visibilitySchedule || undefined,
-        data: {}
+        data: tileType === 'section' ? { ...(existingTile?.data || {}) } : {}
     };
     
     // Data-Felder extrahieren

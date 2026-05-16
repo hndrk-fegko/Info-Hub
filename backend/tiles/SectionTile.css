@@ -1,0 +1,50 @@
+/* SectionTile - Editor-Marker für Abschnittslogik */
+
+.tile-section {
+    width: 100%;
+}
+
+.tile-section .section-marker-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 96px;
+    padding: 18px 20px;
+    border: 2px dashed rgba(15, 23, 42, 0.2);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.05), rgba(15, 23, 42, 0.02));
+}
+
+.tile-section .section-marker-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.7;
+}
+
+.tile-section .section-marker-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.tile-section .section-marker-title--muted {
+    opacity: 0.55;
+}
+
+.tile-section .section-marker-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tile-section .section-marker-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.08);
+    font-size: 0.82rem;
+    font-weight: 600;
+}

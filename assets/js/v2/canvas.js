@@ -4,7 +4,7 @@
  * ARCHITEKTUR-KERNSTÜCK:
  * Statt für jeden Tile-Typ einen eigenen JS-Renderer zu schreiben,
  * nutzen wir die PHP render() Methoden als Single Source of Truth.
- * Dieses Modul platziert das server-gerenderte HTML im Grid und
+ * Dieses Modul platziert das server-gerenderte HTML in Section-Containern und
  * legt Editor-Overlays (Selection, Toolbar-Trigger) darüber.
  * 
  * → Neue Tile-Typen brauchen KEIN zusätzliches JS im Editor!
@@ -25,8 +25,8 @@ window.V2Canvas = (function() {
             return;
         }
         
-        // Render initial tiles from server-provided data
-        renderAllTiles();
+        // Render initial section layout from server-provided data
+        renderAllSections();
         
         // Listen to state changes
         V2State.on('state:tiles-changed', onTilesChanged);
@@ -60,18 +60,21 @@ window.V2Canvas = (function() {
     // === Rendering ===
     
     /**
-     * Rendert alle Tiles in den Grid-Container
-     * Nutzt das vorgerenderte HTML vom Server (V2State.getRenderedTiles())
+     * Rendert alle Sections in den Canvas-Container.
+     * Nutzt das vorgerenderte HTML vom Server (V2State.getRenderedSections())
+      * PARALLEL RENDER CONTRACT:
+      * Erwartet aktuell die Struktur aus GeneratorService::renderCanvasSections()
+      * und den Mount-Point aus backend/v2/editor.php (#tileGrid).
+      * Änderungen an Section-/Tile-Wrappern müssen in beiden PHP-Stellen mitgepflegt werden.
      */
-    function renderAllTiles() {
+    function renderAllSections() {
         if (!_gridEl) return;
         
-        const rendered = V2State.getRenderedTiles();
+        const renderedSections = V2State.getRenderedSections();
         
-        // Grid leeren
         _gridEl.innerHTML = '';
         
-        if (rendered.length === 0) {
+        if (renderedSections.length === 0) {
             _gridEl.innerHTML = `
                 <div class="v2-empty-grid">
                     <p>Noch keine Kacheln vorhanden</p>
@@ -81,31 +84,113 @@ window.V2Canvas = (function() {
             return;
         }
         
-        // Jede Tile ins Grid einfügen, mit Editor-Overlay
-        rendered.forEach(tile => {
-            const wrapper = createTileWrapper(tile);
-            _gridEl.appendChild(wrapper);
+        renderedSections.forEach(section => {
+            const sectionEl = createSectionElement(section);
+            if (sectionEl) {
+                _gridEl.appendChild(sectionEl);
+            }
         });
         
-        // Tile-spezifische JS Init-Funktionen aufrufen (Countdown, Accordion, etc.)
         reinitTileScripts();
     }
     
     /**
-     * Erstellt einen Editor-Wrapper um eine server-gerenderte Tile.
-     * Der Wrapper enthält:
-     * - Das originale HTML (pixelgenau wie auf der echten Seite)
-     * - Einen unsichtbaren Overlay für Klick-Selektion
-     * - Visuelles Feedback bei Hover/Selection
+     * Baut eine Canvas-Section aus dem server-gerenderten HTML.
      */
-    function createTileWrapper(tileRender) {
+    function createSectionElement(sectionRender) {
+        const fragment = document.createElement('div');
+        fragment.innerHTML = (sectionRender.html || '').trim();
+
+        const sectionEl = fragment.firstElementChild;
+        if (!sectionEl) {
+            return null;
+        }
+
+        const sectionGrid = sectionEl.querySelector('.tile-grid');
+        if (!sectionGrid) {
+            return sectionEl;
+        }
+
+        if (sectionRender.markerTileId) {
+            sectionGrid.prepend(createSectionMarkerWrapper(sectionRender));
+        }
+
+        Array.from(sectionGrid.children)
+            .filter(child => child.classList.contains('tile'))
+            .forEach(tileEl => {
+                const wrapper = createTileWrapperFromElement(tileEl);
+                sectionGrid.replaceChild(wrapper, tileEl);
+                wrapper.prepend(tileEl);
+            });
+
+        return sectionEl;
+    }
+
+    /**
+     * Erstellt einen Editor-Wrapper um eine bereits gerenderte Tile.
+     */
+    function createTileWrapperFromElement(tileEl) {
+        const tileId = tileEl.dataset.tileId;
+        const rawTile = tileId ? V2State.getTileById(tileId) : null;
+        const tileType = rawTile?.type || getTileTypeFromElement(tileEl);
         const wrapper = document.createElement('div');
         wrapper.className = 'v2-tile-wrapper';
-        wrapper.dataset.tileId = tileRender.id;
-        wrapper.dataset.tileType = tileRender.type;
+        wrapper.dataset.tileId = tileId || '';
+        wrapper.dataset.tileType = tileType || '';
 
-        const rawTile = V2State.getTileById(tileRender.id);
-        const visStatus = getVisibilityStatus(rawTile, tileRender);
+        applyVisibilityState(wrapper, rawTile, { visible: rawTile?.visible });
+
+        const overlay = document.createElement('div');
+        overlay.className = 'v2-tile-overlay';
+        overlay.dataset.tileId = tileId || '';
+        overlay.innerHTML = `<span class="v2-tile-type-badge">${escapeHtml(getTileTypeName(tileType))}</span>`;
+        attachSelectionHandlers(overlay, tileId, true);
+        wrapper.appendChild(overlay);
+        
+        return wrapper;
+    }
+
+    /**
+     * Erstellt den editor-spezifischen Marker für einen Abschnitt.
+     */
+    function createSectionMarkerWrapper(sectionRender) {
+        const tileId = sectionRender.markerTileId;
+        const rawTile = tileId ? V2State.getTileById(tileId) : null;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'v2-tile-wrapper v2-section-marker-wrapper';
+        wrapper.dataset.tileId = tileId || '';
+        wrapper.dataset.tileType = 'section';
+
+        applyVisibilityState(wrapper, rawTile, { visible: sectionRender.visible });
+
+        const marker = document.createElement('div');
+        marker.className = 'v2-section-marker';
+        marker.innerHTML = `
+            <div class="v2-section-marker__content">
+                <span class="v2-section-marker__label">Abschnitt</span>
+                <strong class="v2-section-marker__title">${escapeHtml(sectionRender.markerTitle || 'Ohne Titel')}</strong>
+                <span class="v2-section-marker__chip">${escapeHtml(getSectionBackgroundLabel(sectionRender.backgroundMode))}</span>
+                ${sectionRender.overlayEnabled ? '<span class="v2-section-marker__chip">Overlay</span>' : ''}
+            </div>
+            <button type="button" class="v2-section-marker__edit">Bearbeiten</button>
+        `;
+
+        const editButton = marker.querySelector('.v2-section-marker__edit');
+        editButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (tileId) {
+                V2State.selectTile(tileId);
+                V2.editSelectedTile();
+            }
+        });
+
+        attachSelectionHandlers(marker, tileId, true);
+        wrapper.appendChild(marker);
+        return wrapper;
+    }
+
+    function applyVisibilityState(wrapper, rawTile, renderMeta) {
+        const visStatus = getVisibilityStatus(rawTile, renderMeta || {});
 
         if (visStatus.effectivelyHidden) {
             wrapper.classList.add('v2-tile-hidden');
@@ -116,63 +201,57 @@ window.V2Canvas = (function() {
         if (visStatus.badgeLabel) {
             wrapper.dataset.visibilityLabel = visStatus.badgeLabel;
         }
-        
-        // Das server-gerenderte HTML direkt einfügen
-        // WICHTIG: Das HTML enthält schon das <div class="tile tile-xxx size-xxx ..."> Wrapper-Element
-        wrapper.innerHTML = `
-            ${tileRender.html}
-            <div class="v2-tile-overlay" data-tile-id="${tileRender.id}">
-                <span class="v2-tile-type-badge">${getTileTypeName(tileRender.type)}</span>
-            </div>
-        `;
-        
-        // Click handler auf den Overlay
-        const overlay = wrapper.querySelector('.v2-tile-overlay');
-        overlay.addEventListener('click', (e) => {
+    }
+
+    function attachSelectionHandlers(targetEl, tileId, openEditOnDoubleClick) {
+        if (!tileId) {
+            return;
+        }
+
+        targetEl.addEventListener('click', (e) => {
             e.stopPropagation();
-            V2State.selectTile(tileRender.id);
-        });
-        
-        // Doppelklick → Edit öffnen
-        overlay.addEventListener('dblclick', (e) => {
-            e.stopPropagation();
-            V2State.selectTile(tileRender.id);
-            V2.editSelectedTile();
+            V2State.selectTile(tileId);
         });
 
-        overlay.addEventListener('contextmenu', (e) => {
+        if (openEditOnDoubleClick) {
+            targetEl.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                V2State.selectTile(tileId);
+                V2.editSelectedTile();
+            });
+        }
+
+        targetEl.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            V2State.selectTile(tileRender.id);
+            V2State.selectTile(tileId);
             if (typeof V2ContextMenu !== 'undefined') {
-                V2ContextMenu.showTileMenu(tileRender.id, e.clientX, e.clientY);
+                V2ContextMenu.showTileMenu(tileId, e.clientX, e.clientY);
             }
         });
 
-        // Long-press (500ms) als Touch-Äquivalent zum Rechtsklick
-        let _longPressTimer = null;
-        overlay.addEventListener('touchstart', (e) => {
-            _longPressTimer = setTimeout(() => {
-                _longPressTimer = null;
+        let longPressTimer = null;
+        targetEl.addEventListener('touchstart', (e) => {
+            longPressTimer = setTimeout(() => {
+                longPressTimer = null;
                 const touch = e.touches[0];
-                V2State.selectTile(tileRender.id);
+                V2State.selectTile(tileId);
                 if (typeof V2ContextMenu !== 'undefined') {
-                    V2ContextMenu.showTileMenu(tileRender.id, touch.clientX, touch.clientY);
+                    V2ContextMenu.showTileMenu(tileId, touch.clientX, touch.clientY);
                 }
             }, 500);
         }, { passive: true });
 
         const cancelLongPress = () => {
-            if (_longPressTimer !== null) {
-                clearTimeout(_longPressTimer);
-                _longPressTimer = null;
+            if (longPressTimer !== null) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
             }
         };
-        overlay.addEventListener('touchend',    cancelLongPress, { passive: true });
-        overlay.addEventListener('touchmove',   cancelLongPress, { passive: true });
-        overlay.addEventListener('touchcancel', cancelLongPress, { passive: true });
-        
-        return wrapper;
+
+        targetEl.addEventListener('touchend', cancelLongPress, { passive: true });
+        targetEl.addEventListener('touchmove', cancelLongPress, { passive: true });
+        targetEl.addEventListener('touchcancel', cancelLongPress, { passive: true });
     }
 
     function getVisibilityStatus(rawTile, tileRender) {
@@ -193,6 +272,30 @@ window.V2Canvas = (function() {
             badgeLabel: '',
             visualClass: ''
         };
+    }
+
+    function getTileTypeFromElement(tileEl) {
+        const tileClass = Array.from(tileEl.classList).find(className => className.startsWith('tile-') && className !== 'tile');
+        return tileClass ? tileClass.replace('tile-', '') : '';
+    }
+
+    function getSectionBackgroundLabel(mode) {
+        switch (mode) {
+            case 'accent1': return 'Akzent 1';
+            case 'accent2': return 'Akzent 2';
+            case 'accent3': return 'Akzent 3';
+            case 'image': return 'Bild';
+            default: return 'Standard';
+        }
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
     
     /**
@@ -237,7 +340,7 @@ window.V2Canvas = (function() {
     // === State Event Handlers ===
     
     function onTilesChanged(data) {
-        renderAllTiles();
+        renderAllSections();
         // Re-select if previously selected tile still exists
         const selectedId = V2State.getSelectedTileId();
         if (selectedId) {
@@ -268,8 +371,22 @@ window.V2Canvas = (function() {
     
     // === Toolbar ===
     
-    // Tile-Typen ohne Size/Style/Color Controls
-    const _noAppearanceTypes = ['separator'];
+    const _noLayoutTypes = ['separator', 'section'];
+    const _noColorTypes = ['separator'];
+    const _tileColorOptions = [
+        { value: 'default', label: 'Standard' },
+        { value: 'white', label: 'Weiß' },
+        { value: 'accent1', label: 'Akzent 1' },
+        { value: 'accent2', label: 'Akzent 2' },
+        { value: 'accent3', label: 'Akzent 3' }
+    ];
+    const _sectionColorOptions = [
+        { value: 'default', label: 'Standard' },
+        { value: 'accent1', label: 'Akzent 1' },
+        { value: 'accent2', label: 'Akzent 2' },
+        { value: 'accent3', label: 'Akzent 3' },
+        { value: 'image', label: 'Bild' }
+    ];
     
     function showToolbar(tileId) {
         const toolbar = document.getElementById('tileToolbar');
@@ -281,12 +398,16 @@ window.V2Canvas = (function() {
         if (tile) {
             document.getElementById('tbSize').value = tile.size || 'medium';
             document.getElementById('tbStyle').value = tile.style || 'card';
-            document.getElementById('tbColor').value = tile.colorScheme || 'default';
-            
-            // Appearance-Controls je nach Typ ein-/ausblenden
-            const showAppearance = !_noAppearanceTypes.includes(tile.type);
-            toolbar.querySelectorAll('[data-tb-group="appearance"]').forEach(el => {
-                el.style.display = showAppearance ? '' : 'none';
+            syncToolbarColorControl(tile);
+
+            const showLayout = !_noLayoutTypes.includes(tile.type);
+            const showColor = !_noColorTypes.includes(tile.type);
+
+            toolbar.querySelectorAll('[data-tb-group="layout"]').forEach(el => {
+                el.style.display = showLayout ? '' : 'none';
+            });
+            toolbar.querySelectorAll('[data-tb-group="color"]').forEach(el => {
+                el.style.display = showColor ? '' : 'none';
             });
         }
         
@@ -321,6 +442,57 @@ window.V2Canvas = (function() {
     function hideToolbar() {
         const toolbar = document.getElementById('tileToolbar');
         if (toolbar) toolbar.style.display = 'none';
+    }
+
+    function syncToolbarColorControl(tile) {
+        const colorSelect = document.getElementById('tbColor');
+        if (!colorSelect || !tile) return;
+
+        const isSection = tile.type === 'section';
+        const options = isSection ? _sectionColorOptions : _tileColorOptions;
+        const currentValue = isSection ? (tile.data?.backgroundMode || 'default') : (tile.colorScheme || 'default');
+
+        colorSelect.innerHTML = options.map(option => {
+            return `<option value="${option.value}">${option.label}</option>`;
+        }).join('');
+        colorSelect.title = isSection ? 'Abschnittshintergrund' : 'Farbe';
+        colorSelect.value = options.some(option => option.value === currentValue) ? currentValue : 'default';
+    }
+
+    function openTileEditorAtField(tile, fieldName, dataOverrides = {}) {
+        if (!tile || typeof V2EditModal === 'undefined') {
+            return;
+        }
+
+        const modalTile = {
+            ...tile,
+            data: {
+                ...(tile.data || {}),
+                ...dataOverrides
+            }
+        };
+
+        V2EditModal.open(modalTile);
+
+        requestAnimationFrame(() => {
+            window.setTimeout(() => {
+                const fieldInput = document.getElementById(`field-${fieldName}`);
+                const fileInput = document.getElementById(`file-${fieldName}`);
+                const wrapper = (fieldInput || fileInput)?.closest('.v2-field');
+                const focusTarget = wrapper?.querySelector('.v2-upload-controls button')
+                    || wrapper?.querySelector('select, input:not([type="hidden"]), textarea, button')
+                    || fieldInput
+                    || fileInput;
+
+                if (wrapper && typeof wrapper.scrollIntoView === 'function') {
+                    wrapper.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                }
+
+                if (focusTarget && typeof focusTarget.focus === 'function') {
+                    focusTarget.focus();
+                }
+            }, 0);
+        });
     }
     
     // === Document Events ===
@@ -385,11 +557,11 @@ window.V2Canvas = (function() {
             // Tile-Daten und HTML vom Server holen
             const [tilesRes, renderRes] = await Promise.all([
                 V2Api.getTiles(),
-                V2Api.renderAllTiles()
+                V2Api.renderCanvasLayout()
             ]);
             
             if (tilesRes.success && renderRes.success) {
-                V2State.setTiles(tilesRes.tiles, renderRes.tiles);
+                V2State.setTiles(tilesRes.tiles, renderRes.sections);
             }
         } catch(err) {
             console.error('[Canvas] refreshTile failed:', err);
@@ -405,11 +577,11 @@ window.V2Canvas = (function() {
         try {
             const [tilesRes, renderRes] = await Promise.all([
                 V2Api.getTiles(),
-                V2Api.renderAllTiles()
+                V2Api.renderCanvasLayout()
             ]);
             
             if (tilesRes.success && renderRes.success) {
-                V2State.setTiles(tilesRes.tiles, renderRes.tiles);
+                V2State.setTiles(tilesRes.tiles, renderRes.sections);
             } else {
                 const errMsg = tilesRes.error || renderRes.error || 'Serverfehler';
                 console.error('[Canvas] reloadAll API error:', errMsg);
@@ -426,10 +598,12 @@ window.V2Canvas = (function() {
     // === Public API ===
     return {
         init,
-        renderAllTiles,
+        renderAllSections,
         refreshTile,
         reloadAll,
-        reinitTileScripts
+        reinitTileScripts,
+        syncToolbarColorControl,
+        openTileEditorAtField
     };
 })();
 
@@ -447,7 +621,7 @@ window.V2 = (function() {
         // State initialisieren mit Server-Daten
         V2State.init({
             tiles: V2_CONFIG.tiles,
-            renderedTiles: V2_CONFIG.renderedTiles,
+            renderedSections: V2_CONFIG.renderedSections,
             settings: V2_CONFIG.settings,
             tileTypes: V2_CONFIG.tileTypes
         });
@@ -528,11 +702,23 @@ window.V2 = (function() {
         const newTile = {
             type: type,
             position: maxPos + 10,
-            size: 'medium',
-            style: 'card',
+            size: ['separator', 'section'].includes(type) ? 'full' : 'medium',
+            style: ['separator', 'section'].includes(type) ? 'flat' : 'card',
             colorScheme: 'default',
             data: { title: 'Neue ' + types[type].name }
         };
+
+        if (type === 'section') {
+            newTile.data.backgroundMode = 'default';
+            newTile.data.backgroundAttachment = 'content';
+            newTile.data.backgroundDisplay = 'cover';
+            newTile.data.overlayEnabled = false;
+            newTile.data.overlayColorEnabled = true;
+            newTile.data.overlayColor = '#000000';
+            newTile.data.overlayOpacity = 35;
+            newTile.data.overlayBlurEnabled = false;
+            newTile.data.overlayBlurStrength = 24;
+        }
         
         saveTileAndRefresh(newTile);
     }
@@ -671,8 +857,23 @@ window.V2 = (function() {
         
         const tile = V2State.getTileById(id);
         if (!tile) return;
-        
-        const updatedTile = { ...tile, colorScheme: newColor };
+
+        if (tile.type === 'section' && newColor === 'image') {
+            V2Canvas.syncToolbarColorControl(tile);
+            V2Canvas.openTileEditorAtField(tile, 'backgroundImage', { backgroundMode: 'image' });
+            return;
+        }
+
+        const updatedTile = tile.type === 'section'
+            ? {
+                ...tile,
+                data: {
+                    ...(tile.data || {}),
+                    backgroundMode: newColor
+                }
+            }
+            : { ...tile, colorScheme: newColor };
+
         await saveTileAndRefresh(updatedTile);
     }
     

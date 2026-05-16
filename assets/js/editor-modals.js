@@ -84,6 +84,15 @@ function updateColorSchemeOptions() {
 function updateTileFields() {
     const type = document.getElementById('tileType').value;
     const container = document.getElementById('tileFields');
+    const sectionV2OnlyFields = new Set([
+        'backgroundMode',
+        'backgroundImage',
+        'backgroundAttachment',
+        'backgroundDisplay',
+        'overlayEnabled',
+        'overlayColor',
+        'overlayOpacity'
+    ]);
     
     if (!type || !tileTypes[type]) {
         container.innerHTML = '<p class="hint">Wähle zuerst einen Typ aus.</p>';
@@ -151,6 +160,13 @@ function updateTileFields() {
         }
         // Normale Felder rendern (wenn nicht schon verarbeitet)
         else if (!processedFields.has(field)) {
+            if (type === 'section' && sectionV2OnlyFields.has(field)) {
+                html += renderSectionClassicNotice();
+                sectionV2OnlyFields.forEach(sectionField => processedFields.add(sectionField));
+                i++;
+                continue;
+            }
+
             html += renderField(field, typeInfo);
             processedFields.add(field);
             i++;
@@ -166,6 +182,19 @@ function updateTileFields() {
     if (type === 'accordion') {
         initAccordionEditor();
     }
+}
+
+function renderSectionClassicNotice() {
+    return `
+        <div class="form-row-compact section-classic-note-row">
+            <label>Abschnitt-Design:</label>
+            <div class="section-classic-note">
+                Hintergrund, Bildbezug und Overlay sind nur im neuen WYSIWYG-Editor einstellbar.
+                <br>
+                Nutze dafür den Button <strong>✏️ WYSIWYG</strong> oben rechts.
+            </div>
+        </div>
+    `;
 }
 
 // ===== Accordion Editor =====

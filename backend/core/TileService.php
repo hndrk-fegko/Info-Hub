@@ -86,8 +86,8 @@ class TileService {
         
         // 5. Defaults setzen
         $tileData['position'] = (int)($tileData['position'] ?? 10);
-        $tileData['size'] = $tileData['size'] ?? 'medium';
-        $tileData['style'] = $tileData['style'] ?? 'card';
+        $tileData['size'] = $tileData['size'] ?? $this->getDefaultSizeForType($type);
+        $tileData['style'] = $tileData['style'] ?? $this->getDefaultStyleForType($type);
         $tileData['updated'] = date('c');
         
         if ($isNew) {
@@ -209,6 +209,20 @@ class TileService {
             }
             return $posA <=> $posB;
         });
+    }
+
+    /**
+     * Gibt die Standardgröße für einen Tile-Typ zurück.
+     */
+    private function getDefaultSizeForType(string $type): string {
+        return in_array($type, ['separator', 'section'], true) ? 'full' : 'medium';
+    }
+
+    /**
+     * Gibt den Standardstil für einen Tile-Typ zurück.
+     */
+    private function getDefaultStyleForType(string $type): string {
+        return in_array($type, ['separator', 'section'], true) ? 'flat' : 'card';
     }
     
     /**
