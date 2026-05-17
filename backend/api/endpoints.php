@@ -75,7 +75,7 @@ try {
     $auth = new AuthService();
     $configService = new ConfigService(__DIR__ . '/../config.php');
     $publicActions = [];  // Alle Actions erfordern Authentifizierung
-    $getActions = ['get_tiles', 'get_tile', 'get_settings', 'get_tile_types', 'list_files', 'preview', 'render_all_tiles_html', 'get_canvas_css', 'get_canvas_js'];  // GET erlaubt
+    $getActions = ['get_tiles', 'get_tile', 'get_settings', 'get_tile_types', 'list_files', 'preview', 'render_all_tiles_html', 'render_canvas_layout', 'get_canvas_css', 'get_canvas_js'];  // GET erlaubt
     
     // Action ermitteln
     $action = $_POST['action'] ?? $_GET['action'] ?? '';
@@ -211,9 +211,22 @@ try {
         
         case 'render_all_tiles_html':
             // Rendert alle Tiles als HTML-Fragmente (für WYSIWYG Canvas)
+            // PARALLEL RENDER CONTRACT:
+            // Response-Shape must stay in sync with GeneratorService::renderAllTilesHtml(),
+            // backend/v2/editor.php and assets/js/v2/canvas.js.
             $generator = new GeneratorService();
             $tiles = $generator->renderAllTilesHtml();
             echo json_encode(['success' => true, 'tiles' => $tiles]);
+            break;
+
+        case 'render_canvas_layout':
+            // Rendert die veröffentlichungsnahe Abschnittsstruktur für den WYSIWYG-Canvas.
+            // PARALLEL RENDER CONTRACT:
+            // Response-Shape must stay in sync with GeneratorService::renderCanvasSections(),
+            // backend/v2/editor.php and assets/js/v2/canvas.js.
+            $generator = new GeneratorService();
+            $sections = $generator->renderCanvasSections();
+            echo json_encode(['success' => true, 'sections' => $sections]);
             break;
         
         case 'get_canvas_css':
@@ -273,16 +286,24 @@ try {
             
             // Nur erlaubte Felder aktualisieren (Email ist geschützt)
             if (isset($newSettings['site'])) {
+                $previousHeaderImage = $settings['site']['headerImage'] ?? null;
+
                 // Site-Felder: nur erlaubte Keys, Strings sanitizen
                 $allowedSiteKeys = ['title', 'pageTitle', 'headerImage', 'headerFocusPoint', 'footerText'];
                 foreach ($allowedSiteKeys as $key) {
                     if (isset($newSettings['site'][$key])) {
-                        $settings['site'][$key] = $newSettings['site'][$key];
+                        $settings['site'][$key] = $key === 'headerImage'
+                            ? $sanitizeMediaPath($newSettings['site'][$key])
+                            : $newSettings['site'][$key];
                     }
                 }
 
                 if (array_key_exists('headerImage', $newSettings['site']) && empty($newSettings['site']['headerImage'])) {
                     $settings['site']['headerImage'] = null;
+                    $settings['site']['headerImagePlaceholder'] = null;
+                    $settings['site']['headerImageWidth'] = null;
+                    $settings['site']['headerImageHeight'] = null;
+                } elseif (($settings['site']['headerImage'] ?? null) !== $previousHeaderImage) {
                     $settings['site']['headerImagePlaceholder'] = null;
                     $settings['site']['headerImageWidth'] = null;
                     $settings['site']['headerImageHeight'] = null;
@@ -337,6 +358,12 @@ try {
                 if (isset($newSettings['theme']['narrowBackgroundOverlayEnabled'])) {
                     $settings['theme']['narrowBackgroundOverlayEnabled'] = (bool) $newSettings['theme']['narrowBackgroundOverlayEnabled'];
                 }
+                if (isset($newSettings['theme']['narrowBackgroundOverlayColorEnabled'])) {
+                    $settings['theme']['narrowBackgroundOverlayColorEnabled'] = (bool) $newSettings['theme']['narrowBackgroundOverlayColorEnabled'];
+                }
+                if (isset($newSettings['theme']['narrowBackgroundOverlayBlurEnabled'])) {
+                    $settings['theme']['narrowBackgroundOverlayBlurEnabled'] = (bool) $newSettings['theme']['narrowBackgroundOverlayBlurEnabled'];
+                }
                 if (isset($newSettings['theme']['narrowContentShadow'])) {
                     $settings['theme']['narrowContentShadow'] = (bool) $newSettings['theme']['narrowContentShadow'];
                 }
@@ -358,6 +385,12 @@ try {
                     $opacity = (int) $newSettings['theme']['narrowBackgroundOverlayOpacity'];
                     if ($opacity >= 0 && $opacity <= 100) {
                         $settings['theme']['narrowBackgroundOverlayOpacity'] = $opacity;
+                    }
+                }
+                if (isset($newSettings['theme']['narrowBackgroundOverlayBlurStrength'])) {
+                    $blurStrength = (int) $newSettings['theme']['narrowBackgroundOverlayBlurStrength'];
+                    if ($blurStrength >= 0 && $blurStrength <= 100) {
+                        $settings['theme']['narrowBackgroundOverlayBlurStrength'] = $blurStrength;
                     }
                 }
 
@@ -543,7 +576,7 @@ try {
             if (empty($type) && !empty($_POST['path'])) {
                 $path = $_POST['path'];
                 // Pfad: /backend/media/images/filename.jpg
-                if (preg_match('#/backend/media/(images|downloads|header)/(.+)$#', $path, $matches)) {
+                if (preg_match('#/backend/media/(images|downloads|header|backgrounds)/(.+)$#', $path, $matches)) {
                     $type = $matches[1];
                     $filename = $matches[2];
                 }
@@ -553,7 +586,7 @@ try {
                 throw new InvalidArgumentException('Typ und Dateiname erforderlich');
             }
             
-            if (!in_array($type, ['images', 'downloads', 'header'])) {
+            if (!in_array($type, ['images', 'downloads', 'header', 'backgrounds'])) {
                 throw new InvalidArgumentException('Ungültiger Dateityp');
             }
             
@@ -564,7 +597,7 @@ try {
             
         case 'list_files':
             $type = $_GET['type'] ?? 'images';
-            if (!in_array($type, ['images', 'downloads', 'header'])) {
+            if (!in_array($type, ['images', 'downloads', 'header', 'backgrounds'])) {
                 throw new InvalidArgumentException('Ungültiger Dateityp');
             }
             

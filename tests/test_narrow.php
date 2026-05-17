@@ -27,6 +27,8 @@ $tests = [
     'NARROW_CSS' => strpos($html, 'Narrow Layout') !== false,
     'MAX_WIDTH' => strpos($html, 'max-width: 960px') !== false,
     'DARK_BG' => strpos($html, '#1a1a2e') !== false,
+    'NARROW_BLUR_VAR' => strpos($html, '--narrow-background-blur:') !== false,
+    'NARROW_SCALE_VAR' => strpos($html, '--narrow-background-scale:') !== false,
 ];
 
 foreach ($tests as $name => $pass) {

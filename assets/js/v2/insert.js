@@ -376,6 +376,7 @@ window.V2Insert = (function() {
             'link': '🔗',
             'quote': '💬',
             'separator': '➖',
+            'section': '🧱',
             'contact': '👤',
             'countdown': '⏰',
             'iframe': '🌐',
@@ -495,8 +496,8 @@ window.V2Insert = (function() {
         const newTile = {
             type: type,
             position: position,
-            size: type === 'separator' ? 'full' : 'medium',
-            style: type === 'separator' ? 'flat' : 'card',
+            size: ['separator', 'section'].includes(type) ? 'full' : 'medium',
+            style: ['separator', 'section'].includes(type) ? 'flat' : 'card',
             colorScheme: 'default',
             data: { title: 'Neue ' + (types[type]?.name || type) }
         };
@@ -504,6 +505,17 @@ window.V2Insert = (function() {
         // Typ-spezifische Defaults
         if (type === 'quote') newTile.data.quote = 'Zitat hier eingeben...';
         if (type === 'separator') { newTile.data.height = 20; newTile.data.showLine = true; }
+        if (type === 'section') {
+            newTile.data.backgroundMode = 'default';
+            newTile.data.backgroundAttachment = 'content';
+            newTile.data.backgroundDisplay = 'cover';
+            newTile.data.overlayEnabled = false;
+            newTile.data.overlayColorEnabled = true;
+            newTile.data.overlayColor = '#000000';
+            newTile.data.overlayOpacity = 35;
+            newTile.data.overlayBlurEnabled = false;
+            newTile.data.overlayBlurStrength = 24;
+        }
         if (type === 'link') { newTile.data.url = ''; newTile.data.linkText = 'Mehr erfahren'; }
         if (type === 'image') { newTile.data.image = ''; }
         if (type === 'contact') { newTile.data.name = ''; }

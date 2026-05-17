@@ -75,8 +75,7 @@
 }
 
 .accordion-header:focus {
-    outline: 2px solid var(--primary-color, #ff6b6b);
-    outline-offset: -2px;
+    outline: none;
 }
 
 .accordion-header-text {

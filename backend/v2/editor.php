@@ -6,7 +6,7 @@
  * Kein separater JS-Renderer pro Tile-Typ nötig.
  * 
  * Architektur:
- * - PHP rendert alle Tile-HTML via GeneratorService::renderAllTilesHtml()
+ * - PHP rendert die Canvas-Abschnitte via GeneratorService::renderCanvasSections()
  * - JS platziert das HTML im Canvas und legt Editor-Chrome drumherum
  * - Shared CSS + Tile-CSS sorgen für pixelgenaue Vorschau
  */
@@ -46,8 +46,11 @@ $settings['system']['mailFromAddress'] = $configService->getMailFromAddress(
 );
 $generator = new GeneratorService();
 
-// Alle Tiles als HTML rendern (Server-Side Rendering für den Editor)
-$renderedTiles = $generator->renderAllTilesHtml();
+// Alle Canvas-Abschnitte als HTML rendern (Server-Side Rendering für den Editor)
+// PARALLEL RENDER CONTRACT:
+// Erwartet die Struktur aus GeneratorService::renderCanvasSections().
+// Änderungen an Wrappern, Section-Struktur oder Metadaten müssen auch in assets/js/v2/canvas.js geprüft werden.
+$renderedSections = $generator->renderCanvasSections();
 
 // Canvas CSS (shared + tile-spezifisch)
 $canvasCSS = $generator->getCanvasCSS();
@@ -170,8 +173,11 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
                 <?php endif; ?>
             </div>
             
-            <!-- Tile Grid (hier werden die server-gerenderten Tiles platziert) -->
-            <div class="tile-grid" id="tileGrid">
+              <!-- Section-Layout (hier werden die server-gerenderten Sections platziert) -->
+            <!-- PARALLEL DOM CONTRACT:
+                 canvas.js positioniert Editor-Chrome relativ zu dieser Render-Zone.
+                  Die publizierte Section-Struktur bleibt hier erhalten; nur Marker/Selection kommen editor-seitig dazu. -->
+              <div class="page-sections" id="tileGrid">
                 <!-- Wird von canvas.js befüllt -->
             </div>
             
@@ -200,18 +206,18 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
     <!-- ===== Tile Selection Toolbar (floating) ===== -->
     <div id="tileToolbar" class="v2-tile-toolbar" style="display: none;">
         <button class="v2-tb-btn" onclick="V2.editSelectedTile()" title="Bearbeiten">✏️</button>
-        <div class="v2-tb-separator" data-tb-group="appearance"></div>
-        <select id="tbSize" class="v2-tb-select" data-tb-group="appearance" onchange="V2.changeSize(this.value)" title="Größe">
+        <div class="v2-tb-separator" data-tb-group="color"></div>
+        <select id="tbSize" class="v2-tb-select" data-tb-group="layout" onchange="V2.changeSize(this.value)" title="Größe">
             <option value="small">Klein</option>
             <option value="medium">Mittel</option>
             <option value="large">Groß</option>
             <option value="full">Voll</option>
         </select>
-        <select id="tbStyle" class="v2-tb-select" data-tb-group="appearance" onchange="V2.changeStyle(this.value)" title="Stil">
+        <select id="tbStyle" class="v2-tb-select" data-tb-group="layout" onchange="V2.changeStyle(this.value)" title="Stil">
             <option value="card">Card</option>
             <option value="flat">Flat</option>
         </select>
-        <select id="tbColor" class="v2-tb-select" data-tb-group="appearance" onchange="V2.changeColor(this.value)" title="Farbe">
+        <select id="tbColor" class="v2-tb-select" data-tb-group="color" onchange="V2.changeColor(this.value)" title="Farbe">
             <option value="default">Standard</option>
             <option value="white">Weiß</option>
             <option value="accent1">Akzent 1</option>
@@ -234,8 +240,8 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             sessionWarning: <?= $sessionWarning ?>,
             sessionRemaining: <?= $remainingTime ?>,
             debugMode: <?= (defined('DEBUG_MODE') && DEBUG_MODE) ? 'true' : 'false' ?>,
-            // Pre-rendered tile HTML from server
-            renderedTiles: <?= json_encode($renderedTiles, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
+            // Pre-rendered section HTML from server
+            renderedSections: <?= json_encode($renderedSections, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
             // Tile type metadata for add/edit
             tileTypes: <?= json_encode($tileTypesWithMeta, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
             // Raw tile data (for editing)
@@ -247,7 +253,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
         if (window.V2_CONFIG.debugMode) {
             console.log('V2 WYSIWYG Editor loaded');
             console.log('Config:', window.V2_CONFIG);
-            console.log('Rendered tiles:', window.V2_CONFIG.renderedTiles.length);
+            console.log('Rendered sections:', window.V2_CONFIG.renderedSections.length);
         }
     </script>
     
@@ -258,7 +264,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
     
     <!-- V2 Editor Module -->
     <?php
-    $v2Modules = ['state', 'api-client', 'edit-modal', 'settings', 'context-menu', 'canvas', 'drag-drop', 'insert'];
+    $v2Modules = ['state', 'api-client', 'media-picker', 'edit-modal', 'settings', 'context-menu', 'canvas', 'drag-drop', 'insert'];
     foreach ($v2Modules as $module):
         $filePath = __DIR__ . "/../../assets/js/v2/{$module}.js";
         $version = file_exists($filePath) ? filemtime($filePath) : time();

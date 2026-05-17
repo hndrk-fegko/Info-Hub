@@ -23,8 +23,11 @@
         "narrowBackgroundImageDisplay": "cover",
         "narrowBackgroundImageMotion": "fixed",
         "narrowBackgroundOverlayEnabled": false,
+        "narrowBackgroundOverlayColorEnabled": true,
         "narrowBackgroundOverlayColor": "#000000",
         "narrowBackgroundOverlayOpacity": 35,
+        "narrowBackgroundOverlayBlurEnabled": false,
+        "narrowBackgroundOverlayBlurStrength": 24,
         "narrowContentShadow": true
     },
     "auth": {

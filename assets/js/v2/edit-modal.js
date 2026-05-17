@@ -56,6 +56,7 @@ window.V2EditModal = (function() {
         _overlay.innerHTML = '';
         const modal = _buildModal(tile, typeMeta);
         _overlay.appendChild(modal);
+        _bindConditionalFieldVisibility(modal, tile.type);
         _overlay.style.display = 'flex';
 
         // Focus first input
@@ -237,6 +238,7 @@ window.V2EditModal = (function() {
     function _buildField(fieldName, meta, value) {
         const wrapper = document.createElement('div');
         wrapper.className = 'v2-field';
+        wrapper.dataset.fieldName = fieldName;
 
         if (meta.type === 'checkbox') {
             return _buildCheckbox(fieldName, meta, value);
@@ -264,6 +266,10 @@ window.V2EditModal = (function() {
             case 'select':
                 input = _buildSelect(fieldName, meta, value);
                 break;
+            case 'range':
+                input = _buildRange(fieldName, meta, value);
+                wrapper.appendChild(input);
+                return wrapper;
             case 'image':
                 input = _buildImageUpload(fieldName, meta, value);
                 wrapper.appendChild(input);
@@ -290,9 +296,119 @@ window.V2EditModal = (function() {
         return wrapper;
     }
 
+    function _bindConditionalFieldVisibility(modal, tileType) {
+        if (tileType !== 'section') {
+            return;
+        }
+
+        const backgroundModeField = modal.querySelector('#field-backgroundMode');
+        const overlayEnabledField = modal.querySelector('#field-overlayEnabled');
+        const overlayColorEnabledField = modal.querySelector('#field-overlayColorEnabled');
+        const overlayBlurEnabledField = modal.querySelector('#field-overlayBlurEnabled');
+        if (!backgroundModeField) {
+            return;
+        }
+
+        _setupSectionOverlayPanels(modal);
+
+        const toggleField = (fieldName, visible) => {
+            const field = modal.querySelector(`.v2-field[data-field-name="${fieldName}"]`);
+            if (field) {
+                const target = (fieldName === 'overlayColorEnabled' || fieldName === 'overlayBlurEnabled')
+                    ? field.closest('.v2-toggle-panel') || field
+                    : field;
+                target.classList.toggle('v2-field-hidden', !visible);
+            }
+        };
+
+        const togglePanelState = (fieldName, active) => {
+            const field = modal.querySelector(`.v2-field[data-field-name="${fieldName}"]`);
+            const panel = field?.closest('.v2-toggle-panel');
+            if (panel) {
+                panel.classList.toggle('v2-toggle-panel--active', !!active);
+            }
+        };
+
+        const syncVisibility = () => {
+            const showImageFields = backgroundModeField.value === 'image';
+            const showOverlayOptions = showImageFields && !!overlayEnabledField?.checked;
+            const showOverlayColor = showOverlayOptions && !!overlayColorEnabledField?.checked;
+            const showOverlayBlur = showOverlayOptions && !!overlayBlurEnabledField?.checked;
+
+            ['backgroundImage', 'backgroundAttachment', 'backgroundDisplay', 'overlayEnabled'].forEach(fieldName => {
+                toggleField(fieldName, showImageFields);
+            });
+
+            ['overlayColorEnabled', 'overlayBlurEnabled'].forEach(fieldName => {
+                toggleField(fieldName, showOverlayOptions);
+            });
+
+            ['overlayColor', 'overlayOpacity'].forEach(fieldName => {
+                toggleField(fieldName, showOverlayColor);
+            });
+
+            toggleField('overlayBlurStrength', showOverlayBlur);
+            togglePanelState('overlayColorEnabled', showOverlayColor);
+            togglePanelState('overlayBlurEnabled', showOverlayBlur);
+        };
+
+        backgroundModeField.addEventListener('change', syncVisibility);
+        overlayEnabledField?.addEventListener('change', syncVisibility);
+        overlayColorEnabledField?.addEventListener('change', syncVisibility);
+        overlayBlurEnabledField?.addEventListener('change', syncVisibility);
+        syncVisibility();
+    }
+
+    function _setupSectionOverlayPanels(modal) {
+        const overlayEnabledField = modal.querySelector('.v2-field[data-field-name="overlayEnabled"]');
+        const advancedFieldset = overlayEnabledField?.closest('.v2-modal-fieldset');
+        if (!advancedFieldset) {
+            return;
+        }
+
+        [
+            {
+                toggleFieldName: 'overlayColorEnabled',
+                bodyFieldNames: ['overlayColor', 'overlayOpacity'],
+                modifier: 'color'
+            },
+            {
+                toggleFieldName: 'overlayBlurEnabled',
+                bodyFieldNames: ['overlayBlurStrength'],
+                modifier: 'blur'
+            }
+        ].forEach(({ toggleFieldName, bodyFieldNames, modifier }) => {
+            const toggleField = modal.querySelector(`.v2-field[data-field-name="${toggleFieldName}"]`);
+            if (!toggleField || toggleField.closest('.v2-toggle-panel')) {
+                return;
+            }
+
+            const panel = document.createElement('div');
+            panel.className = `v2-toggle-panel v2-toggle-panel--${modifier}`;
+
+            const toggleWrapper = document.createElement('div');
+            toggleWrapper.className = 'v2-toggle-panel__toggle';
+
+            const bodyWrapper = document.createElement('div');
+            bodyWrapper.className = 'v2-toggle-panel__body';
+
+            advancedFieldset.insertBefore(panel, toggleField);
+            panel.appendChild(toggleWrapper);
+            toggleWrapper.appendChild(toggleField);
+            panel.appendChild(bodyWrapper);
+
+            bodyFieldNames.forEach((fieldName) => {
+                const field = modal.querySelector(`.v2-field[data-field-name="${fieldName}"]`);
+                if (field) {
+                    bodyWrapper.appendChild(field);
+                }
+            });
+        });
+    }
+
     function _buildInput(fieldName, meta, value) {
         const input = document.createElement('input');
-        input.className = 'v2-field-input';
+        input.className = meta.type === 'color' ? 'v2-field-input v2-color-input' : 'v2-field-input';
         input.id = 'field-' + fieldName;
         input.name = fieldName;
 
@@ -304,12 +420,16 @@ window.V2EditModal = (function() {
             'tel': 'tel',
             'date': 'date',
             'time': 'time',
-            'number': 'number'
+            'number': 'number',
+            'color': 'color'
         };
         input.type = typeMap[meta.type] || 'text';
 
         if (meta.placeholder) input.placeholder = meta.placeholder;
         if (meta.required) input.required = true;
+        if (meta.min !== undefined) input.min = String(meta.min);
+        if (meta.max !== undefined) input.max = String(meta.max);
+        if (meta.step !== undefined) input.step = String(meta.step);
 
         // Value: use current value, or default
         if (value !== undefined && value !== null) {
@@ -343,6 +463,7 @@ window.V2EditModal = (function() {
     function _buildCheckbox(fieldName, meta, value) {
         const wrapper = document.createElement('div');
         wrapper.className = 'v2-field v2-field-checkbox-wrap';
+        wrapper.dataset.fieldName = fieldName;
 
         const label = document.createElement('label');
         label.className = 'v2-field-checkbox-label';
@@ -376,6 +497,53 @@ window.V2EditModal = (function() {
         }
 
         return wrapper;
+    }
+
+    function _buildRange(fieldName, meta, value) {
+        const container = document.createElement('div');
+        container.className = 'v2-field-range';
+
+        const range = document.createElement('input');
+        range.type = 'range';
+        range.className = 'v2-range-input';
+        range.id = 'field-' + fieldName;
+        range.name = fieldName;
+        range.min = String(meta.min ?? 0);
+        range.max = String(meta.max ?? 100);
+        range.step = String(meta.step ?? 1);
+        range.value = String(
+            value !== undefined && value !== null && value !== ''
+                ? Number(value)
+                : Number(meta.default ?? meta.min ?? 0)
+        );
+
+        const labels = document.createElement('div');
+        labels.className = 'v2-range-labels';
+
+        const minLabel = document.createElement('span');
+        minLabel.textContent = String(meta.min ?? 0);
+
+        const currentLabel = document.createElement('span');
+        currentLabel.className = 'v2-range-value';
+
+        const maxLabel = document.createElement('span');
+        maxLabel.textContent = String(meta.max ?? 100);
+
+        const updateLabel = () => {
+            const unit = meta.unit || '';
+            currentLabel.textContent = range.value + unit;
+        };
+
+        range.addEventListener('input', updateLabel);
+        updateLabel();
+
+        labels.appendChild(minLabel);
+        labels.appendChild(currentLabel);
+        labels.appendChild(maxLabel);
+
+        container.appendChild(range);
+        container.appendChild(labels);
+        return container;
     }
 
     function _buildSelect(fieldName, meta, value) {
@@ -413,28 +581,34 @@ window.V2EditModal = (function() {
         // Preview area
         const preview = document.createElement('div');
         preview.className = 'v2-upload-preview';
-        if (value) {
-            preview.innerHTML = `<img src="${_esc(value)}" alt="Vorschau">`;
-        } else {
-            preview.innerHTML = '<span class="v2-upload-placeholder">📷 Kein Bild gewählt</span>';
-        }
+        _renderImagePreview(preview, value || '');
         container.appendChild(preview);
 
         // Controls
         const controls = document.createElement('div');
         controls.className = 'v2-upload-controls';
 
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.accept = meta.accept || 'image/*';
-        fileInput.className = 'v2-upload-file-input';
-        fileInput.id = 'file-' + fieldName;
-
         const uploadBtn = document.createElement('button');
         uploadBtn.type = 'button';
         uploadBtn.className = 'v2-btn v2-btn-secondary v2-btn-sm';
-        uploadBtn.textContent = '📁 Bild wählen';
-        uploadBtn.addEventListener('click', () => fileInput.click());
+        uploadBtn.textContent = '📁 Auswählen';
+        uploadBtn.addEventListener('click', async () => {
+            const selectedPath = await V2MediaPicker.pickImage({
+                title: meta.label || 'Bild auswählen',
+                mediaType: meta.mediaType || 'images',
+                uploadAction: meta.uploadAction || 'image',
+                currentPath: hidden.value,
+                accept: meta.accept || 'image/*'
+            });
+
+            if (!selectedPath) {
+                return;
+            }
+
+            hidden.value = selectedPath;
+            _renderImagePreview(preview, selectedPath);
+            removeBtn.style.display = 'inline-flex';
+        });
 
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
@@ -443,42 +617,24 @@ window.V2EditModal = (function() {
         removeBtn.style.display = value ? 'inline-flex' : 'none';
         removeBtn.addEventListener('click', () => {
             hidden.value = '';
-            preview.innerHTML = '<span class="v2-upload-placeholder">📷 Kein Bild gewählt</span>';
+            _renderImagePreview(preview, '');
             removeBtn.style.display = 'none';
         });
 
-        fileInput.addEventListener('change', async () => {
-            const file = fileInput.files[0];
-            if (!file) return;
-
-            uploadBtn.disabled = true;
-            uploadBtn.textContent = '⏳ Hochladen...';
-
-            try {
-                const result = await V2Api.uploadImage(file);
-                if (result.success) {
-                    hidden.value = result.path;
-                    preview.innerHTML = `<img src="${_esc(result.path)}" alt="Vorschau">`;
-                    removeBtn.style.display = 'inline-flex';
-                    V2.toast('Bild hochgeladen', 'success');
-                } else {
-                    V2.toast('Upload fehlgeschlagen: ' + (result.error || ''), 'error');
-                }
-            } catch (err) {
-                console.error('[EditModal] Image upload failed:', err);
-                V2.toast('Upload fehlgeschlagen', 'error');
-            } finally {
-                uploadBtn.disabled = false;
-                uploadBtn.textContent = '📁 Bild wählen';
-            }
-        });
-
-        controls.appendChild(fileInput);
         controls.appendChild(uploadBtn);
         controls.appendChild(removeBtn);
         container.appendChild(controls);
 
         return container;
+    }
+
+    function _renderImagePreview(preview, path) {
+        if (path) {
+            preview.innerHTML = `<img src="${_esc(path)}" alt="Vorschau">`;
+            return;
+        }
+
+        preview.innerHTML = '<span class="v2-upload-placeholder">📷 Kein Bild gewählt</span>';
     }
 
     function _buildFileUpload(fieldName, meta, value) {

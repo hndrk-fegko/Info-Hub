@@ -84,10 +84,10 @@ window.V2Api = (function() {
     }
     
     /**
-     * Alle Tiles als gerenderte HTML-Fragmente (für Canvas)
+     * Canvas-Layout als gerenderte Abschnittsfragmente laden.
      */
-    async function renderAllTiles() {
-        return await get('render_all_tiles_html');
+    async function renderCanvasLayout() {
+        return await get('render_canvas_layout');
     }
     
     /**
@@ -208,6 +208,10 @@ window.V2Api = (function() {
 
         return await res.json();
     }
+
+    async function listFiles(type) {
+        return await get('list_files', { type: type });
+    }
     
     // === Generator ===
     
@@ -236,10 +240,10 @@ window.V2Api = (function() {
     // === Public API ===
     return {
         get, post,
-        getTiles, renderAllTiles, renderTile,
+        getTiles, renderCanvasLayout, renderTile,
         saveTile, deleteTile, updatePositions,
         getSettings, saveSettings,
-        uploadImage, uploadDownload, uploadHeader, uploadBackground,
+        uploadImage, uploadDownload, uploadHeader, uploadBackground, listFiles,
         publish, preview,
         extendSession
     };

@@ -3,7 +3,7 @@
  * 
  * Single Source of Truth für:
  * - Tile-Daten (raw JSON)
- * - Gerenderte Tile-HTML (vom Server)
+ * - Gerenderte Abschnitts-HTML (vom Server)
  * - Settings
  * - Editor-State (selected tile, dirty, etc.)
  * 
@@ -18,8 +18,8 @@ window.V2State = (function() {
     'use strict';
     
     // === Private State ===
-    let _tiles = [];           // Raw tile data [{id, type, position, size, style, data, ...}]
-    let _renderedTiles = [];   // [{id, type, html, size, style, colorScheme, position, visible}]
+    let _tiles = [];              // Raw tile data [{id, type, position, size, style, data, ...}]
+    let _renderedSections = [];   // [{id, html, markerTileId, tileIds, visible, ...}]
     let _settings = {};        // Site settings
     let _tileTypes = {};       // Tile type metadata
     let _selectedTileId = null;
@@ -52,7 +52,7 @@ window.V2State = (function() {
     // === Initialization ===
     function init(config) {
         _tiles = config.tiles || [];
-        _renderedTiles = config.renderedTiles || [];
+        _renderedSections = config.renderedSections || [];
         _settings = config.settings || {};
         _tileTypes = config.tileTypes || {};
         _selectedTileId = null;
@@ -69,62 +69,27 @@ window.V2State = (function() {
         return _tiles;
     }
     
-    function getRenderedTiles() {
-        return _renderedTiles;
+    function getRenderedSections() {
+        return _renderedSections;
     }
     
     function getTileById(id) {
         return _tiles.find(t => t.id === id) || null;
     }
     
-    function getRenderedTileById(id) {
-        return _renderedTiles.find(t => t.id === id) || null;
+    function getRenderedSectionById(id) {
+        return _renderedSections.find(section => section.id === id) || null;
     }
     
     /**
      * Aktualisiert Tiles und gerenderten HTML nach Server-Response
      */
-    function setTiles(rawTiles, renderedTiles) {
+    function setTiles(rawTiles, renderedSections) {
         _tiles = rawTiles;
-        if (renderedTiles) {
-            _renderedTiles = renderedTiles;
+        if (renderedSections) {
+            _renderedSections = renderedSections;
         }
-        emit('state:tiles-changed', { tiles: _tiles, rendered: _renderedTiles });
-    }
-    
-    /**
-     * Update rendered HTML für eine einzelne Tile (nach Edit)
-     */
-    function updateRenderedTile(id, newHtml, meta) {
-        const idx = _renderedTiles.findIndex(t => t.id === id);
-        if (idx !== -1) {
-            _renderedTiles[idx].html = newHtml;
-            if (meta) {
-                Object.assign(_renderedTiles[idx], meta);
-            }
-        } else {
-            // Neue Tile hinzufügen
-            _renderedTiles.push({
-                id: id,
-                html: newHtml,
-                ...meta
-            });
-        }
-        
-        // Auch raw tile data updaten falls mitgeliefert
-        if (meta && meta._rawTile) {
-            const tileIdx = _tiles.findIndex(t => t.id === id);
-            if (tileIdx !== -1) {
-                _tiles[tileIdx] = meta._rawTile;
-            } else {
-                _tiles.push(meta._rawTile);
-            }
-            // Nach Position sortieren
-            _tiles.sort((a, b) => (a.position || 0) - (b.position || 0));
-        }
-        
-        setDirty(true);
-        emit('state:tiles-changed', { tiles: _tiles, rendered: _renderedTiles });
+        emit('state:tiles-changed', { tiles: _tiles, sections: _renderedSections });
     }
     
     /**
@@ -132,7 +97,6 @@ window.V2State = (function() {
      */
     function removeTile(id) {
         _tiles = _tiles.filter(t => t.id !== id);
-        _renderedTiles = _renderedTiles.filter(t => t.id !== id);
         
         if (_selectedTileId === id) {
             _selectedTileId = null;
@@ -140,7 +104,7 @@ window.V2State = (function() {
         }
         
         setDirty(true);
-        emit('state:tiles-changed', { tiles: _tiles, rendered: _renderedTiles });
+        emit('state:tiles-changed', { tiles: _tiles, sections: _renderedSections });
     }
     
     // === Selection ===
@@ -195,9 +159,9 @@ window.V2State = (function() {
         init,
         on, off, emit,
         // Tiles
-        getTiles, getRenderedTiles,
-        getTileById, getRenderedTileById,
-        setTiles, updateRenderedTile, removeTile,
+        getTiles, getRenderedSections,
+        getTileById, getRenderedSectionById,
+        setTiles, removeTile,
         // Selection
         getSelectedTileId, selectTile, deselectAll,
         // Settings

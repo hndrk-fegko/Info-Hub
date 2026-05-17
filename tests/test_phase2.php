@@ -5,6 +5,7 @@
  * Tests:
  * 1. GeneratorService::renderSingleTile() works
  * 2. GeneratorService::renderAllTilesHtml() returns correct structure
+ * 2b. GeneratorService::renderCanvasSections() returns correct structure
  * 3. GeneratorService::getCanvasCSS() returns CSS
  * 4. GeneratorService::getCanvasJS() returns JS
  * 5. TileService::getAvailableTypesWithMeta() returns fieldMeta
@@ -79,6 +80,13 @@ test('Each rendered tile has type', !empty($allRendered) ? isset($allRendered[0]
 test('Each rendered tile has size', !empty($allRendered) ? isset($allRendered[0]['size']) : true);
 test('Each rendered tile has position', !empty($allRendered) ? isset($allRendered[0]['position']) : true);
 
+echo "\n--- Test Group 2b: renderCanvasSections() ---\n";
+$canvasSections = $generator->renderCanvasSections();
+test('renderCanvasSections returns array', is_array($canvasSections));
+test('Each section has id', !empty($canvasSections) ? isset($canvasSections[0]['id']) : true);
+test('Each section has html', !empty($canvasSections) ? isset($canvasSections[0]['html']) : true);
+test('Each section has tileIds', !empty($canvasSections) ? isset($canvasSections[0]['tileIds']) : true);
+
 echo "\n--- Test Group 3: getCanvasCSS() ---\n";
 $css = $generator->getCanvasCSS();
 test('getCanvasCSS returns CSS', strlen($css) > 100);
@@ -140,6 +148,7 @@ $previewHtml = $generator->preview();
 test('Classic preview() returns HTML', strlen($previewHtml) > 1000);
 test('Preview has DOCTYPE', strpos($previewHtml, '<!DOCTYPE html>') !== false);
 test('Preview has tile-grid', strpos($previewHtml, 'tile-grid') !== false);
+test('Preview has page-sections', strpos($previewHtml, 'page-sections') !== false);
 
 echo "\n=== RESULTS ===\n";
 echo "Total: $total | Passed: $passed | Failed: $failed\n";

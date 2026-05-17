@@ -1,0 +1,53 @@
+/* ===== Page Sections ===== */
+
+.page-sections {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.page-section {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+}
+
+.page-section__background {
+    position: absolute;
+    inset: 0;
+    background-color: var(--section-background-color, transparent);
+    background-image: var(--section-background-image, none);
+    background-position: center center;
+    background-size: var(--section-background-size, cover);
+    background-repeat: var(--section-background-repeat, no-repeat);
+    background-attachment: var(--section-background-attachment, scroll);
+    filter: blur(var(--section-background-blur, 0px));
+    transform: scale(var(--section-background-scale, 1));
+    transform-origin: center center;
+    z-index: 0;
+}
+
+.page-section__background::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--section-overlay-color, #000000);
+    opacity: var(--section-overlay-opacity, 0);
+    pointer-events: none;
+}
+
+.page-section__surface {
+    position: relative;
+    z-index: 1;
+}
+
+.page-section--default > .page-section__background,
+.page-section--implicit > .page-section__background {
+    display: none;
+}
+
+@media (max-width: 900px) {
+    .page-section--viewport-bg > .page-section__background {
+        background-attachment: scroll;
+    }
+}
