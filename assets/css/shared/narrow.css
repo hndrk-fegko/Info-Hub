@@ -7,6 +7,9 @@ body.narrow-layout {
     --narrow-image-repeat: no-repeat;
     --narrow-image-size: cover;
     --narrow-image-attachment: fixed;
+    --narrow-background-blur: 0px;
+    --narrow-background-scale: 1;
+    --narrow-background-parallax-scale: 1.08;
     --narrow-overlay-color: #000000;
     --narrow-overlay-opacity: 0.35;
     --narrow-overlay-display: block;
@@ -35,12 +38,15 @@ body.narrow-layout {
     background-repeat: var(--narrow-image-repeat);
     background-size: var(--narrow-image-size);
     background-attachment: var(--narrow-image-attachment);
+    filter: blur(var(--narrow-background-blur));
+    transform: scale(var(--narrow-background-scale));
+    transform-origin: center center;
 }
 
 .page-shell__backdrop.has-parallax .page-shell__backdrop-media {
     inset: -10%;
     background-attachment: scroll;
-    transform: scale(1.08) translateY(var(--narrow-parallax-offset, 0px));
+    transform: scale(var(--narrow-background-parallax-scale)) translateY(var(--narrow-parallax-offset, 0px));
     will-change: transform;
 }
 

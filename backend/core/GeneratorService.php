@@ -697,11 +697,19 @@ JS;
         if ($overlayOpacity < 0 || $overlayOpacity > 100) {
             $overlayOpacity = 35;
         }
+        $overlayBlurStrength = (int)($theme['narrowBackgroundOverlayBlurStrength'] ?? 24);
+        if ($overlayBlurStrength < 0 || $overlayBlurStrength > 100) {
+            $overlayBlurStrength = 24;
+        }
 
         $image = is_string($theme['narrowBackgroundImage'] ?? null) ? trim($theme['narrowBackgroundImage']) : '';
         if (!preg_match('#^/backend/media/[a-z0-9/_\-.]+$#i', $image)) {
             $image = '';
         }
+        $overlayEnabled = $mode === 'image' && !empty($theme['narrowBackgroundOverlayEnabled']);
+        $overlayColorEnabled = $overlayEnabled
+            && (!array_key_exists('narrowBackgroundOverlayColorEnabled', $theme) || !empty($theme['narrowBackgroundOverlayColorEnabled']));
+        $overlayBlurEnabled = $overlayEnabled && !empty($theme['narrowBackgroundOverlayBlurEnabled']);
 
         return [
             'mode' => $mode,
@@ -712,9 +720,12 @@ JS;
             'image' => $image,
             'imageDisplay' => $display,
             'imageMotion' => $motion,
-            'overlayEnabled' => !empty($theme['narrowBackgroundOverlayEnabled']),
+            'overlayEnabled' => $overlayEnabled,
+            'overlayColorEnabled' => $overlayColorEnabled,
+            'overlayBlurEnabled' => $overlayBlurEnabled,
             'overlayColor' => $isValidHexColor($theme['narrowBackgroundOverlayColor'] ?? null, '#000000'),
             'overlayOpacity' => $overlayOpacity / 100,
+            'overlayBlurStrength' => $overlayBlurStrength,
             'contentShadow' => !array_key_exists('narrowContentShadow', $theme) || !empty($theme['narrowContentShadow'])
         ];
     }
@@ -768,12 +779,21 @@ JS;
         if ($narrowWidth < 600 || $narrowWidth > 1400) $narrowWidth = 960;
         $narrowConfig = $this->getNarrowConfig($theme);
         $narrowBackdrop = $this->buildNarrowBackdropCSS($narrowConfig);
-        $narrowOverlayDisplay = $narrowConfig['overlayEnabled'] ? 'block' : 'none';
+        $narrowOverlayDisplay = $narrowConfig['overlayColorEnabled'] ? 'block' : 'none';
         $narrowShadow = $narrowConfig['contentShadow'] ? '0 0 60px rgba(0,0,0,0.4)' : 'none';
         $narrowImageSize = $narrowConfig['imageDisplay'] === 'tile' ? 'auto' : 'cover';
         $narrowImageRepeat = $narrowConfig['imageDisplay'] === 'tile' ? 'repeat' : 'no-repeat';
         $narrowImageAttachment = $narrowConfig['imageMotion'] === 'fixed' ? 'fixed' : 'scroll';
         $narrowMotionClass = $narrowConfig['mode'] === 'image' && $narrowConfig['imageMotion'] === 'parallax' ? ' has-parallax' : '';
+        $narrowBlurAmount = $narrowConfig['overlayBlurEnabled']
+            ? number_format(($narrowConfig['overlayBlurStrength'] / 100) * 24, 2, '.', '')
+            : '0';
+        $narrowBackgroundScale = $narrowConfig['overlayBlurEnabled']
+            ? number_format(1 + ($narrowConfig['overlayBlurStrength'] / 1000), 3, '.', '')
+            : '1';
+        $narrowBackgroundParallaxScale = $narrowConfig['overlayBlurEnabled']
+            ? number_format(1.08 + ($narrowConfig['overlayBlurStrength'] / 1000), 3, '.', '')
+            : '1.08';
         
         // Title für <title>-Tag (pageTitle hat Priorität, dann title, dann Fallback)
         $pageTitleRaw = $site['pageTitle'] ?? '';
@@ -843,6 +863,9 @@ HTML;
             --narrow-image-repeat: {$narrowImageRepeat};
             --narrow-image-size: {$narrowImageSize};
             --narrow-image-attachment: {$narrowImageAttachment};
+            --narrow-background-blur: {$narrowBlurAmount}px;
+            --narrow-background-scale: {$narrowBackgroundScale};
+            --narrow-background-parallax-scale: {$narrowBackgroundParallaxScale};
             --narrow-overlay-color: {$narrowConfig['overlayColor']};
             --narrow-overlay-opacity: {$narrowConfig['overlayOpacity']};
             --narrow-overlay-display: {$narrowOverlayDisplay};

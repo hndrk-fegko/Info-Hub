@@ -309,10 +309,23 @@ window.V2EditModal = (function() {
             return;
         }
 
+        _setupSectionOverlayPanels(modal);
+
         const toggleField = (fieldName, visible) => {
             const field = modal.querySelector(`.v2-field[data-field-name="${fieldName}"]`);
             if (field) {
-                field.classList.toggle('v2-field-hidden', !visible);
+                const target = (fieldName === 'overlayColorEnabled' || fieldName === 'overlayBlurEnabled')
+                    ? field.closest('.v2-toggle-panel') || field
+                    : field;
+                target.classList.toggle('v2-field-hidden', !visible);
+            }
+        };
+
+        const togglePanelState = (fieldName, active) => {
+            const field = modal.querySelector(`.v2-field[data-field-name="${fieldName}"]`);
+            const panel = field?.closest('.v2-toggle-panel');
+            if (panel) {
+                panel.classList.toggle('v2-toggle-panel--active', !!active);
             }
         };
 
@@ -335,6 +348,8 @@ window.V2EditModal = (function() {
             });
 
             toggleField('overlayBlurStrength', showOverlayBlur);
+            togglePanelState('overlayColorEnabled', showOverlayColor);
+            togglePanelState('overlayBlurEnabled', showOverlayBlur);
         };
 
         backgroundModeField.addEventListener('change', syncVisibility);
@@ -344,9 +359,56 @@ window.V2EditModal = (function() {
         syncVisibility();
     }
 
+    function _setupSectionOverlayPanels(modal) {
+        const overlayEnabledField = modal.querySelector('.v2-field[data-field-name="overlayEnabled"]');
+        const advancedFieldset = overlayEnabledField?.closest('.v2-modal-fieldset');
+        if (!advancedFieldset) {
+            return;
+        }
+
+        [
+            {
+                toggleFieldName: 'overlayColorEnabled',
+                bodyFieldNames: ['overlayColor', 'overlayOpacity'],
+                modifier: 'color'
+            },
+            {
+                toggleFieldName: 'overlayBlurEnabled',
+                bodyFieldNames: ['overlayBlurStrength'],
+                modifier: 'blur'
+            }
+        ].forEach(({ toggleFieldName, bodyFieldNames, modifier }) => {
+            const toggleField = modal.querySelector(`.v2-field[data-field-name="${toggleFieldName}"]`);
+            if (!toggleField || toggleField.closest('.v2-toggle-panel')) {
+                return;
+            }
+
+            const panel = document.createElement('div');
+            panel.className = `v2-toggle-panel v2-toggle-panel--${modifier}`;
+
+            const toggleWrapper = document.createElement('div');
+            toggleWrapper.className = 'v2-toggle-panel__toggle';
+
+            const bodyWrapper = document.createElement('div');
+            bodyWrapper.className = 'v2-toggle-panel__body';
+
+            advancedFieldset.insertBefore(panel, toggleField);
+            panel.appendChild(toggleWrapper);
+            toggleWrapper.appendChild(toggleField);
+            panel.appendChild(bodyWrapper);
+
+            bodyFieldNames.forEach((fieldName) => {
+                const field = modal.querySelector(`.v2-field[data-field-name="${fieldName}"]`);
+                if (field) {
+                    bodyWrapper.appendChild(field);
+                }
+            });
+        });
+    }
+
     function _buildInput(fieldName, meta, value) {
         const input = document.createElement('input');
-        input.className = 'v2-field-input';
+        input.className = meta.type === 'color' ? 'v2-field-input v2-color-input' : 'v2-field-input';
         input.id = 'field-' + fieldName;
         input.name = fieldName;
 

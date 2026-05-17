@@ -358,6 +358,12 @@ try {
                 if (isset($newSettings['theme']['narrowBackgroundOverlayEnabled'])) {
                     $settings['theme']['narrowBackgroundOverlayEnabled'] = (bool) $newSettings['theme']['narrowBackgroundOverlayEnabled'];
                 }
+                if (isset($newSettings['theme']['narrowBackgroundOverlayColorEnabled'])) {
+                    $settings['theme']['narrowBackgroundOverlayColorEnabled'] = (bool) $newSettings['theme']['narrowBackgroundOverlayColorEnabled'];
+                }
+                if (isset($newSettings['theme']['narrowBackgroundOverlayBlurEnabled'])) {
+                    $settings['theme']['narrowBackgroundOverlayBlurEnabled'] = (bool) $newSettings['theme']['narrowBackgroundOverlayBlurEnabled'];
+                }
                 if (isset($newSettings['theme']['narrowContentShadow'])) {
                     $settings['theme']['narrowContentShadow'] = (bool) $newSettings['theme']['narrowContentShadow'];
                 }
@@ -379,6 +385,12 @@ try {
                     $opacity = (int) $newSettings['theme']['narrowBackgroundOverlayOpacity'];
                     if ($opacity >= 0 && $opacity <= 100) {
                         $settings['theme']['narrowBackgroundOverlayOpacity'] = $opacity;
+                    }
+                }
+                if (isset($newSettings['theme']['narrowBackgroundOverlayBlurStrength'])) {
+                    $blurStrength = (int) $newSettings['theme']['narrowBackgroundOverlayBlurStrength'];
+                    if ($blurStrength >= 0 && $blurStrength <= 100) {
+                        $settings['theme']['narrowBackgroundOverlayBlurStrength'] = $blurStrength;
                     }
                 }
 

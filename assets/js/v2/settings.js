@@ -67,7 +67,10 @@ window.V2Settings = (function() {
         const narrowLayout = theme.narrowLayout ? 'checked' : '';
         const narrowMode = normalizeOption(theme.narrowBackgroundMode, ['solid', 'gradient', 'image'], 'solid');
         const narrowBackgroundImage = theme.narrowBackgroundImage || '';
-        const overlayEnabled = theme.narrowBackgroundOverlayEnabled ? 'checked' : '';
+        const narrowOverlay = getNarrowOverlayState(theme);
+        const overlayEnabled = narrowOverlay.enabled ? 'checked' : '';
+        const overlayColorEnabled = narrowOverlay.colorEnabled ? 'checked' : '';
+        const overlayBlurEnabled = narrowOverlay.blurEnabled ? 'checked' : '';
         const contentShadow = theme.narrowContentShadow === false ? '' : 'checked';
         
         const focusOptions = [
@@ -97,7 +100,8 @@ window.V2Settings = (function() {
         const imageDisplay = normalizeOption(theme.narrowBackgroundImageDisplay, ['cover', 'tile'], 'cover');
         const imageMotion = normalizeOption(theme.narrowBackgroundImageMotion, ['fixed', 'parallax'], 'fixed');
         const gradientAngle = clampNumber(theme.narrowGradientAngle, 0, 360, 180);
-        const overlayOpacity = clampNumber(theme.narrowBackgroundOverlayOpacity, 0, 100, 35);
+        const overlayOpacity = narrowOverlay.opacity;
+        const overlayBlurStrength = narrowOverlay.blurStrength;
         
         return `
         <div class="v2-modal" style="max-width: 640px;">
@@ -246,61 +250,113 @@ window.V2Settings = (function() {
                     </div>
 
                     <div class="v2-settings-stack" id="v2NarrowImageFields" style="${narrowMode === 'image' ? '' : 'display:none'}">
-                        <div class="v2-field">
-                            <div class="v2-settings-media-preview" id="v2SetBackgroundPreview">
-                                ${buildSettingsImagePreview(narrowBackgroundImage, 'Hintergrundbild', 160, 'Kein Hintergrundbild')}
+                        <div class="v2-settings-subsection">
+                            <div class="v2-settings-subsection__header">
+                                <strong>Bild</strong>
+                                <span>Diese Optionen gelten nur für den Bildmodus des schmalen Hintergrunds.</span>
                             </div>
-                            <input type="hidden" id="v2SetBackgroundPath" value="${escAttr(narrowBackgroundImage)}">
-                            <div class="v2-upload-controls" style="margin-top:8px">
-                                <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" id="v2SetBackgroundSelectBtn">Auswählen</button>
-                                <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" id="v2SetBackgroundRemoveBtn" style="${narrowBackgroundImage ? '' : 'display:none'}">Entfernen</button>
-                            </div>
-                        </div>
 
-                        <div class="v2-settings-grid">
                             <div class="v2-field">
-                                <label class="v2-label">Darstellung</label>
-                                <select class="v2-input" id="v2SetNarrowImageDisplay">
-                                    <option value="cover" ${imageDisplay === 'cover' ? 'selected' : ''}>Füllend</option>
-                                    <option value="tile" ${imageDisplay === 'tile' ? 'selected' : ''}>Kacheln</option>
-                                </select>
+                                <div class="v2-settings-media-preview" id="v2SetBackgroundPreview">
+                                    ${buildSettingsImagePreview(narrowBackgroundImage, 'Hintergrundbild', 160, 'Kein Hintergrundbild')}
+                                </div>
+                                <input type="hidden" id="v2SetBackgroundPath" value="${escAttr(narrowBackgroundImage)}">
+                                <div class="v2-upload-controls" style="margin-top:8px">
+                                    <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" id="v2SetBackgroundSelectBtn">Auswählen</button>
+                                    <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" id="v2SetBackgroundRemoveBtn" style="${narrowBackgroundImage ? '' : 'display:none'}">Entfernen</button>
+                                </div>
                             </div>
-                            <div class="v2-field">
-                                <label class="v2-label">Bewegung</label>
-                                <select class="v2-input" id="v2SetNarrowImageMotion">
-                                    <option value="fixed" ${imageMotion === 'fixed' ? 'selected' : ''}>Fixiert</option>
-                                    <option value="parallax" ${imageMotion === 'parallax' ? 'selected' : ''}>Parallax</option>
-                                </select>
-                            </div>
-                        </div>
 
-                        <div class="v2-field">
-                            <label class="v2-checkbox-label">
-                                <input type="checkbox" id="v2SetNarrowOverlayEnabled" ${overlayEnabled}>
-                                Overlay einschalten (statt Blur)
-                            </label>
-                            <small class="v2-hint">Dunkelt das Bild für bessere Lesbarkeit leicht ab.</small>
-                        </div>
-
-                        <div class="v2-settings-grid" id="v2NarrowOverlayFields" style="${theme.narrowBackgroundOverlayEnabled ? '' : 'display:none'}">
-                            <div class="v2-field">
-                                <label class="v2-label">Overlay-Farbe</label>
-                                <input type="color" class="v2-color-input" id="v2SetNarrowOverlayColor"
-                                       value="${sanitizeHexColor(theme.narrowBackgroundOverlayColor, '#000000')}">
+                            <div class="v2-settings-grid">
+                                <div class="v2-field">
+                                    <label class="v2-label">Bilddarstellung</label>
+                                    <select class="v2-input" id="v2SetNarrowImageDisplay">
+                                        <option value="cover" ${imageDisplay === 'cover' ? 'selected' : ''}>Cover</option>
+                                        <option value="tile" ${imageDisplay === 'tile' ? 'selected' : ''}>Gekachelt</option>
+                                    </select>
+                                </div>
+                                <div class="v2-field">
+                                    <label class="v2-label">Bildbewegung</label>
+                                    <select class="v2-input" id="v2SetNarrowImageMotion">
+                                        <option value="fixed" ${imageMotion === 'fixed' ? 'selected' : ''}>Fixiert</option>
+                                        <option value="parallax" ${imageMotion === 'parallax' ? 'selected' : ''}>Parallax</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="v2-field">
-                                <label class="v2-label">Deckkraft: <span id="v2NarrowOverlayOpacityValue">${overlayOpacity}</span>%</label>
-                                <input type="range" class="v2-range-input" id="v2SetNarrowOverlayOpacity"
-                                       min="0" max="100" step="5" value="${overlayOpacity}">
+
+                            <div class="v2-settings-subsection v2-settings-subsection--nested" id="v2NarrowOverlayGroup">
+                                <div class="v2-settings-subsection__header">
+                                    <strong>Overlay</strong>
+                                    <span>Gleiche Mechanik wie beim Abschnittshintergrund: Farbe und Blur lassen sich getrennt aktivieren.</span>
+                                </div>
+
+                                <div class="v2-field">
+                                    <label class="v2-checkbox-label">
+                                        <input type="checkbox" id="v2SetNarrowOverlayEnabled" ${overlayEnabled}>
+                                        Overlay aktivieren
+                                    </label>
+                                </div>
+
+                                <div class="v2-toggle-panel ${narrowOverlay.colorEnabled ? 'v2-toggle-panel--active' : ''}" id="v2NarrowColorPanel" style="${narrowOverlay.enabled ? '' : 'display:none'}">
+                                    <div class="v2-toggle-panel__toggle">
+                                        <div class="v2-field">
+                                            <label class="v2-checkbox-label">
+                                                <input type="checkbox" id="v2SetNarrowOverlayColorEnabled" ${overlayColorEnabled}>
+                                                Farbe
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="v2-toggle-panel__body">
+                                        <div class="v2-settings-grid">
+                                            <div class="v2-field">
+                                                <label class="v2-label">Overlay-Farbe</label>
+                                                <input type="color" class="v2-color-input" id="v2SetNarrowOverlayColor"
+                                                       value="${sanitizeHexColor(theme.narrowBackgroundOverlayColor, '#000000')}">
+                                            </div>
+                                            <div class="v2-field">
+                                                <label class="v2-label">Overlay-Deckkraft: <span id="v2NarrowOverlayOpacityValue">${overlayOpacity}</span>%</label>
+                                                <input type="range" class="v2-range-input" id="v2SetNarrowOverlayOpacity"
+                                                       min="0" max="100" step="1" value="${overlayOpacity}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="v2-toggle-panel ${narrowOverlay.blurEnabled ? 'v2-toggle-panel--active' : ''}" id="v2NarrowBlurPanel" style="${narrowOverlay.enabled ? '' : 'display:none'}">
+                                    <div class="v2-toggle-panel__toggle">
+                                        <div class="v2-field">
+                                            <label class="v2-checkbox-label">
+                                                <input type="checkbox" id="v2SetNarrowOverlayBlurEnabled" ${overlayBlurEnabled}>
+                                                Blur
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="v2-toggle-panel__body">
+                                        <div class="v2-field">
+                                            <label class="v2-label">Blur-Stärke: <span id="v2NarrowOverlayBlurStrengthValue">${overlayBlurStrength}</span>%</label>
+                                            <input type="range" class="v2-range-input" id="v2SetNarrowOverlayBlurStrength"
+                                                   min="0" max="100" step="1" value="${overlayBlurStrength}">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="v2-field">
-                        <label class="v2-checkbox-label">
-                            <input type="checkbox" id="v2SetNarrowShadow" ${contentShadow}>
-                            Schatten für Inhaltsbereich
-                        </label>
+                    <div class="v2-settings-subsection" id="v2NarrowGeneralFields" style="${narrowLayout ? '' : 'display:none'}">
+                        <div class="v2-settings-subsection__header">
+                            <strong>Allgemein</strong>
+                            <span>Diese Optionen gelten für den schmalen Modus unabhängig vom gewählten Hintergrund.</span>
+                        </div>
+
+                        <div class="v2-field">
+                            <label class="v2-checkbox-label">
+                                <input type="checkbox" id="v2SetNarrowShadow" ${contentShadow}>
+                                Schatten für Inhaltsbereich
+                            </label>
+                        </div>
                     </div>
                 </fieldset>
                 </div>
@@ -361,6 +417,23 @@ window.V2Settings = (function() {
 
         return `<img src="${escAttr(path)}" alt="${escAttr(alt)}" style="${imageStyle.join(';')}">`;
     }
+
+    function getNarrowOverlayState(theme) {
+        const overlayEnabled = !!theme.narrowBackgroundOverlayEnabled;
+        const overlayColorEnabled = overlayEnabled
+            && (!Object.prototype.hasOwnProperty.call(theme, 'narrowBackgroundOverlayColorEnabled')
+                || !!theme.narrowBackgroundOverlayColorEnabled);
+        const overlayBlurEnabled = overlayEnabled && !!theme.narrowBackgroundOverlayBlurEnabled;
+
+        return {
+            enabled: overlayEnabled,
+            colorEnabled: overlayColorEnabled,
+            blurEnabled: overlayBlurEnabled,
+            color: sanitizeHexColor(theme.narrowBackgroundOverlayColor, '#000000'),
+            opacity: clampNumber(theme.narrowBackgroundOverlayOpacity, 0, 100, 35),
+            blurStrength: clampNumber(theme.narrowBackgroundOverlayBlurStrength, 0, 100, 24)
+        };
+    }
     
     function wireEvents(settings) {
         document.getElementById('v2SetHeaderSelectBtn')?.addEventListener('click', selectHeader);
@@ -371,14 +444,14 @@ window.V2Settings = (function() {
             updateHeaderPreview(document.getElementById('v2SetHeaderPath')?.value || '');
         });
 
-        ['v2SetNarrowLayout', 'v2SetNarrowMode', 'v2SetNarrowOverlayEnabled'].forEach((id) => {
+        ['v2SetNarrowLayout', 'v2SetNarrowMode', 'v2SetNarrowOverlayEnabled', 'v2SetNarrowOverlayColorEnabled', 'v2SetNarrowOverlayBlurEnabled'].forEach((id) => {
             const element = document.getElementById(id);
             if (element) {
                 element.addEventListener('change', refreshNarrowSettingsUI);
             }
         });
 
-        ['v2SetNarrowWidth', 'v2SetNarrowGradientAngle', 'v2SetNarrowOverlayOpacity'].forEach((id) => {
+        ['v2SetNarrowWidth', 'v2SetNarrowGradientAngle', 'v2SetNarrowOverlayOpacity', 'v2SetNarrowOverlayBlurStrength'].forEach((id) => {
             const element = document.getElementById(id);
             if (element) {
                 element.addEventListener('input', syncNarrowRangeLabels);
@@ -506,8 +579,11 @@ window.V2Settings = (function() {
                 narrowBackgroundImageDisplay: document.getElementById('v2SetNarrowImageDisplay').value,
                 narrowBackgroundImageMotion: document.getElementById('v2SetNarrowImageMotion').value,
                 narrowBackgroundOverlayEnabled: document.getElementById('v2SetNarrowOverlayEnabled').checked,
+                narrowBackgroundOverlayColorEnabled: document.getElementById('v2SetNarrowOverlayColorEnabled').checked,
                 narrowBackgroundOverlayColor: document.getElementById('v2SetNarrowOverlayColor').value,
                 narrowBackgroundOverlayOpacity: parseInt(document.getElementById('v2SetNarrowOverlayOpacity').value, 10) || 0,
+                narrowBackgroundOverlayBlurEnabled: document.getElementById('v2SetNarrowOverlayBlurEnabled').checked,
+                narrowBackgroundOverlayBlurStrength: parseInt(document.getElementById('v2SetNarrowOverlayBlurStrength').value, 10) || 0,
                 narrowContentShadow: document.getElementById('v2SetNarrowShadow').checked
             },
             system: {
@@ -571,13 +647,27 @@ window.V2Settings = (function() {
         const narrowEnabled = !!document.getElementById('v2SetNarrowLayout')?.checked;
         const mode = document.getElementById('v2SetNarrowMode')?.value || 'solid';
         const overlayEnabled = !!document.getElementById('v2SetNarrowOverlayEnabled')?.checked;
+        const overlayColorEnabled = !!document.getElementById('v2SetNarrowOverlayColorEnabled')?.checked;
+        const overlayBlurEnabled = !!document.getElementById('v2SetNarrowOverlayBlurEnabled')?.checked;
 
         toggleDisplay('v2NarrowWidthField', narrowEnabled);
         toggleDisplay('v2NarrowBackgroundFieldset', narrowEnabled);
         toggleDisplay('v2NarrowSolidFields', narrowEnabled && mode === 'solid');
         toggleDisplay('v2NarrowGradientFields', narrowEnabled && mode === 'gradient');
         toggleDisplay('v2NarrowImageFields', narrowEnabled && mode === 'image');
-        toggleDisplay('v2NarrowOverlayFields', narrowEnabled && mode === 'image' && overlayEnabled);
+        toggleDisplay('v2NarrowGeneralFields', narrowEnabled);
+        toggleDisplay('v2NarrowOverlayGroup', narrowEnabled && mode === 'image');
+        toggleDisplay('v2NarrowColorPanel', narrowEnabled && mode === 'image' && overlayEnabled);
+        toggleDisplay('v2NarrowBlurPanel', narrowEnabled && mode === 'image' && overlayEnabled);
+        togglePanelState('v2NarrowColorPanel', narrowEnabled && mode === 'image' && overlayEnabled && overlayColorEnabled);
+        togglePanelState('v2NarrowBlurPanel', narrowEnabled && mode === 'image' && overlayEnabled && overlayBlurEnabled);
+    }
+
+    function togglePanelState(id, active) {
+        const panel = document.getElementById(id);
+        if (panel) {
+            panel.classList.toggle('v2-toggle-panel--active', !!active);
+        }
     }
 
     function syncNarrowRangeLabels() {
@@ -598,6 +688,12 @@ window.V2Settings = (function() {
         if (opacityValue && opacityRange) {
             opacityValue.textContent = opacityRange.value;
         }
+
+        const blurValue = document.getElementById('v2NarrowOverlayBlurStrengthValue');
+        const blurRange = document.getElementById('v2SetNarrowOverlayBlurStrength');
+        if (blurValue && blurRange) {
+            blurValue.textContent = blurRange.value;
+        }
     }
 
     function toggleDisplay(id, visible) {
@@ -617,11 +713,13 @@ window.V2Settings = (function() {
         const imagePath = typeof theme.narrowBackgroundImage === 'string' ? theme.narrowBackgroundImage : '';
         const imageDisplay = normalizeOption(theme.narrowBackgroundImageDisplay, ['cover', 'tile'], 'cover');
         const imageMotion = normalizeOption(theme.narrowBackgroundImageMotion, ['fixed', 'parallax'], 'fixed');
-        const overlayEnabled = !!theme.narrowBackgroundOverlayEnabled;
-        const overlayOpacity = clampNumber(theme.narrowBackgroundOverlayOpacity, 0, 100, 35) / 100;
+        const overlay = getNarrowOverlayState(theme);
         const width = clampNumber(theme.narrowWidth, 600, 1400, 960);
         const hasImage = mode === 'image' && imagePath;
         const contentShadow = theme.narrowContentShadow === false ? 'none' : '0 0 60px rgba(0,0,0,0.4)';
+        const blurPx = overlay.blurEnabled ? ((overlay.blurStrength / 100) * 24) : 0;
+        const baseScale = overlay.blurEnabled ? (1 + (overlay.blurStrength / 1000)) : 1;
+        const parallaxScale = overlay.blurEnabled ? (1.08 + (overlay.blurStrength / 1000)) : 1.08;
 
         wrapper.classList.toggle('v2-canvas-wrapper--narrow', narrowLayout);
         wrapper.classList.toggle('v2-canvas-wrapper--parallax', narrowLayout && hasImage && imageMotion === 'parallax');
@@ -630,9 +728,12 @@ window.V2Settings = (function() {
         wrapper.style.setProperty('--v2-narrow-background-repeat', imageDisplay === 'tile' ? 'repeat' : 'no-repeat');
         wrapper.style.setProperty('--v2-narrow-background-size', imageDisplay === 'tile' ? 'auto' : 'cover');
         wrapper.style.setProperty('--v2-narrow-background-attachment', imageMotion === 'fixed' ? 'fixed' : 'scroll');
-        wrapper.style.setProperty('--v2-narrow-overlay-display', narrowLayout && hasImage && overlayEnabled ? 'block' : 'none');
-        wrapper.style.setProperty('--v2-narrow-overlay-color', sanitizeHexColor(theme.narrowBackgroundOverlayColor, '#000000'));
-        wrapper.style.setProperty('--v2-narrow-overlay-opacity', String(narrowLayout && hasImage && overlayEnabled ? overlayOpacity : 0));
+        wrapper.style.setProperty('--v2-narrow-background-blur', `${narrowLayout && hasImage ? blurPx : 0}px`);
+        wrapper.style.setProperty('--v2-narrow-background-scale', String(narrowLayout && hasImage ? baseScale : 1));
+        wrapper.style.setProperty('--v2-narrow-background-parallax-scale', String(narrowLayout && hasImage ? parallaxScale : 1.08));
+        wrapper.style.setProperty('--v2-narrow-overlay-display', narrowLayout && hasImage && overlay.colorEnabled ? 'block' : 'none');
+        wrapper.style.setProperty('--v2-narrow-overlay-color', overlay.color);
+        wrapper.style.setProperty('--v2-narrow-overlay-opacity', String(narrowLayout && hasImage && overlay.colorEnabled ? (overlay.opacity / 100) : 0));
         canvas.style.boxShadow = narrowLayout ? contentShadow : '';
 
         syncParallaxOffset();
