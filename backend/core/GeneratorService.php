@@ -28,7 +28,7 @@ class GeneratorService {
      * 
      * @return array ['success' => bool, 'message' => string]
      */
-    public function generate(): array {
+    public function generate(bool $createLegacyBackup = true): array {
         global $TILE_TYPES;
         
         LogService::info('GeneratorService', 'Starting HTML generation');
@@ -45,7 +45,7 @@ class GeneratorService {
             $html = $this->renderPage($settings, $tilesHtml);
             
             // 4. Backup der alten Datei
-            if (file_exists($this->outputPath)) {
+            if ($createLegacyBackup && file_exists($this->outputPath)) {
                 $backupPath = __DIR__ . '/../archive/index_' . date('Y-m-d_H-i-s') . '.html';
                 copy($this->outputPath, $backupPath);
             }

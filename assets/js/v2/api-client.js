@@ -218,6 +218,10 @@ window.V2Api = (function() {
     async function publish() {
         return await post('generate');
     }
+
+    async function quickRestoreLastPublish() {
+        return await post('quick_restore_last_publish');
+    }
     
     async function preview() {
         // Preview gibt HTML zurück, kein JSON
@@ -244,7 +248,7 @@ window.V2Api = (function() {
         saveTile, deleteTile, updatePositions,
         getSettings, saveSettings,
         uploadImage, uploadDownload, uploadHeader, uploadBackground, listFiles,
-        publish, preview,
+        publish, preview, quickRestoreLastPublish,
         extendSession
     };
 })();

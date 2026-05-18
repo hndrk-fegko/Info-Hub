@@ -53,6 +53,7 @@ try {
     require_once __DIR__ . '/../core/GeneratorService.php';
     require_once __DIR__ . '/../core/StorageService.php';
     require_once __DIR__ . '/../core/ConfigService.php';
+    require_once __DIR__ . '/../core/BackupService.php';
 
     $isValidHexColor = static function($value): bool {
         return is_string($value) && preg_match('/^#[0-9a-fA-F]{6}$/', $value) === 1;
@@ -75,7 +76,7 @@ try {
     $auth = new AuthService();
     $configService = new ConfigService(__DIR__ . '/../config.php');
     $publicActions = [];  // Alle Actions erfordern Authentifizierung
-    $getActions = ['get_tiles', 'get_tile', 'get_settings', 'get_tile_types', 'list_files', 'preview', 'render_all_tiles_html', 'render_canvas_layout', 'get_canvas_css', 'get_canvas_js'];  // GET erlaubt
+    $getActions = ['get_tiles', 'get_tile', 'get_settings', 'get_tile_types', 'list_files', 'preview', 'render_all_tiles_html', 'render_canvas_layout', 'get_canvas_css', 'get_canvas_js', 'list_backups', 'view_backup_html', 'view_backup_asset', 'export_backup'];  // GET erlaubt
     
     // Action ermitteln
     $action = $_POST['action'] ?? $_GET['action'] ?? '';
@@ -605,17 +606,153 @@ try {
             $files = $uploadService->listFiles($type);
             echo json_encode(['success' => true, 'files' => $files]);
             break;
+
+        case 'list_backups':
+            $backupService = new BackupService();
+            echo json_encode(['success' => true, 'backups' => $backupService->listBackups()]);
+            break;
+
+        case 'view_backup_html':
+            $id = $_GET['id'] ?? '';
+            if ($id === '') {
+                throw new InvalidArgumentException('Backup-ID erforderlich');
+            }
+
+            $backupService = new BackupService();
+            header_remove('Content-Type');
+            header('Content-Type: text/html; charset=utf-8');
+            echo $backupService->getPreviewHtml($id);
+            break;
+
+        case 'view_backup_asset':
+            $id = $_GET['id'] ?? '';
+            $path = $_GET['path'] ?? '';
+            if ($id === '' || $path === '') {
+                throw new InvalidArgumentException('Backup-ID und Asset-Pfad erforderlich');
+            }
+
+            $backupService = new BackupService();
+            $assetPath = $backupService->resolvePreviewAsset($id, $path);
+            if ($assetPath === null || !file_exists($assetPath)) {
+                http_response_code(404);
+                header_remove('Content-Type');
+                header('Content-Type: text/plain; charset=utf-8');
+                echo 'Asset nicht gefunden';
+                break;
+            }
+
+            header_remove('Content-Type');
+            header('Content-Type: ' . (mime_content_type($assetPath) ?: 'application/octet-stream'));
+            header('Content-Length: ' . filesize($assetPath));
+            readfile($assetPath);
+            break;
+
+        case 'export_backup':
+            $id = $_GET['id'] ?? '';
+            if ($id === '') {
+                throw new InvalidArgumentException('Backup-ID erforderlich');
+            }
+
+            $backupService = new BackupService();
+            $export = $backupService->createExportArchive($id);
+            if ($export === false || !file_exists($export['path'])) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Export fehlgeschlagen']);
+                break;
+            }
+
+            header_remove('Content-Type');
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="' . basename($export['downloadName']) . '"');
+            header('Content-Length: ' . filesize($export['path']));
+            readfile($export['path']);
+            @unlink($export['path']);
+            break;
+
+        case 'restore_backup':
+            $id = $_POST['id'] ?? '';
+            $mode = $_POST['mode'] ?? 'all';
+            if ($id === '') {
+                throw new InvalidArgumentException('Backup-ID erforderlich');
+            }
+
+            $backupService = new BackupService();
+            $result = $backupService->restoreBackup($id, $mode);
+            if (!$result['success']) {
+                http_response_code(400);
+            } else {
+                unset($_SESSION['quick_restore_last_publish']);
+            }
+            echo json_encode($result);
+            break;
+
+        case 'quick_restore_last_publish':
+            $quickRestore = $_SESSION['quick_restore_last_publish'] ?? null;
+            $backupId = is_array($quickRestore) ? (string)($quickRestore['backupId'] ?? '') : '';
+            if ($backupId === '') {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Kein Quick-Restore für diese Session verfügbar']);
+                break;
+            }
+
+            $backupService = new BackupService();
+            $result = $backupService->restoreBackup($backupId, 'site');
+            if (!$result['success']) {
+                http_response_code(400);
+            } else {
+                unset($_SESSION['quick_restore_last_publish']);
+                $result['quickRestoreAvailable'] = false;
+            }
+            echo json_encode($result);
+            break;
+
+        case 'delete_backup':
+            $id = $_POST['id'] ?? '';
+            if ($id === '') {
+                throw new InvalidArgumentException('Backup-ID erforderlich');
+            }
+
+            $backupService = new BackupService();
+            $result = $backupService->deleteBackup($id);
+            if (!$result['success']) {
+                http_response_code(400);
+            } else {
+                $quickRestore = $_SESSION['quick_restore_last_publish'] ?? null;
+                $quickRestoreId = is_array($quickRestore) ? (string)($quickRestore['backupId'] ?? '') : '';
+                if ($quickRestoreId !== '' && $quickRestoreId === $id) {
+                    unset($_SESSION['quick_restore_last_publish']);
+                }
+            }
+            echo json_encode($result);
+            break;
         
         // ===== GENERATOR =====
         
         case 'generate':
             $generator = new GeneratorService();
-            
-            // Backup vor Generierung
-            $tileService = new TileService();
-            $tileService->backup();
-            
-            $result = $generator->generate();
+
+            $backupService = new BackupService();
+            $snapshot = $backupService->createSnapshot('publish');
+            if ($snapshot === false) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Aktueller Stand konnte vor der Veröffentlichung nicht gesichert werden']);
+                break;
+            }
+
+            $result = $generator->generate(false);
+            if ($result['success']) {
+                $result['backupId'] = $snapshot['id'] ?? null;
+                $_SESSION['quick_restore_last_publish'] = [
+                    'backupId' => $snapshot['id'] ?? null,
+                    'publishedTs' => time()
+                ];
+                $result['backupCount'] = count($backupService->listBackups());
+                $result['quickRestore'] = [
+                    'available' => true,
+                    'publishedLabel' => date('d.m.Y H:i'),
+                    'targetLabel' => date('d.m.Y H:i', (int)($snapshot['createdTs'] ?? time()))
+                ];
+            }
             
             if (!$result['success']) {
                 http_response_code(500);

@@ -5,7 +5,7 @@
  * Flow:
  * 1. Email eingeben → Code wird versendet
  * 2. Code eingeben → Session aktiviert
- * 3. Redirect zu editor.php
+ * 3. Redirect zu v2/editor.php
  */
 
 // Zentrale Konfiguration laden
@@ -32,7 +32,7 @@ if (isset($_GET['logout'])) {
 
 // Bereits eingeloggt?
 if ($auth->isAuthenticated()) {
-    header('Location: editor.php');
+    header('Location: v2/editor.php');
     exit;
 }
 
@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $result = $auth->verifyCode($code);
             if ($result['success']) {
-                header('Location: editor.php');
+                header('Location: v2/editor.php');
                 exit;
             } else {
                 $error = $result['message'];

@@ -84,18 +84,23 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
         <header class="editor-header">
             <div class="header-top">
                 <div class="header-left">
-                    <h1>📝 Editor</h1>
-                    <span class="site-name"><?= htmlspecialchars($settings['site']['title'] ?? 'Info-Hub') ?></span>
-                    <?php if ($indexExists): ?>
-                        <a href="../index.html" target="_blank" class="published-link" title="Veröffentlichte Seite öffnen">
-                            🌐 Seite anzeigen
-                        </a>
-                        <span class="last-generated">
-                            Zuletzt: <?= date('d.m. H:i', $lastGenerated) ?>
-                        </span>
-                    <?php else: ?>
-                        <span class="not-published">⚠️ Noch nicht veröffentlicht</span>
-                    <?php endif; ?>
+                    <div class="header-title-group">
+                        <h1>📝 Editor</h1>
+                        <span class="site-name"><?= htmlspecialchars($settings['site']['title'] ?? 'Info-Hub') ?></span>
+                    </div>
+                    <div class="header-meta">
+                        <?php if ($indexExists): ?>
+                            <a href="../index.html" target="_blank" class="published-link" title="Veröffentlichte Seite öffnen">
+                                <span class="published-link-icon">🌐</span>
+                                <span class="published-link-label">Seite anzeigen</span>
+                            </a>
+                            <span class="last-generated">
+                                Zuletzt: <?= date('d.m. H:i', $lastGenerated) ?>
+                            </span>
+                        <?php else: ?>
+                            <span class="not-published">⚠️ Noch nicht veröffentlicht</span>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 <div class="header-actions">
                     <?= SecurityHelper::renderSecurityBadge() ?>
@@ -103,16 +108,19 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                         🕐 <span id="sessionTimeDisplay">--</span>
                     </div>
                     <a href="v2/editor.php" class="btn btn-secondary" title="Zum WYSIWYG Editor">
-                        ✏️ WYSIWYG
+                        <span class="btn-glyph">✏️</span>
+                        <span class="btn-label">WYSIWYG</span>
                     </a>
                     <button type="button" class="btn btn-icon" onclick="openSettingsModal()" title="Einstellungen (S)">
                         ⚙️
                     </button>
                     <button type="button" class="btn btn-secondary" onclick="openPreview()" title="Vorschau öffnen (P)">
-                        👁️ Vorschau
+                        <span class="btn-glyph">👁️</span>
+                        <span class="btn-label">Vorschau</span>
                     </button>
                     <button type="button" class="btn btn-primary" id="publishBtn" onclick="publishSite()" title="Seite veröffentlichen (V)">
-                        🚀 Veröffentlichen
+                        <span class="btn-glyph">🚀</span>
+                        <span class="btn-label">Veröffentlichen</span>
                     </button>
                     <button type="button" class="btn btn-icon" onclick="logout()" title="Abmelden">
                         🚪

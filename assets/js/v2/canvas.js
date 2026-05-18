@@ -614,10 +614,29 @@ window.V2Canvas = (function() {
 
 window.V2 = (function() {
     'use strict';
+
+    function closePageMenus() {
+        document.querySelectorAll('.v2-page-menu__dropdown[open]').forEach((menu) => {
+            menu.removeAttribute('open');
+        });
+    }
+
+    function initPageMenuInteractions() {
+        document.addEventListener('click', (event) => {
+            document.querySelectorAll('.v2-page-menu__dropdown[open]').forEach((menu) => {
+                if (!menu.contains(event.target)) {
+                    menu.removeAttribute('open');
+                }
+            });
+        });
+    }
     
     // === Init ===
     
     function init() {
+        cleanupLegacyPublishedHeader();
+        initPageMenuInteractions();
+
         // State initialisieren mit Server-Daten
         V2State.init({
             tiles: V2_CONFIG.tiles,
@@ -942,34 +961,37 @@ window.V2 = (function() {
                 const tileCount = V2State.getTiles().length;
                 toast(`Seite veröffentlicht! 🚀 (${tileCount} Kachel${tileCount !== 1 ? 'n' : ''})`, 'success');
                 V2State.setDirty(false);
-                
-                // Update "Zuletzt" timestamp
-                const lastGen = document.querySelector('.v2-last-generated');
-                if (lastGen) {
-                    const now = new Date();
-                    const dd = String(now.getDate()).padStart(2, '0');
-                    const mm = String(now.getMonth() + 1).padStart(2, '0');
-                    const hh = String(now.getHours()).padStart(2, '0');
-                    const mi = String(now.getMinutes()).padStart(2, '0');
-                    lastGen.textContent = `Zuletzt: ${dd}.${mm}. ${hh}:${mi}`;
-                } else {
-                    // First publish — show link + timestamp
-                    const toolbarLeft = document.querySelector('.v2-toolbar-left');
-                    if (toolbarLeft) {
-                        const link = document.createElement('a');
-                        link.href = '../../index.html';
-                        link.target = '_blank';
-                        link.className = 'v2-published-link';
-                        link.title = 'Veröffentlichte Seite anzeigen';
-                        link.textContent = '🌐 Seite';
-                        toolbarLeft.appendChild(link);
-                        
-                        const span = document.createElement('span');
-                        span.className = 'v2-last-generated';
-                        const now = new Date();
-                        span.textContent = `Zuletzt: ${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}. ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-                        toolbarLeft.appendChild(span);
+
+                if (typeof result.backupCount === 'number') {
+                    V2_CONFIG.backupCount = result.backupCount;
+                    const backupCountNote = document.getElementById('v2BackupCountNote');
+                    if (backupCountNote) {
+                        backupCountNote.textContent = formatBackupCount(result.backupCount);
                     }
+                }
+
+                updateQuickRestoreState(result.quickRestore || {
+                    available: true,
+                    publishedLabel: new Date().toLocaleString('de-DE', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }),
+                    targetLabel: result.quickRestore?.targetLabel || new Date().toLocaleString('de-DE', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })
+                });
+                
+                cleanupLegacyPublishedHeader();
+                if (!updatePublishedGeneratedValue(new Date()) && !document.querySelector('.v2-page-menu')) {
+                    window.location.reload();
+                    return;
                 }
                 
                 // Refresh preview window if open
@@ -999,6 +1021,83 @@ window.V2 = (function() {
             V2Settings.open();
         } else {
             toast('Settings-Modul nicht geladen', 'error');
+        }
+    }
+
+    function formatBackupCount(count) {
+        return count === 1 ? '1 Sicherung' : `${count} Sicherungen`;
+    }
+
+    function cleanupLegacyPublishedHeader() {
+        document.querySelectorAll('.v2-published-link, .v2-last-generated').forEach((element) => {
+            element.remove();
+        });
+    }
+
+    function updatePublishedGeneratedValue(date = new Date()) {
+        const label = document.getElementById('v2PublishedGeneratedValue');
+        if (!label) {
+            return false;
+        }
+
+        const dd = String(date.getDate()).padStart(2, '0');
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const yyyy = String(date.getFullYear());
+        const hh = String(date.getHours()).padStart(2, '0');
+        const mi = String(date.getMinutes()).padStart(2, '0');
+        label.textContent = `${dd}.${mm}.${yyyy} ${hh}:${mi}`;
+        return true;
+    }
+
+    function updateQuickRestoreState(quickRestore) {
+        const button = document.getElementById('v2QuickRestoreItem');
+        const note = document.getElementById('v2QuickRestoreNote');
+        const isAvailable = Boolean(quickRestore && quickRestore.available);
+
+        V2_CONFIG.quickRestore = quickRestore || { available: false, publishedLabel: '', targetLabel: '' };
+
+        if (!button || !note) {
+            return;
+        }
+
+        if (!isAvailable) {
+            button.hidden = true;
+            button.disabled = true;
+            note.textContent = '';
+            return;
+        }
+
+        const targetLabel = quickRestore.targetLabel || '';
+        note.textContent = targetLabel
+            ? `Rollback auf Stand ${targetLabel} · nur für die letzte Veröffentlichung dieser Session`
+            : 'Nur die letzte Veröffentlichung dieser Session · danach deaktiviert bis neu veröffentlicht wird';
+        button.hidden = false;
+        button.disabled = false;
+    }
+
+    async function quickRestoreLastPublish() {
+        const publishedLabel = V2_CONFIG.quickRestore?.publishedLabel || 'dieser Session';
+        const targetLabel = V2_CONFIG.quickRestore?.targetLabel || 'dem vorherigen Stand';
+        const confirmed = window.confirm(
+            `Die Veröffentlichung vom ${publishedLabel} wird zurückgenommen. Zielstand des Rollbacks: ${targetLabel}. Dabei wird nur die veröffentlichte Website wiederhergestellt; der Editor-Stand bleibt unverändert. Der aktuelle Stand wird vorher automatisch gesichert.`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            const result = await V2Api.quickRestoreLastPublish();
+            const safetyInfo = result.safetyBackupId ? ` Sicherheitskopie: ${result.safetyBackupId}.` : '';
+            toast(`Veröffentlichung zurückgenommen.${safetyInfo}`, 'success');
+            updateQuickRestoreState({ available: false, publishedLabel: '' });
+
+            if (_previewWindow && !_previewWindow.closed) {
+                _previewWindow.location.reload();
+            }
+        } catch (err) {
+            console.error('[V2] quick restore failed:', err);
+            toast(err.message || 'Quick-Restore fehlgeschlagen', 'error');
         }
     }
     
@@ -1118,7 +1217,7 @@ window.V2 = (function() {
         addTile, editSelectedTile, duplicateSelectedTile, deleteSelectedTile,
         changeSize, changeStyle, changeColor,
         moveUp, moveDown,
-        publish, openPreview, openSettings, logout,
+        publish, openPreview, openSettings, logout, quickRestoreLastPublish,
         openContextMenu,
         toast
     };

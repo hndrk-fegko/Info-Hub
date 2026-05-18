@@ -24,6 +24,8 @@ require_once __DIR__ . '/../core/TileService.php';
 require_once __DIR__ . '/../core/StorageService.php';
 require_once __DIR__ . '/../core/GeneratorService.php';
 require_once __DIR__ . '/../core/ConfigService.php';
+require_once __DIR__ . '/../core/SecurityHelper.php';
+require_once __DIR__ . '/../core/BackupService.php';
 
 // Auth prüfen
 $auth = new AuthService();
@@ -45,6 +47,26 @@ $settings['system']['mailFromAddress'] = $configService->getMailFromAddress(
     $_SESSION['auth_email'] ?? ''
 );
 $generator = new GeneratorService();
+$backupService = new BackupService();
+$backupCount = count($backupService->listBackups());
+$backupCountLabel = $backupCount === 1 ? '1 Sicherung' : $backupCount . ' Sicherungen';
+
+$quickRestoreState = $_SESSION['quick_restore_last_publish'] ?? null;
+$quickRestoreAvailable = false;
+$quickRestorePublishedLabel = '';
+$quickRestoreTargetLabel = '';
+if (is_array($quickRestoreState) && !empty($quickRestoreState['backupId'])) {
+    $quickRestoreBackup = $backupService->getBackup((string)$quickRestoreState['backupId']);
+    if ($quickRestoreBackup !== null) {
+        $quickRestoreAvailable = true;
+        $quickRestoreTs = (int)($quickRestoreState['publishedTs'] ?? ($quickRestoreBackup['createdTs'] ?? time()));
+        $quickRestorePublishedLabel = date('d.m.Y H:i', $quickRestoreTs);
+        $quickRestoreTargetTs = (int)($quickRestoreBackup['createdTs'] ?? $quickRestoreTs);
+        $quickRestoreTargetLabel = date('d.m.Y H:i', $quickRestoreTargetTs);
+    } else {
+        unset($_SESSION['quick_restore_last_publish']);
+    }
+}
 
 // Alle Canvas-Abschnitte als HTML rendern (Server-Side Rendering für den Editor)
 // PARALLEL RENDER CONTRACT:
@@ -87,7 +109,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WYSIWYG Editor - <?= htmlspecialchars($settings['site']['title'] ?? 'Info-Hub') ?></title>
+    <title>Editor - <?= htmlspecialchars($settings['site']['title'] ?? 'Info-Hub') ?></title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>">
     
     <!-- Canvas CSS (Shared + Tile-spezifisch) wird inline geladen für pixelgenaue Vorschau -->
@@ -111,34 +133,66 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
     <!-- ===== Editor Toolbar ===== -->
     <header class="v2-toolbar">
         <div class="v2-toolbar-left">
-            <h1 class="v2-logo">✏️ WYSIWYG</h1>
+            <h1 class="v2-logo">✏️ Editor</h1>
             <span class="v2-site-name"><?= $siteTitle ?></span>
             <?php if ($indexExists): ?>
-                <a href="../../index.html" target="_blank" class="v2-published-link" title="Veröffentlichte Seite anzeigen">
-                    🌐 Seite
-                </a>
-                <span class="v2-last-generated">
-                    Zuletzt: <?= date('d.m. H:i', $lastGenerated) ?>
-                </span>
+                <div class="v2-page-menu">
+                    <a href="../../index.html" target="_blank" class="v2-btn v2-btn-secondary v2-page-menu__link" title="Veröffentlichte Seite anzeigen">
+                        <span class="v2-btn-glyph">🌐</span>
+                        <span class="v2-btn-label">Seite</span>
+                    </a>
+                    <details class="v2-page-menu__dropdown">
+                        <summary class="v2-btn v2-btn-secondary v2-btn-icon v2-page-menu__toggle" title="Seiten-Menü" aria-label="Seiten-Menü öffnen">
+                            ▾
+                        </summary>
+                        <div class="v2-dropdown-menu v2-page-menu__menu">
+                            <div class="v2-dropdown-item v2-dropdown-item--static">
+                                <span class="v2-dropdown-label">Zuletzt generiert</span>
+                                <span class="v2-dropdown-value" id="v2PublishedGeneratedValue"><?= date('d.m.Y H:i', $lastGenerated) ?></span>
+                            </div>
+                            <a href="../backup.php" class="v2-dropdown-item">
+                                <span class="v2-dropdown-label">Backup-Verwaltung</span>
+                                <span class="v2-dropdown-note v2-dropdown-note--muted" id="v2BackupCountNote"><?= htmlspecialchars($backupCountLabel, ENT_QUOTES, 'UTF-8') ?></span>
+                            </a>
+                            <button
+                                type="button"
+                                class="v2-dropdown-item v2-dropdown-item--button v2-dropdown-item--warning"
+                                id="v2QuickRestoreItem"
+                                onclick="V2.quickRestoreLastPublish()"
+                                <?= $quickRestoreAvailable ? '' : 'hidden disabled' ?>
+                            >
+                                <span class="v2-dropdown-label">Letzte Veröffentlichung zurücknehmen</span>
+                                <span class="v2-dropdown-note v2-dropdown-note--warning" id="v2QuickRestoreNote"><?= htmlspecialchars($quickRestoreTargetLabel !== '' ? ('Rollback auf Stand ' . $quickRestoreTargetLabel . ' · nur für die letzte Veröffentlichung dieser Session') : '', ENT_QUOTES, 'UTF-8') ?></span>
+                            </button>
+                        </div>
+                    </details>
+                </div>
+            <?php endif; ?>
+            <?php if (!$indexExists): ?>
+                <span class="v2-toolbar-note">⚠️ Noch nicht veröffentlicht</span>
             <?php endif; ?>
         </div>
         <div class="v2-toolbar-right">
+            <?= SecurityHelper::renderSecurityBadge() ?>
             <div class="v2-session-timer" id="sessionTimer" title="Verbleibende Session-Zeit">
                 🕐 <span id="sessionTimeDisplay">--</span>
             </div>
-            <button type="button" class="v2-btn v2-btn-icon" onclick="V2.openSettings()" title="Einstellungen">
+            <button type="button" class="v2-btn v2-btn-secondary v2-btn-icon" onclick="V2.openSettings()" title="Einstellungen">
                 ⚙️
             </button>
             <a href="../editor.php" class="v2-btn v2-btn-secondary" title="Zum klassischen Editor">
-                📝 Classic
+                <span class="v2-btn-glyph">📝</span>
+                <span class="v2-btn-label">Classic</span>
             </a>
             <button type="button" class="v2-btn v2-btn-secondary" onclick="V2.openPreview()" title="Vorschau">
-                👁️ Vorschau
+                <span class="v2-btn-glyph">👁️</span>
+                <span class="v2-btn-label">Vorschau</span>
             </button>
             <button type="button" class="v2-btn v2-btn-primary" onclick="V2.publish()" title="Veröffentlichen">
-                🚀 Veröffentlichen
+                <span class="v2-btn-glyph">🚀</span>
+                <span class="v2-btn-label">Veröffentlichen</span>
             </button>
-            <button type="button" class="v2-btn v2-btn-icon" onclick="V2.logout()" title="Abmelden">
+            <button type="button" class="v2-btn v2-btn-secondary v2-btn-icon" onclick="V2.logout()" title="Abmelden">
                 🚪
             </button>
         </div>
@@ -239,6 +293,12 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             sessionTimeout: <?= $sessionTimeout ?>,
             sessionWarning: <?= $sessionWarning ?>,
             sessionRemaining: <?= $remainingTime ?>,
+            backupCount: <?= $backupCount ?>,
+            quickRestore: <?= json_encode([
+                'available' => $quickRestoreAvailable,
+                'publishedLabel' => $quickRestorePublishedLabel,
+                'targetLabel' => $quickRestoreTargetLabel
+            ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
             debugMode: <?= (defined('DEBUG_MODE') && DEBUG_MODE) ? 'true' : 'false' ?>,
             // Pre-rendered section HTML from server
             renderedSections: <?= json_encode($renderedSections, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,

@@ -81,8 +81,9 @@ kbd {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: var(--header-height);
-    padding: 0 20px;
+    gap: 16px;
+    min-height: var(--header-height);
+    padding: 10px 20px;
 }
 
 .diagnostics-info {
@@ -127,19 +128,43 @@ kbd {
 
 .header-left {
     display: flex;
+    flex: 1 1 320px;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.header-title-group {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.header-meta {
+    display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-width: 0;
 }
 
 .header-left h1 {
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--text);
+    white-space: nowrap;
 }
 
 .site-name {
     color: var(--text-muted);
     font-size: 0.9rem;
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .published-link {
@@ -152,8 +177,8 @@ kbd {
     padding: 4px 10px;
     background: rgba(56, 239, 125, 0.1);
     border-radius: var(--radius);
-    margin-left: 10px;
     transition: background 0.2s;
+    white-space: nowrap;
 }
 
 .published-link:hover {
@@ -167,13 +192,13 @@ kbd {
 .last-generated {
     color: var(--text-muted);
     font-size: 0.75rem;
-    margin-left: 10px;
+    white-space: nowrap;
 }
 
 .not-published {
     color: var(--warning);
     font-size: 0.8rem;
-    margin-left: 10px;
+    white-space: nowrap;
 }
 
 .header-right,
@@ -181,6 +206,66 @@ kbd {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
+}
+
+.header-actions {
+    flex: 0 1 auto;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.btn-icon {
+    line-height: 1;
+}
+
+.header-actions .btn {
+    height: 36px;
+    padding: 0 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.header-actions .btn-glyph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-size: 15px;
+    flex: 0 0 auto;
+}
+
+.header-actions button.btn-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+    padding: 0;
+    border: none;
+    background: rgba(102, 126, 234, 0.08);
+    color: var(--primary-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.header-actions .btn-primary,
+.header-actions .btn-secondary,
+.header-actions button.btn-icon {
+    box-shadow: none;
+}
+
+.header-actions .btn-primary:hover,
+.header-actions .btn-secondary:hover,
+.header-actions button.btn-icon:hover {
+    transform: none;
+}
+
+.header-actions button.btn-icon:hover {
+    background: rgba(102, 126, 234, 0.16);
+    color: var(--primary);
 }
 
 .session-timer {
@@ -189,9 +274,10 @@ kbd {
     gap: 4px;
     font-size: 0.85rem;
     color: var(--text-muted);
-    padding: 6px 12px;
+    height: 34px;
+    padding: 0 10px;
     background: var(--bg);
-    border-radius: var(--radius);
+    border-radius: 6px;
     white-space: nowrap;
 }
 
@@ -208,10 +294,11 @@ kbd {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 6px 12px;
+    height: 34px;
+    padding: 0 10px;
     background: #fff3cd;
     border: 1px solid #ffc107;
-    border-radius: var(--radius);
+    border-radius: 6px;
     font-size: 0.85rem;
     cursor: help;
     animation: pulse-warning 2s infinite;
@@ -1719,27 +1806,45 @@ hr {
 }
 
 /* ===== Responsive ===== */
-@media (max-width: 768px) {
+@media (max-width: 960px) {
     .header-top {
         flex-wrap: wrap;
-        height: auto;
-        padding: 10px 15px;
+        align-items: flex-start;
+    }
+
+    .header-left,
+    .header-actions {
+        width: 100%;
+    }
+
+    .header-actions {
+        justify-content: flex-start;
+    }
+
+    .last-generated {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .header-top {
+        align-items: flex-start;
+        padding: 12px 15px;
     }
     
     .header-left {
         width: 100%;
-        margin-bottom: 10px;
     }
     
     .header-actions {
         width: 100%;
-        justify-content: flex-end;
+        justify-content: flex-start;
     }
     
     .site-name {
         display: none;
     }
-    
+
     .diagnostics-info {
         padding: 10px 15px;
     }
@@ -1756,6 +1861,26 @@ hr {
     .tile-meta {
         flex-direction: column;
         gap: 4px;
+    }
+}
+
+@media (max-width: 560px) {
+    .header-top {
+        gap: 12px;
+    }
+
+    .published-link-label,
+    .header-actions .btn-label {
+        display: none;
+    }
+
+    .header-actions .btn {
+        padding: 10px 12px;
+    }
+
+    .session-timer {
+        padding: 6px 10px;
+        font-size: 0.8rem;
     }
 }
 
