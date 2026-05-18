@@ -54,7 +54,7 @@ try {
     $_SERVER['SERVER_NAME'] = 'localhost';
 
     resetAuthSessionState();
-    $auth = new AuthService();
+    $auth = new AuthService($settingsStorage);
 
     $sendUnknown = $auth->sendCode('intruder@example.com');
     $checks['Unauthorized email gets generic success response'] = ($sendUnknown['success'] ?? false) === true;

@@ -42,6 +42,7 @@ Aktuelle Suite-Tags:
 - `editor`: Editor-spezifische Regressionen
 - `backup`: Backup-/Restore-Workflows
 - `frontend`: JS-/CSS-Asset-Struktur
+- `browser`: headless Browser-Smoke-Checks fuer echte Asset- und Modul-Ladepfade
 - `layout`: Layout-Varianten wie Narrow
 - `auth`: Login-/Code-/Session-Vertraege des AuthService
 - `upload`: Upload-Validierung sowie Media-List/Delete-Vertraege
@@ -52,5 +53,7 @@ Aktuelle Suite-Tags:
 - `e2e`: manuelle End-to-End-Szenarien aus der Browser- und Publish-Perspektive
 
 Die Suite-Gruppierung wird in `tests/manifest.php` gepflegt.
+
+Der Browser-Smoke-Test `v2-browser-boot-smoke` startet einen echten Headless-Browser gegen eine lokale Harness-Seite und prueft den V2-Modul-Bootpfad inklusive Cachebuster-URLs. Standardmaessig nutzt er einen bereits laufenden lokalen Server auf `localhost:8000` oder startet bei Bedarf selbst einen PHP Built-in Server. Falls Edge/Chrome nicht an den ueblichen Pfaden liegt, kann der Browser ueber `INFO_HUB_BROWSER_BIN` gesetzt werden.
 
 Manuelle E2E-Szenarien werden ueber denselben Runner mit `--suite=e2e` ausgegeben. Der Runner fuehrt diese nicht automatisch aus, sondern listet die zu pruefenden Schritte aus `tests/e2e/*.md`.

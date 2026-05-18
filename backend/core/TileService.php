@@ -15,8 +15,8 @@ class TileService {
     private StorageService $storage;
     private TileRegistry $tileRegistry;
     
-    public function __construct(?TileRegistry $tileRegistry = null) {
-        $this->storage = new StorageService('tiles.json');
+    public function __construct(?TileRegistry $tileRegistry = null, ?StorageService $storage = null) {
+        $this->storage = $storage ?? new StorageService('tiles.json');
         $this->tileRegistry = $tileRegistry ?? TileRegistry::shared();
     }
     

@@ -1,3 +1,6 @@
+import V2State from './state.js';
+import V2Api from './api-client.js';
+
 /**
  * V2 Insert - Floating "+" Indikator zwischen Grid-Zellen
  * 
@@ -9,7 +12,9 @@
  * vertikale Gaps (zwischen Tiles in derselben Zeile).
  */
 
-window.V2Insert = (function() {
+const V2_CONFIG = window.V2_CONFIG || {};
+
+const V2Insert = (function() {
     'use strict';
     
     let _gridEl = null;
@@ -576,3 +581,8 @@ window.V2Insert = (function() {
         hideIndicator
     };
 })();
+
+window.V2Insert = V2Insert;
+
+export { V2Insert };
+export default V2Insert;

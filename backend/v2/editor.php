@@ -79,6 +79,16 @@ $sessionTimeout = $auth->getSessionTimeout();
 $sessionWarning = $auth->getSessionWarningBefore();
 $remainingTime = $auth->getRemainingSessionTime();
 
+$v2Modules = ['state', 'api-client', 'media-picker', 'edit-modal', 'settings', 'context-menu', 'canvas', 'drag-drop', 'insert'];
+$v2LegacyModules = [];
+$v2ScriptUrls = [];
+
+foreach (array_merge(['boot'], $v2Modules) as $module) {
+    $filePath = __DIR__ . "/../../assets/js/v2/{$module}.js";
+    $version = file_exists($filePath) ? filemtime($filePath) : time();
+    $v2ScriptUrls[$module] = "../../assets/js/v2/{$module}.js?v={$version}";
+}
+
 // Dynamische CSS-Variablen aus Settings
 $bgColor = htmlspecialchars($settings['theme']['backgroundColor'] ?? '#f5f5f5');
 $accentColor = htmlspecialchars($settings['theme']['accentColor'] ?? $settings['theme']['primaryColor'] ?? '#667eea');
@@ -148,7 +158,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
                                 type="button"
                                 class="v2-dropdown-item v2-dropdown-item--button v2-dropdown-item--warning"
                                 id="v2QuickRestoreItem"
-                                onclick="V2.quickRestoreLastPublish()"
+                                data-v2-action="quickRestoreLastPublish"
                                 <?= $quickRestoreAvailable ? '' : 'hidden disabled' ?>
                             >
                                 <span class="v2-dropdown-label">Letzte Veröffentlichung zurücknehmen</span>
@@ -167,7 +177,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             <div class="v2-session-timer" id="sessionTimer" title="Verbleibende Session-Zeit">
                 🕐 <span id="sessionTimeDisplay">--</span>
             </div>
-            <button type="button" class="v2-btn v2-btn-secondary v2-btn-icon" onclick="V2.openSettings()" title="Einstellungen">
+            <button type="button" class="v2-btn v2-btn-secondary v2-btn-icon" data-v2-action="openSettings" title="Einstellungen">
                 ⚙️
             </button>
             <!-- LEGACY_CLASSIC_EDITOR: Link bleibt fuer den Wartungsmodus erreichbar. -->
@@ -175,15 +185,15 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
                 <span class="v2-btn-glyph">📝</span>
                 <span class="v2-btn-label">Classic Legacy</span>
             </a>
-            <button type="button" class="v2-btn v2-btn-secondary" onclick="V2.openPreview()" title="Vorschau">
+            <button type="button" class="v2-btn v2-btn-secondary" data-v2-action="openPreview" title="Vorschau">
                 <span class="v2-btn-glyph">👁️</span>
                 <span class="v2-btn-label">Vorschau</span>
             </button>
-            <button type="button" class="v2-btn v2-btn-primary" onclick="V2.publish()" title="Veröffentlichen">
+            <button type="button" class="v2-btn v2-btn-primary" data-v2-action="publish" title="Veröffentlichen">
                 <span class="v2-btn-glyph">🚀</span>
                 <span class="v2-btn-label">Veröffentlichen</span>
             </button>
-            <button type="button" class="v2-btn v2-btn-secondary v2-btn-icon" onclick="V2.logout()" title="Abmelden">
+            <button type="button" class="v2-btn v2-btn-secondary v2-btn-icon" data-v2-action="logout" title="Abmelden">
                 🚪
             </button>
         </div>
@@ -195,7 +205,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
         <div id="wysiwyg-canvas" class="v2-canvas">
             
             <!-- Header (aus Settings) -->
-            <div class="v2-canvas-header v2-editable-region" id="canvasHeader" data-editor-region="header" onclick="V2.openSettings()" title="Klicken um Header zu bearbeiten">
+            <div class="v2-canvas-header v2-editable-region" id="canvasHeader" data-editor-region="header" data-v2-action="openSettings" role="button" tabindex="0" title="Klicken um Header zu bearbeiten">
                 <?php if ($headerImage): ?>
                     <header class="site-header">
                         <div class="header-image">
@@ -213,7 +223,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
                     <div class="v2-region-edit-hint">✏️ Header bearbeiten</div>
                 <?php else: ?>
                     <div class="v2-empty-header">
-                        <button class="v2-add-header-btn" onclick="V2.openSettings()">+ Header hinzufügen</button>
+                        <button type="button" class="v2-add-header-btn" data-v2-action="openSettings">+ Header hinzufügen</button>
                     </div>
                 <?php endif; ?>
             </div>
@@ -228,20 +238,20 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             
             <!-- Add Tile Button (im Grid-Context) -->
             <div class="v2-add-tile-area" id="addTileArea">
-                <button class="v2-add-tile-btn" onclick="V2.addTile()">
+                <button type="button" class="v2-add-tile-btn" data-v2-action="addTile">
                     <span class="v2-add-icon">+</span>
                     <span>Neue Kachel</span>
                 </button>
             </div>
             
             <!-- Footer (aus Settings) -->
-            <div class="v2-canvas-footer v2-editable-region" id="canvasFooter" data-editor-region="footer" onclick="V2.openSettings()" title="Klicken um Footer zu bearbeiten">
+            <div class="v2-canvas-footer v2-editable-region" id="canvasFooter" data-editor-region="footer" data-v2-action="openSettings" role="button" tabindex="0" title="Klicken um Footer zu bearbeiten">
                 <?php if ($footerMarkup !== ''): ?>
                     <?= $footerMarkup ?>
                     <div class="v2-region-edit-hint">✏️ Footer bearbeiten</div>
                 <?php else: ?>
                     <div class="v2-empty-footer">
-                        <button class="v2-add-footer-btn" onclick="V2.openSettings()">+ Footer hinzufügen</button>
+                        <button type="button" class="v2-add-footer-btn" data-v2-action="openSettings">+ Footer hinzufügen</button>
                     </div>
                 <?php endif; ?>
             </div>
@@ -252,19 +262,19 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
     
     <!-- ===== Tile Selection Toolbar (floating) ===== -->
     <div id="tileToolbar" class="v2-tile-toolbar" style="display: none;">
-        <button class="v2-tb-btn" onclick="V2.editSelectedTile()" title="Bearbeiten">✏️</button>
+        <button type="button" class="v2-tb-btn" data-v2-action="editSelectedTile" title="Bearbeiten">✏️</button>
         <div class="v2-tb-separator" data-tb-group="color"></div>
-        <select id="tbSize" class="v2-tb-select" data-tb-group="layout" onchange="V2.changeSize(this.value)" title="Größe">
+        <select id="tbSize" class="v2-tb-select" data-tb-group="layout" data-v2-change="size" title="Größe">
             <option value="small">Klein</option>
             <option value="medium">Mittel</option>
             <option value="large">Groß</option>
             <option value="full">Voll</option>
         </select>
-        <select id="tbStyle" class="v2-tb-select" data-tb-group="layout" onchange="V2.changeStyle(this.value)" title="Stil">
+        <select id="tbStyle" class="v2-tb-select" data-tb-group="layout" data-v2-change="style" title="Stil">
             <option value="card">Card</option>
             <option value="flat">Flat</option>
         </select>
-        <select id="tbColor" class="v2-tb-select" data-tb-group="color" onchange="V2.changeColor(this.value)" title="Farbe">
+        <select id="tbColor" class="v2-tb-select" data-tb-group="color" data-v2-change="color" title="Farbe">
             <option value="default">Standard</option>
             <option value="white">Weiß</option>
             <option value="accent1">Akzent 1</option>
@@ -272,7 +282,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             <option value="accent3">Akzent 3</option>
         </select>
         <div class="v2-tb-separator"></div>
-        <button class="v2-tb-btn" id="tbMoreBtn" onclick="V2.openContextMenu()" title="Mehr (Sichtbarkeit, Zeitsteuerung ...)">&#8943;</button>
+        <button type="button" class="v2-tb-btn" id="tbMoreBtn" data-v2-action="openContextMenu" title="Mehr (Sichtbarkeit, Zeitsteuerung ...)">&#8943;</button>
     </div>
     
     <!-- ===== Toast Container ===== -->
@@ -302,6 +312,9 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             tiles: <?= json_encode($tileService->getTiles(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
             // Settings
             settings: <?= json_encode($settings, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>
+            ,
+            v2LegacyModules: <?= json_encode($v2LegacyModules, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
+            v2ScriptUrls: <?= json_encode($v2ScriptUrls, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>
         };
         
         if (window.V2_CONFIG.debugMode) {
@@ -316,14 +329,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
         <?= $canvasJS ?>
     </script>
     
-    <!-- V2 Editor Module -->
-    <?php
-    $v2Modules = ['state', 'api-client', 'media-picker', 'edit-modal', 'settings', 'context-menu', 'canvas', 'drag-drop', 'insert'];
-    foreach ($v2Modules as $module):
-        $filePath = __DIR__ . "/../../assets/js/v2/{$module}.js";
-        $version = file_exists($filePath) ? filemtime($filePath) : time();
-    ?>
-    <script src="../../assets/js/v2/<?= $module ?>.js?v=<?= $version ?>"></script>
-    <?php endforeach; ?>
+    <!-- V2 Editor Bootstrap -->
+    <script type="module" data-v2-entry="module-boot" src="<?= htmlspecialchars($v2ScriptUrls['boot'], ENT_QUOTES, 'UTF-8') ?>"></script>
 </body>
 </html>

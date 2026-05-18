@@ -14,7 +14,7 @@ Der kanonische Redaktionspfad ist `backend/v2/editor.php`. `backend/editor.php` 
 
    Frontend (v2/editor.php, editor.php legacy, index.html)    UI Layer
 
-   API (endpoints.php)                  Dünne Wrapper + CSRF
+   API (Dispatcher + Action-Gruppen)   Dünne Wrapper + CSRF
 
    Services (TileService, Auth...)      Business Logic
 
@@ -99,6 +99,8 @@ Die `settings.json` enthaelt neben `site`, `theme` und `auth` auch einen `legal`
 - Der Bootstrap laedt Config, Session und die benoetigten Service-Dateien.
 - `backend/core/AppContainer.php` bildet die request-lokale Composition Root fuer Entry-Points wie `login.php`, `backup.php`, `editor.php`, `v2/editor.php`, `setup.php` und `api/endpoints.php`.
 - Shared-Serviceinstanzen wie `AuthService`, `TileService`, `GeneratorService`, `SettingsService` und `BackupService` werden dort lazy pro Request bereitgestellt statt in jedem Entry-Point neu verdrahtet.
+- `backend/api/endpoints.php` ist jetzt nur noch der Dispatcher fuer Auth, CSRF, Context-Aufbau und Action-Auswahl.
+- Die API-Logik ist in gruppierte Handler unter `backend/api/actions/*.php` zerlegt, etwa fuer Tiles, Render-Pfade, Settings, Uploads, Admin- und Backup-Actions.
 
 ## V2 Render-Vertrag
 
@@ -116,7 +118,7 @@ Die `settings.json` enthaelt neben `site`, `theme` und `auth` auch einen `legal`
 
 Das Backup-System folgt seit dem Paket-Backup-Umbau einem klaren Ablauf:
 
-1. `endpoints.php` delegiert Publish und Restore an `BackupService`.
+1. `endpoints.php` waehlt die passende Backup-Action-Gruppe und delegiert Publish und Restore an `BackupService`.
 2. `BackupService::publishCurrentState()` erstellt vor jeder Veröffentlichung ein Paket-Backup.
 3. Danach schreibt `GeneratorService::generate()` die neue `index.html`.
 4. Der Quick-Restore-Status der Session wird ebenfalls im `BackupService` verwaltet.

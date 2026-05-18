@@ -1,3 +1,6 @@
+import V2State from './state.js';
+import V2Api from './api-client.js';
+
 /**
  * V2 Drag & Drop - Native HTML5 Drag & Drop für Tile-Sortierung
  * 
@@ -6,7 +9,9 @@
  * Event-Delegation auf Grid-Level verhindert Listener-Leaks.
  */
 
-window.V2DragDrop = (function() {
+const V2_CONFIG = window.V2_CONFIG || {};
+
+const V2DragDrop = (function() {
     'use strict';
     
     let _gridEl = null;
@@ -284,3 +289,8 @@ window.V2DragDrop = (function() {
         setEnabled
     };
 })();
+
+window.V2DragDrop = V2DragDrop;
+
+export { V2DragDrop };
+export default V2DragDrop;

@@ -29,7 +29,7 @@ class AuthService {
     
     private StorageService $settingsStorage;
     
-    public function __construct() {
+    public function __construct(?StorageService $settingsStorage = null) {
         // Werte aus config.php laden (mit Fallbacks)
         $this->codeExpiry = defined('LOGIN_CODE_EXPIRY') ? constant('LOGIN_CODE_EXPIRY') : 900;
         $this->sessionExpiry = defined('SESSION_TIMEOUT') ? constant('SESSION_TIMEOUT') : 3600;
@@ -51,7 +51,7 @@ class AuthService {
             ]);
         }
         
-        $this->settingsStorage = new StorageService('settings.json');
+        $this->settingsStorage = $settingsStorage ?? new StorageService('settings.json');
         $this->ensureSession();
     }
 

@@ -7,6 +7,7 @@
  */
 
 require_once __DIR__ . '/LogService.php';
+require_once __DIR__ . '/FileSystemService.php';
 require_once __DIR__ . '/StorageService.php';
 require_once __DIR__ . '/GeneratorService.php';
 require_once __DIR__ . '/MediaPathHelper.php';
@@ -22,20 +23,28 @@ class BackupService {
     private string $archiveDir;
     private string $packageDir;
     private string $indexPath;
+    private FileSystemService $fileSystem;
     private StorageService $tilesStorage;
     private StorageService $settingsStorage;
 
-    public function __construct() {
-        $this->backendRoot = str_replace('\\', '/', realpath(__DIR__ . '/..') ?: dirname(__DIR__));
+    public function __construct(
+        ?StorageService $tilesStorage = null,
+        ?StorageService $settingsStorage = null,
+        ?FileSystemService $fileSystem = null,
+        ?string $backendRoot = null
+    ) {
+        $resolvedBackendRoot = $backendRoot ?? (__DIR__ . '/..');
+        $this->backendRoot = str_replace('\\', '/', realpath($resolvedBackendRoot) ?: $resolvedBackendRoot);
         $this->projectRoot = str_replace('\\', '/', realpath($this->backendRoot . '/..') ?: dirname($this->backendRoot));
         $this->archiveDir = $this->backendRoot . '/archive';
         $this->packageDir = $this->archiveDir . '/packages';
         $this->indexPath = $this->projectRoot . '/index.html';
-        $this->tilesStorage = new StorageService('tiles.json');
-        $this->settingsStorage = new StorageService('settings.json');
+        $this->fileSystem = $fileSystem ?? new FileSystemService();
+        $this->tilesStorage = $tilesStorage ?? new StorageService('tiles.json');
+        $this->settingsStorage = $settingsStorage ?? new StorageService('settings.json');
 
-        $this->ensureDirectory($this->archiveDir);
-        $this->ensureDirectory($this->packageDir);
+        $this->fileSystem->ensureDirectory($this->archiveDir);
+        $this->fileSystem->ensureDirectory($this->packageDir);
     }
 
     /**
@@ -48,13 +57,13 @@ class BackupService {
         $publishedDir = $snapshotDir . '/published';
 
         try {
-            $this->ensureDirectory($snapshotDir);
-            $this->ensureDirectory($dataDir);
-            $this->ensureDirectory($publishedDir);
+            $this->fileSystem->ensureDirectory($snapshotDir);
+            $this->fileSystem->ensureDirectory($dataDir);
+            $this->fileSystem->ensureDirectory($publishedDir);
 
-            $tiles = file_exists($this->tilesStorage->getFilePath()) ? $this->tilesStorage->read() : [];
-            $settings = file_exists($this->settingsStorage->getFilePath()) ? $this->settingsStorage->read() : [];
-            $html = file_exists($this->indexPath) ? file_get_contents($this->indexPath) : false;
+            $tiles = $this->tilesStorage->exists() ? $this->tilesStorage->read() : [];
+            $settings = $this->settingsStorage->exists() ? $this->settingsStorage->read() : [];
+            $html = $this->fileSystem->exists($this->indexPath) ? $this->fileSystem->readFile($this->indexPath) : false;
             $html = is_string($html) ? $html : null;
 
             $manifestFiles = [
@@ -65,18 +74,18 @@ class BackupService {
                 'missingMedia' => []
             ];
 
-            if (file_exists($this->tilesStorage->getFilePath())) {
-                $this->copyFile($this->tilesStorage->getFilePath(), $dataDir . '/tiles.json');
+            if ($this->tilesStorage->exists()) {
+                $this->fileSystem->copyFile($this->tilesStorage->getFilePath(), $dataDir . '/tiles.json');
                 $manifestFiles['tiles'] = 'data/tiles.json';
             }
 
-            if (file_exists($this->settingsStorage->getFilePath())) {
-                $this->copyFile($this->settingsStorage->getFilePath(), $dataDir . '/settings.json');
+            if ($this->settingsStorage->exists()) {
+                $this->fileSystem->copyFile($this->settingsStorage->getFilePath(), $dataDir . '/settings.json');
                 $manifestFiles['settings'] = 'data/settings.json';
             }
 
             if ($html !== null) {
-                file_put_contents($publishedDir . '/index.html', $html);
+                $this->fileSystem->writeFile($publishedDir . '/index.html', $html);
                 $manifestFiles['html'] = 'published/index.html';
             }
 
@@ -109,10 +118,10 @@ class BackupService {
                     'files' => count(array_filter([$manifestFiles['html'], $manifestFiles['tiles'], $manifestFiles['settings']])) + count($manifestFiles['media'])
                 ],
                 'files' => $manifestFiles,
-                'sizeBytes' => $this->getDirectorySize($snapshotDir)
+                'sizeBytes' => $this->fileSystem->getDirectorySize($snapshotDir)
             ];
 
-            $this->writeJsonFile($snapshotDir . '/manifest.json', $manifest);
+            $this->fileSystem->writeJsonFile($snapshotDir . '/manifest.json', $manifest);
 
             LogService::info('BackupService', 'Snapshot created', [
                 'id' => $snapshotId,
@@ -127,8 +136,8 @@ class BackupService {
                 'error' => $e->getMessage()
             ]);
 
-            if (is_dir($snapshotDir)) {
-                $this->deleteDirectory($snapshotDir);
+            if ($this->fileSystem->isDirectory($snapshotDir)) {
+                $this->fileSystem->deleteDirectory($snapshotDir);
             }
 
             return false;
@@ -256,15 +265,15 @@ class BackupService {
 
         if (($backup['format'] ?? '') === 'package') {
             $root = $backup['paths']['root'] ?? null;
-            if (!is_string($root) || !is_dir($root)) {
+            if (!is_string($root) || !$this->fileSystem->isDirectory($root)) {
                 return ['success' => false, 'error' => 'Backup-Verzeichnis fehlt'];
             }
 
-            $this->deleteDirectory($root);
+            $this->fileSystem->deleteDirectory($root);
         } else {
             foreach ($backup['paths']['files'] ?? [] as $filePath) {
-                if (is_string($filePath) && file_exists($filePath)) {
-                    @unlink($filePath);
+                if (is_string($filePath)) {
+                    $this->fileSystem->deleteFileIfExists($filePath);
                 }
             }
         }
@@ -303,19 +312,19 @@ class BackupService {
         $restoreSharedMedia = ($restoreEditorState || $restorePublishedSite)
             && ($backup['format'] ?? '') === 'package'
             && !empty($backup['paths']['mediaRoot'])
-            && is_dir($backup['paths']['mediaRoot']);
+            && $this->fileSystem->isDirectory($backup['paths']['mediaRoot']);
 
         $restored = [];
         $warnings = [];
 
         try {
-            if ($restoreEditorState && !empty($backup['paths']['tiles']) && file_exists($backup['paths']['tiles'])) {
-                $this->copyFile($backup['paths']['tiles'], $this->tilesStorage->getFilePath());
+            if ($restoreEditorState && !empty($backup['paths']['tiles']) && $this->fileSystem->exists($backup['paths']['tiles'])) {
+                $this->fileSystem->copyFile($backup['paths']['tiles'], $this->tilesStorage->getFilePath());
                 $restored[] = 'tiles';
             }
 
-            if ($restoreEditorState && !empty($backup['paths']['settings']) && file_exists($backup['paths']['settings'])) {
-                $this->copyFile($backup['paths']['settings'], $this->settingsStorage->getFilePath());
+            if ($restoreEditorState && !empty($backup['paths']['settings']) && $this->fileSystem->exists($backup['paths']['settings'])) {
+                $this->fileSystem->copyFile($backup['paths']['settings'], $this->settingsStorage->getFilePath());
                 $restored[] = 'settings';
             }
 
@@ -326,8 +335,8 @@ class BackupService {
                 }
             }
 
-            if ($restorePublishedSite && !empty($backup['paths']['html']) && file_exists($backup['paths']['html'])) {
-                $this->copyFile($backup['paths']['html'], $this->indexPath);
+            if ($restorePublishedSite && !empty($backup['paths']['html']) && $this->fileSystem->exists($backup['paths']['html'])) {
+                $this->fileSystem->copyFile($backup['paths']['html'], $this->indexPath);
                 $restored[] = 'html';
             }
 
@@ -382,7 +391,7 @@ class BackupService {
             return false;
         }
 
-        @unlink($tempBase);
+        $this->fileSystem->deleteFileIfExists($tempBase);
         $zipPath = $tempBase . '.zip';
         $zip = new ZipArchive();
         if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
@@ -391,7 +400,7 @@ class BackupService {
 
         if (($backup['format'] ?? '') === 'package') {
             $root = $backup['paths']['root'] ?? null;
-            if (!is_string($root) || !is_dir($root)) {
+            if (!is_string($root) || !$this->fileSystem->isDirectory($root)) {
                 $zip->close();
                 return false;
             }
@@ -399,7 +408,7 @@ class BackupService {
             $this->addDirectoryToZip($zip, $root, basename($root));
         } else {
             foreach ($backup['paths']['files'] ?? [] as $filePath) {
-                if (is_string($filePath) && file_exists($filePath)) {
+                if (is_string($filePath) && $this->fileSystem->exists($filePath)) {
                     $zip->addFile($filePath, 'legacy/' . basename($filePath));
                 }
             }
@@ -430,11 +439,11 @@ class BackupService {
         }
 
         $htmlPath = $backup['paths']['html'] ?? null;
-        if (!is_string($htmlPath) || !file_exists($htmlPath)) {
+        if (!is_string($htmlPath) || !$this->fileSystem->exists($htmlPath)) {
             return $this->renderPlaceholderHtml('Für diese Sicherung ist keine HTML-Vorschau verfügbar.');
         }
 
-        $html = file_get_contents($htmlPath);
+        $html = $this->fileSystem->readFile($htmlPath);
         if (!is_string($html) || $html === '') {
             return $this->renderPlaceholderHtml('Archivierte HTML-Datei konnte nicht gelesen werden.');
         }
@@ -474,21 +483,21 @@ class BackupService {
         if (($backup['format'] ?? '') === 'package' && !empty($backup['paths']['mediaRoot'])) {
             $relative = substr($requestedPath, strlen('/backend/media/'));
             $candidate = ($backup['paths']['mediaRoot'] ?? '') . '/' . $relative;
-            if (file_exists($candidate)) {
+            if ($this->fileSystem->exists($candidate)) {
                 return $candidate;
             }
         }
 
         $livePath = $this->projectRoot . '/' . ltrim($requestedPath, '/');
-        return file_exists($livePath) ? $livePath : null;
+        return $this->fileSystem->exists($livePath) ? $livePath : null;
     }
 
     private function listPackageBackups(): array {
-        $dirs = glob($this->packageDir . '/*', GLOB_ONLYDIR) ?: [];
+        $dirs = $this->fileSystem->glob($this->packageDir . '/*', GLOB_ONLYDIR);
         $backups = [];
 
         foreach ($dirs as $dir) {
-            $backup = $this->describePackageBackup(str_replace('\\', '/', $dir));
+            $backup = $this->describePackageBackup($dir);
             if ($backup !== null) {
                 $backups[] = $backup;
             }
@@ -499,11 +508,11 @@ class BackupService {
 
     private function describePackageBackup(string $snapshotDir): ?array {
         $manifestPath = $snapshotDir . '/manifest.json';
-        if (!file_exists($manifestPath)) {
+        if (!$this->fileSystem->exists($manifestPath)) {
             return null;
         }
 
-        $manifest = $this->readJsonFile($manifestPath);
+        $manifest = $this->fileSystem->readJsonFile($manifestPath);
         if (!is_array($manifest)) {
             return null;
         }
@@ -517,8 +526,8 @@ class BackupService {
         $htmlPath = is_string($htmlRelative) ? $snapshotDir . '/' . $htmlRelative : null;
         $tilesPath = is_string($tilesRelative) ? $snapshotDir . '/' . $tilesRelative : null;
         $settingsPath = is_string($settingsRelative) ? $snapshotDir . '/' . $settingsRelative : null;
-        $createdTs = (int)($manifest['createdTs'] ?? strtotime($manifest['createdAt'] ?? 'now') ?: filemtime($manifestPath));
-        $sizeBytes = (int)($manifest['sizeBytes'] ?? $this->getDirectorySize($snapshotDir));
+        $createdTs = (int)($manifest['createdTs'] ?? strtotime($manifest['createdAt'] ?? 'now') ?: $this->fileSystem->modifiedTime($manifestPath));
+        $sizeBytes = (int)($manifest['sizeBytes'] ?? $this->fileSystem->getDirectorySize($snapshotDir));
 
         $warnings = [];
         if (!empty($missingMedia)) {
@@ -534,7 +543,7 @@ class BackupService {
             'reason' => $manifest['reason'] ?? 'manual',
             'reasonLabel' => $this->mapReasonLabel($manifest['reason'] ?? 'manual'),
             'siteTitle' => $manifest['siteTitle'] ?? '',
-            'previewAvailable' => is_string($htmlPath) && file_exists($htmlPath),
+            'previewAvailable' => is_string($htmlPath) && $this->fileSystem->exists($htmlPath),
             'counts' => [
                 'tiles' => (int)($manifest['counts']['tiles'] ?? 0),
                 'media' => count(is_array($mediaRelative) ? $mediaRelative : []),
@@ -562,21 +571,21 @@ class BackupService {
     private function listLegacyBackups(): array {
         $legacyFiles = [];
 
-        foreach (glob($this->archiveDir . '/index_*.html') ?: [] as $path) {
+        foreach ($this->fileSystem->glob($this->archiveDir . '/index_*.html') as $path) {
             $parsed = $this->parseLegacyFile($path, 'html');
             if ($parsed !== null) {
                 $legacyFiles[] = $parsed;
             }
         }
 
-        foreach (glob($this->archiveDir . '/tiles_*.json') ?: [] as $path) {
+        foreach ($this->fileSystem->glob($this->archiveDir . '/tiles_*.json') as $path) {
             $parsed = $this->parseLegacyFile($path, 'tiles');
             if ($parsed !== null) {
                 $legacyFiles[] = $parsed;
             }
         }
 
-        foreach (glob($this->archiveDir . '/settings_*.json') ?: [] as $path) {
+        foreach ($this->fileSystem->glob($this->archiveDir . '/settings_*.json') as $path) {
             $parsed = $this->parseLegacyFile($path, 'settings');
             if ($parsed !== null) {
                 $legacyFiles[] = $parsed;
@@ -653,15 +662,15 @@ class BackupService {
             $createdTs = max($createdTs, (int)($file['timestamp'] ?? 0));
         }
 
-        $tiles = is_string($paths['tiles']) && file_exists($paths['tiles']) ? $this->readJsonFile($paths['tiles']) : [];
-        $settings = is_string($paths['settings']) && file_exists($paths['settings']) ? $this->readJsonFile($paths['settings']) : [];
-        $html = is_string($paths['html']) && file_exists($paths['html']) ? file_get_contents($paths['html']) : '';
+        $tiles = is_string($paths['tiles']) && $this->fileSystem->exists($paths['tiles']) ? $this->fileSystem->readJsonFile($paths['tiles']) : [];
+        $settings = is_string($paths['settings']) && $this->fileSystem->exists($paths['settings']) ? $this->fileSystem->readJsonFile($paths['settings']) : [];
+        $html = is_string($paths['html']) && $this->fileSystem->exists($paths['html']) ? $this->fileSystem->readFile($paths['html']) : '';
         $html = is_string($html) ? $html : '';
         $mediaPaths = $this->collectMediaPaths($tiles, $settings, $html);
         $sizeBytes = 0;
         foreach ($paths['files'] as $filePath) {
-            if (file_exists($filePath)) {
-                $sizeBytes += (int)filesize($filePath);
+            if ($this->fileSystem->exists($filePath)) {
+                $sizeBytes += $this->fileSystem->fileSize($filePath);
             }
         }
 
@@ -677,7 +686,7 @@ class BackupService {
             'reason' => 'legacy',
             'reasonLabel' => 'Legacy-Archiv',
             'siteTitle' => $siteTitle,
-            'previewAvailable' => is_string($paths['html']) && file_exists($paths['html']),
+            'previewAvailable' => is_string($paths['html']) && $this->fileSystem->exists($paths['html']),
             'counts' => [
                 'tiles' => is_array($tiles) ? count($tiles) : 0,
                 'media' => count($mediaPaths),
@@ -700,7 +709,7 @@ class BackupService {
         if ($timestamp instanceof DateTime) {
             $timestamp = $timestamp->getTimestamp();
         } else {
-            $timestamp = filemtime($path);
+            $timestamp = $this->fileSystem->modifiedTime($path);
         }
 
         return [
@@ -820,11 +829,11 @@ class BackupService {
         $source = $this->projectRoot . '/' . ltrim($mediaPath, '/');
         $destination = $snapshotDir . '/media/' . $relative;
 
-        if (!file_exists($source)) {
+        if (!$this->fileSystem->exists($source)) {
             return null;
         }
 
-        $this->copyFile($source, $destination);
+        $this->fileSystem->copyFile($source, $destination);
         return 'media/' . $relative;
     }
 
@@ -843,87 +852,11 @@ class BackupService {
 
             $relative = str_replace('\\', '/', substr($item->getPathname(), strlen($mediaRoot) + 1));
             $target = $this->backendRoot . '/media/' . $relative;
-            $this->copyFile($item->getPathname(), $target);
+            $this->fileSystem->copyFile($item->getPathname(), $target);
             $count++;
         }
 
         return $count;
-    }
-
-    private function copyFile(string $source, string $target): void {
-        $this->ensureDirectory(dirname($target));
-        $temp = $target . '.tmp.' . getmypid();
-
-        if (!copy($source, $temp)) {
-            throw new RuntimeException('Konnte Datei nicht kopieren: ' . basename($source));
-        }
-
-        if (!rename($temp, $target)) {
-            @unlink($temp);
-            throw new RuntimeException('Konnte Datei nicht finalisieren: ' . basename($target));
-        }
-    }
-
-    private function writeJsonFile(string $path, array $data): void {
-        $this->ensureDirectory(dirname($path));
-        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if ($json === false) {
-            throw new RuntimeException('Manifest konnte nicht serialisiert werden');
-        }
-
-        file_put_contents($path, $json);
-    }
-
-    private function readJsonFile(string $path): array {
-        if (!file_exists($path)) {
-            return [];
-        }
-
-        $content = file_get_contents($path);
-        $decoded = json_decode((string)$content, true);
-        return is_array($decoded) ? $decoded : [];
-    }
-
-    private function ensureDirectory(string $path): void {
-        if (!is_dir($path)) {
-            mkdir($path, 0755, true);
-        }
-    }
-
-    private function getDirectorySize(string $directory): int {
-        if (!is_dir($directory)) {
-            return 0;
-        }
-
-        $size = 0;
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS)
-        );
-
-        foreach ($iterator as $item) {
-            if ($item->isFile()) {
-                $size += (int)$item->getSize();
-            }
-        }
-
-        return $size;
-    }
-
-    private function deleteDirectory(string $directory): void {
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST
-        );
-
-        foreach ($iterator as $item) {
-            if ($item->isDir()) {
-                @rmdir($item->getPathname());
-            } else {
-                @unlink($item->getPathname());
-            }
-        }
-
-        @rmdir($directory);
     }
 
     private function addDirectoryToZip(ZipArchive $zip, string $directory, string $prefix): void {

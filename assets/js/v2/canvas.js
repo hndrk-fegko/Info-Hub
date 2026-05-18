@@ -1,3 +1,6 @@
+import V2State from './state.js';
+import V2Api from './api-client.js';
+
 /**
  * V2 Canvas - WYSIWYG Tile Grid mit Server-gerendetem HTML
  * 
@@ -10,7 +13,9 @@
  * → Neue Tile-Typen brauchen KEIN zusätzliches JS im Editor!
  */
 
-window.V2Canvas = (function() {
+const V2_CONFIG = window.V2_CONFIG || {};
+
+const V2Canvas = (function() {
     'use strict';
     
     let _gridEl = null;
@@ -78,7 +83,7 @@ window.V2Canvas = (function() {
             _gridEl.innerHTML = `
                 <div class="v2-empty-grid">
                     <p>Noch keine Kacheln vorhanden</p>
-                    <button class="v2-add-tile-btn" onclick="V2.addTile()">+ Erste Kachel erstellen</button>
+                    <button type="button" class="v2-add-tile-btn" data-v2-action="addTile">+ Erste Kachel erstellen</button>
                 </div>
             `;
             return;
@@ -612,8 +617,10 @@ window.V2Canvas = (function() {
 // V2 - Hauptmodul (globale Funktionen für onclick etc.)
 // =====================================================
 
-window.V2 = (function() {
+const V2 = (function() {
     'use strict';
+
+    let _shellActionsBound = false;
 
     function closePageMenus() {
         document.querySelectorAll('.v2-page-menu__dropdown[open]').forEach((menu) => {
@@ -630,12 +637,106 @@ window.V2 = (function() {
             });
         });
     }
+
+    function bindShellActions() {
+        if (_shellActionsBound) {
+            return;
+        }
+
+        document.addEventListener('click', handleShellActionClick);
+        document.addEventListener('change', handleShellActionChange);
+        document.addEventListener('keydown', handleShellActionKeydown);
+        _shellActionsBound = true;
+    }
+
+    function handleShellActionClick(event) {
+        const actionTarget = event.target.closest('[data-v2-action]');
+        if (!actionTarget || actionTarget.disabled) {
+            return;
+        }
+
+        const handler = getShellActionHandler(actionTarget.dataset.v2Action || '');
+        if (!handler) {
+            return;
+        }
+
+        event.preventDefault();
+        handler();
+    }
+
+    function handleShellActionChange(event) {
+        const control = event.target.closest('[data-v2-change]');
+        if (!control) {
+            return;
+        }
+
+        switch (control.dataset.v2Change) {
+            case 'size':
+                changeSize(control.value);
+                break;
+            case 'style':
+                changeStyle(control.value);
+                break;
+            case 'color':
+                changeColor(control.value);
+                break;
+            default:
+                break;
+        }
+    }
+
+    function handleShellActionKeydown(event) {
+        if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+        }
+
+        const actionTarget = event.target.closest('[data-v2-action]');
+        if (!actionTarget || actionTarget.disabled) {
+            return;
+        }
+
+        if (actionTarget.matches('button, a, input, select, textarea, summary')) {
+            return;
+        }
+
+        const handler = getShellActionHandler(actionTarget.dataset.v2Action || '');
+        if (!handler) {
+            return;
+        }
+
+        event.preventDefault();
+        handler();
+    }
+
+    function getShellActionHandler(actionName) {
+        switch (actionName) {
+            case 'addTile':
+                return addTile;
+            case 'editSelectedTile':
+                return editSelectedTile;
+            case 'openContextMenu':
+                return openContextMenu;
+            case 'openPreview':
+                return openPreview;
+            case 'openSettings':
+                return openSettings;
+            case 'publish':
+                return publish;
+            case 'quickRestoreLastPublish':
+                return quickRestoreLastPublish;
+            case 'logout':
+                return logout;
+            default:
+                return null;
+        }
+    }
     
     // === Init ===
     
     function init() {
         cleanupLegacyPublishedHeader();
         initPageMenuInteractions();
+        bindShellActions();
 
         // State initialisieren mit Server-Daten
         V2State.init({
@@ -1224,6 +1325,25 @@ window.V2 = (function() {
 })();
 
 // === Boot ===
-document.addEventListener('DOMContentLoaded', () => {
+let _v2AutoInitStarted = false;
+
+function autoInitV2WhenReady() {
+    if (_v2AutoInitStarted) {
+        return;
+    }
+
+    _v2AutoInitStarted = true;
     V2.init();
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInitV2WhenReady);
+} else {
+    autoInitV2WhenReady();
+}
+
+window.V2Canvas = V2Canvas;
+window.V2 = V2;
+
+export { V2, V2Canvas };
+export default V2;

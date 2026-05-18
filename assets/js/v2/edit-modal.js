@@ -1,3 +1,7 @@
+import V2State from './state.js';
+import V2Api from './api-client.js';
+import V2MediaPicker from './media-picker.js';
+
 /**
  * V2 Edit Modal - Dynamisches Tile-Bearbeitungsformular
  * 
@@ -8,7 +12,9 @@
  * Gruppierung: Felder mit group-Property werden in Fieldsets zusammengefasst.
  */
 
-window.V2EditModal = (function() {
+const V2_CONFIG = window.V2_CONFIG || {};
+
+const V2EditModal = (function() {
     'use strict';
 
     let _overlay = null;
@@ -1013,3 +1019,8 @@ window.V2EditModal = (function() {
         close
     };
 })();
+
+window.V2EditModal = V2EditModal;
+
+export { V2EditModal };
+export default V2EditModal;

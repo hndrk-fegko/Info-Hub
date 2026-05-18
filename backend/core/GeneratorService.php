@@ -20,8 +20,12 @@ class GeneratorService {
     private TileRegistry $tileRegistry;
     private string $outputPath;
     
-    public function __construct(?TileRegistry $tileRegistry = null, ?TileService $tileService = null) {
-        $this->settingsStorage = new StorageService('settings.json');
+    public function __construct(
+        ?TileRegistry $tileRegistry = null,
+        ?TileService $tileService = null,
+        ?StorageService $settingsStorage = null
+    ) {
+        $this->settingsStorage = $settingsStorage ?? new StorageService('settings.json');
         $this->tileRegistry = $tileRegistry ?? TileRegistry::shared();
         $this->tileService = $tileService ?? new TileService($this->tileRegistry);
         $this->outputPath = __DIR__ . '/../../index.html';

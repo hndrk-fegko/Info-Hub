@@ -16,7 +16,7 @@ function crudCheck(string $name, bool $condition): bool {
 seedAuthenticatedApiSession('admin@example.com');
 
 $storage = new StorageService('tiles.json');
-$tileService = new TileService();
+$tileService = new TileService(null, $storage);
 $originalTiles = $storage->read();
 
 $baseTiles = [

@@ -1,10 +1,13 @@
+import V2State from './state.js';
+import V2Api from './api-client.js';
+
 /**
  * V2 Context Menu - Rechtsklickmenue fuer tile-bezogene Schnellaktionen
  *
  * Fokus: Sichtbarkeit und Zeitsteuerung ohne zusaetzliche Toolbar-Unruhe.
  */
 
-window.V2ContextMenu = (function() {
+const V2ContextMenu = (function() {
     'use strict';
 
     let _menu = null;
@@ -470,3 +473,8 @@ window.V2ContextMenu = (function() {
         getVisibilityStatus
     };
 })();
+
+window.V2ContextMenu = V2ContextMenu;
+
+export { V2ContextMenu };
+export default V2ContextMenu;

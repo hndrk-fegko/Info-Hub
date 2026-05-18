@@ -136,16 +136,16 @@ Abhaengigkeiten:
 
 - Diese Entscheidung sollte vor weiterer groesserer V2- oder Classic-Ausbauarbeit fallen, weil sie viele Folgeentscheidungen beeinflusst.
 
-### 4. Die API-Schicht ist weiterhin ein monolithischer Router mit fachlicher Validierungslogik im Transport-Layer
+### 4. Die API-Schicht war ein monolithischer Router mit fachlicher Validierungslogik im Transport-Layer
 
 Status: Erledigt
 Prioritaet: Hoch
 
 Beobachtung:
 
-- `backend/api/endpoints.php` besitzt einen zentralen Switch fuer viele Actions.
-- Besonders `save_settings` enthaelt umfangreiche Feld-, Bereichs- und Typpruefungen direkt im Endpoint.
-- Die Datei uebernimmt damit neben Routing und Response-Mapping auch fachliche Sanitizing- und Persistenzvorbereitung.
+- `backend/api/endpoints.php` besass lange einen zentralen Switch fuer viele Actions.
+- Besonders `save_settings` enthielt umfangreiche Feld-, Bereichs- und Typpruefungen direkt im Endpoint.
+- Die Datei uebernahm damit neben Routing und Response-Mapping auch fachliche Sanitizing- und Persistenzvorbereitung.
 
 Warum relevant:
 
@@ -167,8 +167,9 @@ Umgesetzt:
 - Die Header-Metadaten-Normalisierung fuer `upload_header` liegt jetzt in `UploadService`; der Endpoint reicht nur noch Upload + Requestdaten weiter.
 - Der Admin-API-Block teilt sich jetzt einen kleinen Snapshot-Helper fuer `emails` und `invites`, statt dieselbe Response mehrfach zusammenzubauen.
 - Der Tile-/WYSIWYG-Block nutzt jetzt gemeinsame Request-Parser fuer JSON- und Formular-Payloads, statt dieselben `json_decode`-Pfade mehrfach im Router zu wiederholen.
-- Fuer die bereits bereinigten Router-Slices existiert jetzt ein kleines lokales JSON-Response-Muster (`respondJson` / `respondSuccess` / `respondResult`) als erster Schritt zu konsistenterem API-Transportcode.
-- Der verbleibende zentrale Switch ist aktuell weitgehend auf Routing, Parameteraufnahme, Statuscodes und Response-Mapping reduziert; die zuvor im Endpoint liegende fachliche Validierungs- und Persistenzlogik wurde in Services oder lokale Transport-Helfer verschoben.
+- Mit `ApiContext`, `ApiResponder` und `ApiActionGroupInterface` besitzt die API jetzt einen kleinen gemeinsamen Transport-Unterbau fuer Request-Parsing, Service-Zugriff und JSON-Responses.
+- Die konkreten Actions liegen nun gruppiert unter `backend/api/actions/*.php` statt gesammelt in einem zentralen Switch.
+- `backend/api/endpoints.php` ist dadurch auf Dispatcher-Aufgaben reduziert: Bootstrap, Auth, CSRF, Action-Registry und Fehler-Mapping.
 
 Abhaengigkeiten:
 

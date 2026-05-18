@@ -32,14 +32,19 @@ class AppContainer {
     }
 
     public function authService(): AuthService {
-        return $this->service('auth', static function(): AuthService {
-            return new AuthService();
+        return $this->service('auth', function(): AuthService {
+            return new AuthService($this->storage('settings.json'));
         });
     }
 
     public function backupService(): BackupService {
-        return $this->service('backup', static function(): BackupService {
-            return new BackupService();
+        return $this->service('backup', function(): BackupService {
+            return new BackupService(
+                $this->storage('tiles.json'),
+                $this->storage('settings.json'),
+                $this->fileSystem(),
+                $this->backendRoot
+            );
         });
     }
 
@@ -51,7 +56,11 @@ class AppContainer {
 
     public function generatorService(): GeneratorService {
         return $this->service('generator', function(): GeneratorService {
-            return new GeneratorService($this->tileRegistry(), $this->tileService());
+            return new GeneratorService(
+                $this->tileRegistry(),
+                $this->tileService(),
+                $this->storage('settings.json')
+            );
         });
     }
 
@@ -69,13 +78,19 @@ class AppContainer {
 
     public function tileService(): TileService {
         return $this->service('tile', function(): TileService {
-            return new TileService($this->tileRegistry());
+            return new TileService($this->tileRegistry(), $this->storage('tiles.json'));
         });
     }
 
     public function uploadService(): UploadService {
-        return $this->service('upload', static function(): UploadService {
-            return new UploadService();
+        return $this->service('upload', function(): UploadService {
+            return new UploadService($this->fileSystem());
+        });
+    }
+
+    public function fileSystem(): FileSystemService {
+        return $this->service('fileSystem', static function(): FileSystemService {
+            return new FileSystemService();
         });
     }
 

@@ -1,3 +1,7 @@
+import V2State from './state.js';
+import V2Api from './api-client.js';
+import V2MediaPicker from './media-picker.js';
+
 /**
  * V2 Settings Modal - Einstellungen für den WYSIWYG Editor
  * 
@@ -7,7 +11,7 @@
  * Dependencies: V2State, V2Api, V2 (toast)
  */
 
-window.V2Settings = (function() {
+const V2Settings = (function() {
     'use strict';
     
     let _overlay = null;
@@ -1071,3 +1075,8 @@ window.V2Settings = (function() {
         removeAdminInvite
     };
 })();
+
+window.V2Settings = V2Settings;
+
+export { V2Settings };
+export default V2Settings;

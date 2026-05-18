@@ -5,15 +5,19 @@
  * Alle API-Calls gehen über die bestehenden endpoints.php.
  */
 
-window.V2Api = (function() {
+const V2Api = (function() {
     'use strict';
+
+    function getConfig() {
+        return window.V2_CONFIG || {};
+    }
     
     function getApiUrl() {
-        return V2_CONFIG.apiUrl;
+        return getConfig().apiUrl;
     }
     
     function getCsrfToken() {
-        return V2_CONFIG.csrfToken;
+        return getConfig().csrfToken;
     }
     
     /**
@@ -252,3 +256,8 @@ window.V2Api = (function() {
         extendSession
     };
 })();
+
+window.V2Api = V2Api;
+
+export { V2Api };
+export default V2Api;

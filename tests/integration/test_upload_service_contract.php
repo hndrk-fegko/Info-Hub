@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../backend/config.php';
 require_once __DIR__ . '/../../backend/core/LogService.php';
+require_once __DIR__ . '/../../backend/core/FileSystemService.php';
 require_once __DIR__ . '/../../backend/core/UploadService.php';
 
 function uploadCheck(string $name, bool $condition): bool {
@@ -11,7 +12,8 @@ function uploadCheck(string $name, bool $condition): bool {
     return $condition;
 }
 
-$service = new UploadService();
+$service = new UploadService(new FileSystemService());
+$serviceSource = file_get_contents(__DIR__ . '/../../backend/core/UploadService.php');
 $tempFile = tempnam(sys_get_temp_dir(), 'ihub_upload_');
 $fixtureName = 'contract_fixture_' . bin2hex(random_bytes(4)) . '.txt';
 $fixturePath = __DIR__ . '/../../backend/media/images/' . $fixtureName;
@@ -67,6 +69,11 @@ try {
 
     $deleted = $service->deleteFile('', '', '/backend/media/images/' . $fixtureName);
     $checks['deleteFile resolves media path and removes file'] = $deleted === true && !file_exists($fixturePath);
+    $checks['UploadService delegates file operations to FileSystemService'] = strpos((string) $serviceSource, 'FileSystemService') !== false
+        && strpos((string) $serviceSource, '$this->fileSystem->ensureDirectory') !== false
+        && strpos((string) $serviceSource, '$this->fileSystem->deleteFileIfExists') !== false;
+    $checks['UploadService no longer creates or deletes files directly'] = strpos((string) $serviceSource, 'mkdir(') === false
+        && strpos((string) $serviceSource, 'unlink(') === false;
 } finally {
     if (is_string($tempFile) && file_exists($tempFile)) {
         @unlink($tempFile);

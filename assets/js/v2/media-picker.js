@@ -1,4 +1,6 @@
-window.V2MediaPicker = (function() {
+import V2Api from './api-client.js';
+
+const V2MediaPicker = (function() {
     'use strict';
 
     const LIBRARIES = {
@@ -312,3 +314,8 @@ window.V2MediaPicker = (function() {
         close
     };
 })();
+
+window.V2MediaPicker = V2MediaPicker;
+
+export { V2MediaPicker };
+export default V2MediaPicker;

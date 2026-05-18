@@ -19,7 +19,11 @@ function backupHash(?string $path): ?string {
     return (is_string($path) && file_exists($path)) ? md5_file($path) : null;
 }
 
-$service = new BackupService();
+$service = new BackupService(
+    new StorageService('tiles.json'),
+    new StorageService('settings.json'),
+    new FileSystemService()
+);
 
 $indexPath = __DIR__ . '/../index.html';
 $tilesPath = __DIR__ . '/../../backend/data/tiles.json';

@@ -44,6 +44,13 @@ return [
         'suites' => ['smoke', 'editor', 'render', 'v2'],
     ],
     [
+        'id' => 'v2-browser-boot-smoke',
+        'path' => __DIR__ . '/integration/test_v2_browser_boot_smoke.php',
+        'label' => 'V2 browser boot smoke',
+        'description' => 'Startet einen lokalen PHP-Server und prueft den echten Modul-Bootpfad des V2-Editors in einem Headless-Browser.',
+        'suites' => ['smoke', 'editor', 'frontend', 'browser', 'v2'],
+    ],
+    [
         'id' => 'section-render-contract',
         'path' => __DIR__ . '/integration/test_section_layout.php',
         'label' => 'Section render contract',
@@ -84,6 +91,20 @@ return [
         'label' => 'Settings endpoints contract',
         'description' => 'Vergleicht get_settings/save_settings mit SettingsService und prueft normalisierte Settings-Antworten.',
         'suites' => ['contracts', 'api', 'settings', 'integration'],
+    ],
+    [
+        'id' => 'admin-endpoints',
+        'path' => __DIR__ . '/integration/test_admin_endpoints.php',
+        'label' => 'Admin endpoints contract',
+        'description' => 'Prueft get_admins, invite_admin und die Remove-Actions gegen AuthService und Session-Sonderfaelle.',
+        'suites' => ['contracts', 'api', 'auth', 'admin', 'integration'],
+    ],
+    [
+        'id' => 'system-endpoints',
+        'path' => __DIR__ . '/integration/test_system_endpoints.php',
+        'label' => 'System endpoints contract',
+        'description' => 'Prueft extend_session und check_permissions gegen Session- und SecurityHelper-Verhalten.',
+        'suites' => ['contracts', 'api', 'system', 'integration'],
     ],
     [
         'id' => 'tile-crud-endpoints',

@@ -9,6 +9,7 @@
  */
 
 require_once __DIR__ . '/LogService.php';
+require_once __DIR__ . '/FileSystemService.php';
 
 class UploadService {
     
@@ -21,10 +22,13 @@ class UploadService {
     // Größenlimits aus config.php oder Fallbacks
     private int $maxImageSize;
     private int $maxDownloadSize;
+    private FileSystemService $fileSystem;
     
     private const MEDIA_PATH = __DIR__ . '/../media/';
     
-    public function __construct() {
+    public function __construct(?FileSystemService $fileSystem = null) {
+        $this->fileSystem = $fileSystem ?? new FileSystemService();
+
         // Werte aus config.php laden (mit Fallbacks)
         $this->maxImageSize = defined('MAX_IMAGE_SIZE') ? constant('MAX_IMAGE_SIZE') : 5 * 1024 * 1024;
         $this->maxDownloadSize = defined('MAX_DOWNLOAD_SIZE') ? constant('MAX_DOWNLOAD_SIZE') : 50 * 1024 * 1024;
@@ -353,11 +357,13 @@ class UploadService {
         
         // 6. Zielverzeichnis
         $targetDir = self::MEDIA_PATH . $type . '/';
-        if (!is_dir($targetDir)) {
-            if (!mkdir($targetDir, 0777, true)) {
-                LogService::error('UploadService', 'Failed to create directory', ['dir' => $targetDir]);
+        if (!$this->fileSystem->isDirectory($targetDir)) {
+            try {
+                $this->fileSystem->ensureDirectory($targetDir, 0777);
+            } catch (RuntimeException $e) {
+                LogService::error('UploadService', 'Failed to create directory', ['dir' => $targetDir, 'error' => $e->getMessage()]);
                 return [
-                    'success' => false, 
+                    'success' => false,
                     'error' => 'Upload-Verzeichnis konnte nicht erstellt werden',
                     'details' => [
                         'dir' => $targetDir,
@@ -368,10 +374,10 @@ class UploadService {
         }
         
         // Prüfe Schreibrechte
-        if (!is_writable($targetDir)) {
+        if (!$this->fileSystem->isWritable($targetDir)) {
             LogService::error('UploadService', 'Directory not writable', [
                 'dir' => $targetDir,
-                'perms' => substr(sprintf('%o', fileperms($targetDir)), -4)
+                'perms' => $this->fileSystem->permissionOctal($targetDir)
             ]);
             return [
                 'success' => false, 
@@ -386,7 +392,9 @@ class UploadService {
         $targetPath = $targetDir . $filename;
         
         // 7. Datei verschieben
-        if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+        try {
+            $this->fileSystem->moveUploadedFile($file['tmp_name'], $targetPath);
+        } catch (RuntimeException $e) {
             LogService::error('UploadService', 'Failed to move file', ['target' => $targetPath]);
             return [
                 'success' => false, 
@@ -417,18 +425,18 @@ class UploadService {
     public function listFiles(string $type): array {
         $type = $this->normalizeMediaType($type);
         $dir = self::MEDIA_PATH . $type . '/';
-        if (!is_dir($dir)) {
+        if (!$this->fileSystem->isDirectory($dir)) {
             return [];
         }
         
         $files = [];
-        foreach (glob($dir . '*') as $file) {
-            if (is_file($file)) {
+        foreach ($this->fileSystem->glob($dir . '*') as $file) {
+            if ($this->fileSystem->isFile($file)) {
                 $files[] = [
                     'filename' => basename($file),
                     'path' => "/backend/media/$type/" . basename($file),
-                    'size' => filesize($file),
-                    'modified' => filemtime($file)
+                    'size' => $this->fileSystem->fileSize($file),
+                    'modified' => (int) ($this->fileSystem->modifiedTime($file) ?: 0)
                 ];
             }
         }
@@ -449,10 +457,11 @@ class UploadService {
 
         $filepath = self::MEDIA_PATH . $type . '/' . $filename;
         
-        if (file_exists($filepath) && is_file($filepath)) {
-            unlink($filepath);
-            LogService::info('UploadService', 'File deleted', ['file' => $filename]);
-            return true;
+        if ($this->fileSystem->exists($filepath) && $this->fileSystem->isFile($filepath)) {
+            if ($this->fileSystem->deleteFileIfExists($filepath)) {
+                LogService::info('UploadService', 'File deleted', ['file' => $filename]);
+                return true;
+            }
         }
         
         return false;

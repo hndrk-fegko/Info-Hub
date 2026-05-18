@@ -14,8 +14,12 @@
  * - state:dirty-changed      → Dirty-Status geändert
  */
 
-window.V2State = (function() {
+const V2State = (function() {
     'use strict';
+
+    function getConfig() {
+        return window.V2_CONFIG || {};
+    }
     
     // === Private State ===
     let _tiles = [];              // Raw tile data [{id, type, position, size, style, data, ...}]
@@ -39,7 +43,7 @@ window.V2State = (function() {
     }
     
     function emit(event, data) {
-        if (V2_CONFIG.debugMode) {
+        if (getConfig().debugMode) {
             console.log(`[State] ${event}`, data);
         }
         if (_listeners[event]) {
@@ -58,7 +62,7 @@ window.V2State = (function() {
         _selectedTileId = null;
         _isDirty = false;
         
-        if (V2_CONFIG.debugMode) {
+        if (getConfig().debugMode) {
             console.log(`[State] Initialized: ${_tiles.length} tiles, ${Object.keys(_tileTypes).length} types`);
         }
     }
@@ -172,3 +176,8 @@ window.V2State = (function() {
         isDirty, setDirty
     };
 })();
+
+window.V2State = V2State;
+
+export { V2State };
+export default V2State;
