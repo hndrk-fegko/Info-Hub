@@ -63,11 +63,29 @@ Siehe ausführliche Dokumentation in `TileBase.php`.
 |---------|---------------|
 | TileService | CRUD-Operationen für Tiles |
 | GeneratorService | HTML-Generierung |
+| BackupService | Paket-Backups, Export, Restore und Publish-/Quick-Restore-Orchestrierung |
 | AuthService | Email-Code-Auth + Session |
 | StorageService | JSON File-Operationen |
 | UploadService | Datei-Upload & Validierung |
 | LogService | Zentrales Logging |
 | SecurityHelper | Debug/HTTPS-Warnungen |
+
+## Backup- und Publish-Flow
+
+Das Backup-System folgt seit dem Paket-Backup-Umbau einem klaren Ablauf:
+
+1. `endpoints.php` delegiert Publish und Restore an `BackupService`.
+2. `BackupService::publishCurrentState()` erstellt vor jeder Veröffentlichung ein Paket-Backup.
+3. Danach schreibt `GeneratorService::generate()` die neue `index.html`.
+4. Der Quick-Restore-Status der Session wird ebenfalls im `BackupService` verwaltet.
+
+Restore-Modi:
+
+- `editor`: stellt `tiles.json`, `settings.json` und gepackte Medien wieder her.
+- `site`: stellt die veröffentlichte `index.html` und gepackte Medien wieder her.
+- `all`: kombiniert beide Wege.
+
+Die Verwaltungsoberfläche in `backend/backup.php` rendert die Karten serverseitig und lädt ihr Styling und Verhalten aus `assets/css/backup.css` und `assets/js/backup.js`.
 
 ## Sicherheitsarchitektur
 

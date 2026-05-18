@@ -50,23 +50,10 @@ $generator = new GeneratorService();
 $backupService = new BackupService();
 $backupCount = count($backupService->listBackups());
 $backupCountLabel = $backupCount === 1 ? '1 Sicherung' : $backupCount . ' Sicherungen';
-
-$quickRestoreState = $_SESSION['quick_restore_last_publish'] ?? null;
-$quickRestoreAvailable = false;
-$quickRestorePublishedLabel = '';
-$quickRestoreTargetLabel = '';
-if (is_array($quickRestoreState) && !empty($quickRestoreState['backupId'])) {
-    $quickRestoreBackup = $backupService->getBackup((string)$quickRestoreState['backupId']);
-    if ($quickRestoreBackup !== null) {
-        $quickRestoreAvailable = true;
-        $quickRestoreTs = (int)($quickRestoreState['publishedTs'] ?? ($quickRestoreBackup['createdTs'] ?? time()));
-        $quickRestorePublishedLabel = date('d.m.Y H:i', $quickRestoreTs);
-        $quickRestoreTargetTs = (int)($quickRestoreBackup['createdTs'] ?? $quickRestoreTs);
-        $quickRestoreTargetLabel = date('d.m.Y H:i', $quickRestoreTargetTs);
-    } else {
-        unset($_SESSION['quick_restore_last_publish']);
-    }
-}
+$quickRestoreView = $backupService->getQuickRestoreViewData();
+$quickRestoreAvailable = !empty($quickRestoreView['available']);
+$quickRestorePublishedLabel = (string)($quickRestoreView['publishedLabel'] ?? '');
+$quickRestoreTargetLabel = (string)($quickRestoreView['targetLabel'] ?? '');
 
 // Alle Canvas-Abschnitte als HTML rendern (Server-Side Rendering für den Editor)
 // PARALLEL RENDER CONTRACT:

@@ -2,6 +2,11 @@
 
 require_once __DIR__ . '/../backend/config.php';
 require_once __DIR__ . '/../backend/core/BackupService.php';
+require_once __DIR__ . '/../backend/core/GeneratorService.php';
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 function backupAssert(bool $condition, string $message): void {
     if (!$condition) {
@@ -40,6 +45,30 @@ backupAssert(is_array($export) && !empty($export['path']) && file_exists($export
 @unlink($export['path']);
 
 $cleanupBackupIds = [];
+
+$publishResult = $service->publishCurrentState(new GeneratorService());
+backupAssert(!empty($publishResult['success']), 'Publish workflow did not succeed');
+backupAssert(!empty($publishResult['backupId']), 'Publish workflow did not return a backup id');
+backupAssert(!empty($publishResult['quickRestore']['available']), 'Publish workflow did not expose quick restore state');
+$cleanupBackupIds[] = $publishResult['backupId'];
+
+$quickRestoreView = $service->getQuickRestoreViewData();
+backupAssert(!empty($quickRestoreView['available']), 'Quick restore view data is not available after publish');
+
+$quickRestore = $service->quickRestoreLastPublish();
+backupAssert(!empty($quickRestore['success']), 'Quick restore did not succeed');
+backupAssert(!empty($quickRestore['safetyBackupId']), 'Quick restore did not create a safety backup');
+$cleanupBackupIds[] = $quickRestore['safetyBackupId'];
+
+$quickRestoreAfterUse = $service->getQuickRestoreViewData();
+backupAssert(empty($quickRestoreAfterUse['available']), 'Quick restore state was not cleared after use');
+
+$afterQuickRestoreHashes = [
+    'index' => backupHash($indexPath),
+    'tiles' => backupHash($tilesPath),
+    'settings' => backupHash($settingsPath)
+];
+backupAssert($beforeHashes === $afterQuickRestoreHashes, 'Publish and quick restore changed file contents for the current state');
 
 $restoreEditor = $service->restoreBackup($snapshot['id'], 'editor');
 backupAssert(!empty($restoreEditor['success']), 'Editor restore did not succeed');

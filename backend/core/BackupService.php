@@ -8,11 +8,14 @@
 
 require_once __DIR__ . '/LogService.php';
 require_once __DIR__ . '/StorageService.php';
+require_once __DIR__ . '/GeneratorService.php';
+require_once __DIR__ . '/MediaPathHelper.php';
 
 class BackupService {
 
     private const LEGACY_PAIR_WINDOW = 2;
     private const RESTORE_MODES = ['editor', 'site', 'all'];
+    private const QUICK_RESTORE_SESSION_KEY = 'quick_restore_last_publish';
 
     private string $projectRoot;
     private string $backendRoot;
@@ -159,6 +162,90 @@ class BackupService {
     }
 
     /**
+     * Fuehrt den Publish-Workflow mit Snapshot und Quick-Restore-State aus.
+     */
+    public function publishCurrentState(GeneratorService $generator): array {
+        $snapshot = $this->createSnapshot('publish');
+        if ($snapshot === false) {
+            return [
+                'success' => false,
+                'message' => 'Aktueller Stand konnte vor der Veröffentlichung nicht gesichert werden',
+                'error' => 'Aktueller Stand konnte vor der Veröffentlichung nicht gesichert werden'
+            ];
+        }
+
+        $result = $generator->generate();
+        if (empty($result['success'])) {
+            return $result;
+        }
+
+        $publishedTs = time();
+        $this->storeQuickRestoreState($snapshot, $publishedTs);
+
+        $result['backupId'] = $snapshot['id'] ?? null;
+        $result['backupCount'] = count($this->listBackups());
+        $result['quickRestore'] = $this->buildQuickRestoreViewData($snapshot, $publishedTs);
+
+        return $result;
+    }
+
+    /**
+     * Gibt die UI-relevanten Quick-Restore-Daten für die aktuelle Session zurück.
+     */
+    public function getQuickRestoreViewData(): array {
+        $state = $this->readQuickRestoreState();
+        if ($state === null) {
+            return $this->getUnavailableQuickRestoreViewData();
+        }
+
+        $backup = $this->getBackup($state['backupId']);
+        if ($backup === null) {
+            $this->clearQuickRestoreState();
+            return $this->getUnavailableQuickRestoreViewData();
+        }
+
+        $publishedTs = $state['publishedTs'] > 0
+            ? $state['publishedTs']
+            : (int)($backup['createdTs'] ?? time());
+
+        return $this->buildQuickRestoreViewData($backup, $publishedTs);
+    }
+
+    /**
+     * Stellt die letzte Veröffentlichung dieser Session zurück.
+     */
+    public function quickRestoreLastPublish(): array {
+        $state = $this->readQuickRestoreState();
+        if ($state === null) {
+            return ['success' => false, 'error' => 'Kein Quick-Restore für diese Session verfügbar'];
+        }
+
+        $result = $this->restoreBackup($state['backupId'], 'site');
+        if (!empty($result['success'])) {
+            $result['quickRestoreAvailable'] = false;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Entfernt den Quick-Restore-Status der Session.
+     */
+    public function clearQuickRestoreState(): void {
+        unset($_SESSION[self::QUICK_RESTORE_SESSION_KEY]);
+    }
+
+    /**
+     * Entfernt den Quick-Restore-Status, wenn er auf dieses Backup zeigt.
+     */
+    public function clearQuickRestoreStateIfMatches(string $backupId): void {
+        $state = $this->readQuickRestoreState();
+        if ($state !== null && $state['backupId'] === $backupId) {
+            $this->clearQuickRestoreState();
+        }
+    }
+
+    /**
      * Löscht ein Backup.
      */
     public function deleteBackup(string $id): array {
@@ -181,6 +268,8 @@ class BackupService {
                 }
             }
         }
+
+        $this->clearQuickRestoreStateIfMatches($id);
 
         LogService::info('BackupService', 'Backup deleted', ['id' => $id]);
 
@@ -252,6 +341,8 @@ class BackupService {
                 'safetyBackup' => $safetyBackup['id'] ?? null,
                 'restored' => $restored
             ]);
+
+            $this->clearQuickRestoreState();
 
             return [
                 'success' => true,
@@ -370,7 +461,7 @@ class BackupService {
      * Löst ein Medien-Asset für die Preview auf.
      */
     public function resolvePreviewAsset(string $id, string $requestedPath): ?string {
-        $requestedPath = $this->normalizeMediaPath($requestedPath);
+        $requestedPath = MediaPathHelper::normalizeBackendMediaPath($requestedPath);
         if ($requestedPath === null) {
             return null;
         }
@@ -645,6 +736,53 @@ class BackupService {
         };
     }
 
+    private function readQuickRestoreState(): ?array {
+        $state = $_SESSION[self::QUICK_RESTORE_SESSION_KEY] ?? null;
+        if (!is_array($state)) {
+            return null;
+        }
+
+        $backupId = trim((string)($state['backupId'] ?? ''));
+        if ($backupId === '') {
+            return null;
+        }
+
+        return [
+            'backupId' => $backupId,
+            'publishedTs' => (int)($state['publishedTs'] ?? 0)
+        ];
+    }
+
+    private function storeQuickRestoreState(array $snapshot, int $publishedTs): void {
+        $backupId = trim((string)($snapshot['id'] ?? ''));
+        if ($backupId === '') {
+            return;
+        }
+
+        $_SESSION[self::QUICK_RESTORE_SESSION_KEY] = [
+            'backupId' => $backupId,
+            'publishedTs' => $publishedTs
+        ];
+    }
+
+    private function buildQuickRestoreViewData(array $backup, int $publishedTs): array {
+        $targetTs = (int)($backup['createdTs'] ?? $publishedTs);
+
+        return [
+            'available' => true,
+            'publishedLabel' => date('d.m.Y H:i', $publishedTs),
+            'targetLabel' => date('d.m.Y H:i', $targetTs)
+        ];
+    }
+
+    private function getUnavailableQuickRestoreViewData(): array {
+        return [
+            'available' => false,
+            'publishedLabel' => '',
+            'targetLabel' => ''
+        ];
+    }
+
     private function collectMediaPaths(array $tiles, array $settings, string $html): array {
         $paths = [];
         $this->collectMediaPathsFromValue($tiles, $paths);
@@ -669,21 +807,12 @@ class BackupService {
 
         if (preg_match_all('#/backend/media/[A-Za-z0-9/_\-.]+#', $value, $matches)) {
             foreach ($matches[0] as $match) {
-                $normalized = $this->normalizeMediaPath($match);
+                $normalized = MediaPathHelper::normalizeBackendMediaPath($match);
                 if ($normalized !== null) {
                     $paths[$normalized] = true;
                 }
             }
         }
-    }
-
-    private function normalizeMediaPath(string $path): ?string {
-        $path = trim(str_replace('\\', '/', $path));
-        if (!preg_match('#^/backend/media/[A-Za-z0-9/_\-.]+$#', $path)) {
-            return null;
-        }
-
-        return str_contains($path, '..') ? null : $path;
     }
 
     private function copyMediaIntoSnapshot(string $snapshotDir, string $mediaPath): ?string {

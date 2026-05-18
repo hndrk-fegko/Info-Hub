@@ -25,10 +25,12 @@ class GeneratorService {
     
     /**
      * Generiert die statische index.html
+     *
+     * Backup-Erzeugung wird zentral über BackupService orchestriert.
      * 
      * @return array ['success' => bool, 'message' => string]
      */
-    public function generate(bool $createLegacyBackup = true): array {
+    public function generate(): array {
         global $TILE_TYPES;
         
         LogService::info('GeneratorService', 'Starting HTML generation');
@@ -44,13 +46,7 @@ class GeneratorService {
             // 3. Template laden und füllen
             $html = $this->renderPage($settings, $tilesHtml);
             
-            // 4. Backup der alten Datei
-            if ($createLegacyBackup && file_exists($this->outputPath)) {
-                $backupPath = __DIR__ . '/../archive/index_' . date('Y-m-d_H-i-s') . '.html';
-                copy($this->outputPath, $backupPath);
-            }
-            
-            // 5. Neue Datei atomar schreiben (temp + rename)
+            // 4. Neue Datei atomar schreiben (temp + rename)
             $tmpPath = $this->outputPath . '.tmp.' . getmypid();
             $result = file_put_contents($tmpPath, $html);
             

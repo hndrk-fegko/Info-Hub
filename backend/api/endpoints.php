@@ -54,22 +54,10 @@ try {
     require_once __DIR__ . '/../core/StorageService.php';
     require_once __DIR__ . '/../core/ConfigService.php';
     require_once __DIR__ . '/../core/BackupService.php';
+    require_once __DIR__ . '/../core/MediaPathHelper.php';
 
     $isValidHexColor = static function($value): bool {
         return is_string($value) && preg_match('/^#[0-9a-fA-F]{6}$/', $value) === 1;
-    };
-
-    $sanitizeMediaPath = static function($value): ?string {
-        if (!is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-        if ($value === '') {
-            return null;
-        }
-
-        return preg_match('#^/backend/media/[a-z0-9/_\-.]+$#i', $value) ? $value : null;
     };
     
     // Auth prüfen (außer für bestimmte Actions)
@@ -294,7 +282,7 @@ try {
                 foreach ($allowedSiteKeys as $key) {
                     if (isset($newSettings['site'][$key])) {
                         $settings['site'][$key] = $key === 'headerImage'
-                            ? $sanitizeMediaPath($newSettings['site'][$key])
+                            ? MediaPathHelper::normalizeBackendMediaPath($newSettings['site'][$key])
                             : $newSettings['site'][$key];
                     }
                 }
@@ -396,7 +384,7 @@ try {
                 }
 
                 if (array_key_exists('narrowBackgroundImage', $newSettings['theme'])) {
-                    $settings['theme']['narrowBackgroundImage'] = $sanitizeMediaPath($newSettings['theme']['narrowBackgroundImage']);
+                    $settings['theme']['narrowBackgroundImage'] = MediaPathHelper::normalizeBackendMediaPath($newSettings['theme']['narrowBackgroundImage']);
                 }
             }
 
@@ -680,28 +668,15 @@ try {
             $result = $backupService->restoreBackup($id, $mode);
             if (!$result['success']) {
                 http_response_code(400);
-            } else {
-                unset($_SESSION['quick_restore_last_publish']);
             }
             echo json_encode($result);
             break;
 
         case 'quick_restore_last_publish':
-            $quickRestore = $_SESSION['quick_restore_last_publish'] ?? null;
-            $backupId = is_array($quickRestore) ? (string)($quickRestore['backupId'] ?? '') : '';
-            if ($backupId === '') {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'error' => 'Kein Quick-Restore für diese Session verfügbar']);
-                break;
-            }
-
             $backupService = new BackupService();
-            $result = $backupService->restoreBackup($backupId, 'site');
+            $result = $backupService->quickRestoreLastPublish();
             if (!$result['success']) {
                 http_response_code(400);
-            } else {
-                unset($_SESSION['quick_restore_last_publish']);
-                $result['quickRestoreAvailable'] = false;
             }
             echo json_encode($result);
             break;
@@ -716,12 +691,6 @@ try {
             $result = $backupService->deleteBackup($id);
             if (!$result['success']) {
                 http_response_code(400);
-            } else {
-                $quickRestore = $_SESSION['quick_restore_last_publish'] ?? null;
-                $quickRestoreId = is_array($quickRestore) ? (string)($quickRestore['backupId'] ?? '') : '';
-                if ($quickRestoreId !== '' && $quickRestoreId === $id) {
-                    unset($_SESSION['quick_restore_last_publish']);
-                }
             }
             echo json_encode($result);
             break;
@@ -730,29 +699,8 @@ try {
         
         case 'generate':
             $generator = new GeneratorService();
-
             $backupService = new BackupService();
-            $snapshot = $backupService->createSnapshot('publish');
-            if ($snapshot === false) {
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Aktueller Stand konnte vor der Veröffentlichung nicht gesichert werden']);
-                break;
-            }
-
-            $result = $generator->generate(false);
-            if ($result['success']) {
-                $result['backupId'] = $snapshot['id'] ?? null;
-                $_SESSION['quick_restore_last_publish'] = [
-                    'backupId' => $snapshot['id'] ?? null,
-                    'publishedTs' => time()
-                ];
-                $result['backupCount'] = count($backupService->listBackups());
-                $result['quickRestore'] = [
-                    'available' => true,
-                    'publishedLabel' => date('d.m.Y H:i'),
-                    'targetLabel' => date('d.m.Y H:i', (int)($snapshot['createdTs'] ?? time()))
-                ];
-            }
+            $result = $backupService->publishCurrentState($generator);
             
             if (!$result['success']) {
                 http_response_code(500);
