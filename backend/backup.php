@@ -75,8 +75,6 @@ function backupFormatBytes(int $bytes): string {
                     </div>
                     <nav class="backup-nav">
                         <a class="backup-btn backup-btn--secondary" href="v2/editor.php">✏️ Editor</a>
-                        <!-- LEGACY_CLASSIC_EDITOR: Link bleibt fuer den Wartungsmodus erreichbar. -->
-                        <a class="backup-btn backup-btn--secondary" href="editor.php" data-legacy-classic-link="LEGACY_CLASSIC_EDITOR" title="Zum klassischen Editor (Legacy, nur wenn noetig)">📝 Classic Legacy</a>
                         <a class="backup-btn backup-btn--secondary" href="../index.html" target="_blank" rel="noopener">🌐 Seite</a>
                     </nav>
                 </div>

@@ -1,5 +1,7 @@
 import V2State from './state.js';
 import V2Api from './api-client.js';
+import { V2Canvas } from './canvas.js';
+import { showToast } from './toast.js';
 
 /**
  * V2 Context Menu - Rechtsklickmenue fuer tile-bezogene Schnellaktionen
@@ -207,7 +209,7 @@ const V2ContextMenu = (function() {
         const showUntil = _menu.querySelector('#v2ScheduleShowUntil')?.value || null;
 
         if (showFrom && showUntil && new Date(showFrom) >= new Date(showUntil)) {
-            V2.toast('Einblende-Datum muss vor Ausblende-Datum liegen', 'warning');
+            showToast('Einblende-Datum muss vor Ausblende-Datum liegen', 'warning');
             return;
         }
 
@@ -263,16 +265,16 @@ const V2ContextMenu = (function() {
         try {
             const result = await V2Api.deleteTile(tile.id);
             if (!result.success) {
-                V2.toast(result.error || 'Löschen fehlgeschlagen', 'error');
+                showToast(result.error || 'Löschen fehlgeschlagen', 'error');
                 return;
             }
             V2State.deselectAll();
             V2State.setDirty(true);
             await V2Canvas.reloadAll();
-            V2.toast('Kachel gelöscht', 'success');
+            showToast('Kachel gelöscht', 'success');
         } catch (error) {
             console.error('[V2ContextMenu] deleteTile failed:', error);
-            V2.toast(error.message || 'Löschen fehlgeschlagen', 'error');
+            showToast(error.message || 'Löschen fehlgeschlagen', 'error');
         }
     }
 
@@ -308,7 +310,7 @@ const V2ContextMenu = (function() {
         try {
             const result = await V2Api.saveTile(updatedTile);
             if (!result.success) {
-                V2.toast(result.error || 'Speichern fehlgeschlagen', 'error');
+                showToast(result.error || 'Speichern fehlgeschlagen', 'error');
                 return false;
             }
 
@@ -318,11 +320,11 @@ const V2ContextMenu = (function() {
             requestAnimationFrame(() => {
                 V2State.selectTile(updatedTile.id);
             });
-            V2.toast(successMessage, 'success');
+            showToast(successMessage, 'success');
             return true;
         } catch (error) {
             console.error('[V2ContextMenu] persistTile failed:', error);
-            V2.toast(error.message || 'Speichern fehlgeschlagen', 'error');
+            showToast(error.message || 'Speichern fehlgeschlagen', 'error');
             return false;
         }
     }
@@ -373,7 +375,7 @@ const V2ContextMenu = (function() {
     function showScheduleSecurityWarning() {
         if (_scheduleWarningShown) return;
         _scheduleWarningShown = true;
-        V2.toast('Zeitgesteuerte Inhalte bleiben fuer versierte Nutzer im Quelltext auffindbar.', 'warning');
+        showToast('Zeitgesteuerte Inhalte bleiben fuer versierte Nutzer im Quelltext auffindbar.', 'warning');
     }
 
     function formatDateShort(date) {
@@ -473,8 +475,6 @@ const V2ContextMenu = (function() {
         getVisibilityStatus
     };
 })();
-
-window.V2ContextMenu = V2ContextMenu;
 
 export { V2ContextMenu };
 export default V2ContextMenu;

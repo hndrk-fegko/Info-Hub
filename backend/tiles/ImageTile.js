@@ -13,6 +13,13 @@ function closeLightbox() {
 
 // Event-Delegation für data-lightbox-src Elemente (statt inline onclick)
 document.addEventListener('click', (e) => {
+    const closeTrigger = e.target.closest('[data-lightbox-close]');
+    if (closeTrigger || e.target.id === 'lightbox') {
+        e.preventDefault();
+        closeLightbox();
+        return;
+    }
+
     const trigger = e.target.closest('[data-lightbox-src]');
     if (trigger) {
         openLightbox(trigger.dataset.lightboxSrc);
@@ -22,6 +29,13 @@ document.addEventListener('click', (e) => {
 // Keyboard-Support: Enter/Space öffnet Lightbox
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
+        const closeTrigger = e.target.closest('[data-lightbox-close]');
+        if (closeTrigger) {
+            e.preventDefault();
+            closeLightbox();
+            return;
+        }
+
         const trigger = e.target.closest('[data-lightbox-src]');
         if (trigger) {
             e.preventDefault();

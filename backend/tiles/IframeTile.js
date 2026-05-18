@@ -22,6 +22,13 @@ function closeIframeModal() {
 
 // Event-Delegation für data-iframe-url Elemente (statt inline onclick)
 document.addEventListener('click', (e) => {
+    const closeTrigger = e.target.closest('[data-iframe-close]');
+    if (closeTrigger) {
+        e.preventDefault();
+        closeIframeModal();
+        return;
+    }
+
     const trigger = e.target.closest('[data-iframe-url]');
     if (trigger) {
         openIframeModal(trigger.dataset.iframeUrl, trigger.dataset.iframeTitle || '');

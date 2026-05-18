@@ -6,7 +6,7 @@
 
 Info-Hub ist ein file-based CMS ohne Datenbank. Die Architektur folgt dem Prinzip der strikten Trennung von Layout, Logic und Services.
 
-Der kanonische Redaktionspfad ist `backend/v2/editor.php`. `backend/editor.php` bleibt vorerst als Legacy-Editor im Wartungsmodus erreichbar, wird aber nicht mehr aktiv weiterentwickelt.
+Der kanonische Redaktionspfad ist `backend/v2/editor.php`. `backend/editor.php` dient nur noch als Kompatibilitaets-Redirect auf V2 und enthaelt keine eigene Editor-Implementierung mehr.
 
 ## Schichtenarchitektur
 
@@ -91,7 +91,7 @@ Die `settings.json` enthaelt neben `site`, `theme` und `auth` auch einen `legal`
 
 - `GeneratorService` rendert daraus dezente Footer-Aktionen sowie optional ein Vollbild-Modal fuer eigene Rechtstexte.
 - `SecurityHelper` normalisiert und sanitisiert Legal-Texte zentral, damit Link- und Text-Modus dieselben Regeln nutzen.
-- `SettingsService` kapselt die Persistenz des `legal`-Blocks, damit beide Editoren und API-Endpunkte denselben fachlichen Pfad verwenden.
+- `SettingsService` kapselt die Persistenz des `legal`-Blocks, damit V2-Editor und API-Endpunkte denselben fachlichen Pfad verwenden.
 
 ## Bootstrap und Composition Root
 
@@ -111,8 +111,8 @@ Die `settings.json` enthaelt neben `site`, `theme` und `auth` auch einen `legal`
 ## Editor-Status
 
 - `backend/v2/editor.php` ist der Standard-Editor nach dem Login und die Zielrichtung fuer weitere Editor-Features.
-- `backend/editor.php` bleibt als Legacy-Pfad fuer bestehende Workflows erhalten.
-- Classic-spezifische Stellen werden schrittweise mit `LEGACY_CLASSIC_EDITOR` markiert, damit der Pfad spaeter gezielt entfernt werden kann.
+- `backend/editor.php` bleibt nur als Redirect fuer alte Bookmarks oder direkte Aufrufe bestehen.
+- Eigene Classic-Assets und Classic-UI-Logik wurden entfernt.
 
 ## Backup- und Publish-Flow
 

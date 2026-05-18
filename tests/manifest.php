@@ -143,12 +143,12 @@ return [
         'suites' => ['e2e', 'manual', 'auth', 'editor'],
     ],
     [
-        'id' => 'e2e-classic-legacy-guard',
+        'id' => 'e2e-legacy-editor-redirect',
         'type' => 'manual',
-        'path' => __DIR__ . '/e2e/classic-legacy-guard.md',
-        'label' => 'Manual classic legacy guard',
-        'description' => 'Manueller Browser-Flow fuer Confirm-Dialog, Ruecksprung nach V2 und Legacy-Banner im Classic Editor.',
-        'suites' => ['e2e', 'manual', 'classic', 'editor'],
+        'path' => __DIR__ . '/e2e/legacy-editor-redirect.md',
+        'label' => 'Manual legacy editor redirect',
+        'description' => 'Manueller Browser-Flow fuer Alt-URL /backend/editor.php und Redirect zum kanonischen V2-Editor.',
+        'suites' => ['e2e', 'manual', 'legacy', 'editor'],
     ],
     [
         'id' => 'e2e-preview-publish-restore',

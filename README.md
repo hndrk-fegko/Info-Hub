@@ -174,8 +174,8 @@ Info-Hub/
 │   └── archive/            # Backups
 │
 ├── assets/
-│   ├── css/editor.css
-│   └── js/editor.js
+│   ├── css/editor-v2.css
+│   └── js/v2/
 │
 └── docs/                   # Dokumentation
 ```

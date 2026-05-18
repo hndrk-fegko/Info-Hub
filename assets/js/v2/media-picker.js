@@ -1,4 +1,5 @@
 import V2Api from './api-client.js';
+import { showToast } from './toast.js';
 
 const V2MediaPicker = (function() {
     'use strict';
@@ -238,17 +239,13 @@ const V2MediaPicker = (function() {
                 throw new Error(result.error || 'Upload fehlgeschlagen');
             }
 
-            if (window.V2?.toast) {
-                window.V2.toast('Datei hochgeladen', 'success');
-            }
+            showToast('Datei hochgeladen', 'success');
 
             _settle(result.path);
         } catch (error) {
             console.error('[MediaPicker] Upload failed:', error);
             _setStatus(error.message || 'Upload fehlgeschlagen', 'error');
-            if (window.V2?.toast) {
-                window.V2.toast('Upload fehlgeschlagen', 'error');
-            }
+            showToast('Upload fehlgeschlagen', 'error');
         } finally {
             if (uploadButton) uploadButton.disabled = false;
             if (refreshButton) refreshButton.disabled = false;
@@ -314,8 +311,6 @@ const V2MediaPicker = (function() {
         close
     };
 })();
-
-window.V2MediaPicker = V2MediaPicker;
 
 export { V2MediaPicker };
 export default V2MediaPicker;

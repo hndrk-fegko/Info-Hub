@@ -1,4 +1,4 @@
-const bootState = globalThis.V2ModuleBoot = globalThis.V2ModuleBoot || {
+const bootState = {
     status: 'idle',
     loadedModules: [],
     loadedScripts: [],

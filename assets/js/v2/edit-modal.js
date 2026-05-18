@@ -1,6 +1,8 @@
 import V2State from './state.js';
 import V2Api from './api-client.js';
 import V2MediaPicker from './media-picker.js';
+import V2, { V2Canvas } from './canvas.js';
+import { showToast } from './toast.js';
 
 /**
  * V2 Edit Modal - Dynamisches Tile-Bearbeitungsformular
@@ -55,7 +57,7 @@ const V2EditModal = (function() {
         const types = V2State.getTileTypes();
         const typeMeta = types[tile.type];
         if (!typeMeta) {
-            V2.toast('Unbekannter Typ: ' + tile.type, 'error');
+            showToast('Unbekannter Typ: ' + tile.type, 'error');
             return;
         }
 
@@ -182,17 +184,17 @@ const V2EditModal = (function() {
                     if (result.success) {
                         close();
                         V2State.deselectAll();
-                        V2.toast('Kachel gelöscht', 'success');
+                        showToast('Kachel gelöscht', 'success');
                         V2State.setDirty(true);
                         await V2Canvas.reloadAll();
                     } else {
-                        V2.toast('Löschen fehlgeschlagen', 'error');
+                        showToast('Löschen fehlgeschlagen', 'error');
                         deleteBtn.disabled = false;
                         deleteBtn.textContent = '🗑️ Löschen';
                     }
                 } catch (err) {
                     console.error('[EditModal] Delete failed:', err);
-                    V2.toast('Löschen fehlgeschlagen', 'error');
+                    showToast('Löschen fehlgeschlagen', 'error');
                     deleteBtn.disabled = false;
                     deleteBtn.textContent = '🗑️ Löschen';
                 }
@@ -706,13 +708,13 @@ const V2EditModal = (function() {
                     const fname = result.path.split('/').pop();
                     fileDisplay.innerHTML = `<span class="v2-upload-filename">📄 ${_esc(fname)}</span>`;
                     removeBtn.style.display = 'inline-flex';
-                    V2.toast('Datei hochgeladen', 'success');
+                    showToast('Datei hochgeladen', 'success');
                 } else {
-                    V2.toast('Upload fehlgeschlagen: ' + (result.error || ''), 'error');
+                    showToast('Upload fehlgeschlagen: ' + (result.error || ''), 'error');
                 }
             } catch (err) {
                 console.error('[EditModal] File upload failed:', err);
-                V2.toast('Upload fehlgeschlagen', 'error');
+                showToast('Upload fehlgeschlagen', 'error');
             } finally {
                 uploadBtn.disabled = false;
                 uploadBtn.textContent = '📁 Datei wählen';
@@ -965,7 +967,7 @@ const V2EditModal = (function() {
         try {
             const result = await V2Api.saveTile(updatedTile);
             if (result.success) {
-                V2.toast('Gespeichert', 'success');
+                showToast('Gespeichert', 'success');
                 // Store refs before close() nullifies them
                 const tileId = (result.tile && result.tile.id) || _currentTile?.id;
                 const cb = _onSaveCallback;
@@ -981,11 +983,11 @@ const V2EditModal = (function() {
                 const errMsg = result.errors
                     ? (Array.isArray(result.errors) ? result.errors.join(', ') : result.errors)
                     : (result.error || 'Unbekannter Fehler');
-                V2.toast('Fehler: ' + errMsg, 'error');
+                showToast('Fehler: ' + errMsg, 'error');
             }
         } catch (err) {
             console.error('[EditModal] Save failed:', err);
-            V2.toast('Speichern fehlgeschlagen', 'error');
+            showToast('Speichern fehlgeschlagen', 'error');
         } finally {
             if (saveBtn) {
                 saveBtn.disabled = false;
@@ -1019,8 +1021,6 @@ const V2EditModal = (function() {
         close
     };
 })();
-
-window.V2EditModal = V2EditModal;
 
 export { V2EditModal };
 export default V2EditModal;

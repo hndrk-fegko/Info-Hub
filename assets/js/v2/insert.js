@@ -1,5 +1,8 @@
 import V2State from './state.js';
 import V2Api from './api-client.js';
+import V2EditModal from './edit-modal.js';
+import { V2Canvas } from './canvas.js';
+import { showToast } from './toast.js';
 
 /**
  * V2 Insert - Floating "+" Indikator zwischen Grid-Zellen
@@ -537,7 +540,7 @@ const V2Insert = (function() {
         
         // Types that need user input before saving → open edit modal first
         const needsInput = ['image', 'download', 'iframe', 'link', 'contact'];
-        if (needsInput.includes(type) && typeof V2EditModal !== 'undefined') {
+        if (needsInput.includes(type)) {
             // Open edit modal with the draft tile (no id = new tile)
             V2EditModal.open(newTile);
             return;
@@ -547,17 +550,17 @@ const V2Insert = (function() {
         try {
             const result = await V2Api.saveTile(newTile);
             if (result.success) {
-                V2.toast(types[type]?.name + ' eingefügt', 'success');
+                showToast(types[type]?.name + ' eingefügt', 'success');
                 await V2Canvas.reloadAll();
                 if (result.tile?.id) {
                     V2State.selectTile(result.tile.id);
                 }
             } else {
-                V2.toast('Fehler: ' + (result.error || 'Unbekannt'), 'error');
+                showToast('Fehler: ' + (result.error || 'Unbekannt'), 'error');
             }
         } catch(err) {
             console.error('[Insert] insertTile failed:', err);
-            V2.toast('Einfügen fehlgeschlagen', 'error');
+            showToast('Einfügen fehlgeschlagen', 'error');
         }
     }
     
@@ -581,8 +584,6 @@ const V2Insert = (function() {
         hideIndicator
     };
 })();
-
-window.V2Insert = V2Insert;
 
 export { V2Insert };
 export default V2Insert;

@@ -2,6 +2,8 @@
 
 > Analyse, Lessons Learned und drei Ausbau-Varianten  
 > Stand: März 2026
+>
+> Historischer Konzeptstand vor dem Retirement des Classic-Editors. Verweise auf einen parallel gepflegten Classic-Client beschreiben die damalige Migrationsoption und nicht den aktuellen Laufzeitstand.
 
 ---
 

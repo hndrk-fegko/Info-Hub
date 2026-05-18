@@ -1,6 +1,6 @@
 /* ContactTile JavaScript - Anti-Crawler Reveal */
 
-function revealContact(button, type, encodedData) {
+function decodeContactData(encodedData) {
     // XOR-Key muss mit PHP übereinstimmen
     const XOR_KEY = 'InfoHub2026';
     
@@ -14,6 +14,18 @@ function revealContact(button, type, encodedData) {
             decoded.charCodeAt(i) ^ XOR_KEY.charCodeAt(i % XOR_KEY.length)
         );
     }
+
+    return result;
+}
+
+function revealContact(button) {
+    const type = button.dataset.contactType || '';
+    const encodedData = button.dataset.contactValue || '';
+    if (!type || !encodedData) {
+        return;
+    }
+
+    const result = decodeContactData(encodedData);
     
     // Button durch Link ersetzen
     const link = document.createElement('a');
@@ -31,3 +43,27 @@ function revealContact(button, type, encodedData) {
     
     button.replaceWith(link);
 }
+
+document.addEventListener('click', (event) => {
+    const trigger = event.target.closest('[data-contact-reveal]');
+    if (!trigger) {
+        return;
+    }
+
+    event.preventDefault();
+    revealContact(trigger);
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+    }
+
+    const trigger = event.target.closest('[data-contact-reveal]');
+    if (!trigger) {
+        return;
+    }
+
+    event.preventDefault();
+    revealContact(trigger);
+});

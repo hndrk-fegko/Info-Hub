@@ -1,5 +1,7 @@
 import V2State from './state.js';
 import V2Api from './api-client.js';
+import V2Settings from './settings.js';
+import { showToast } from './toast.js';
 
 /**
  * V2 Canvas - WYSIWYG Tile Grid mit Server-gerendetem HTML
@@ -14,6 +16,50 @@ import V2Api from './api-client.js';
  */
 
 const V2_CONFIG = window.V2_CONFIG || {};
+
+let _interactiveModules = {
+    dragDrop: null,
+    insert: null,
+    editModal: null,
+    contextMenu: null
+};
+let _interactiveModulesPromise = null;
+
+function getContextMenuModule() {
+    return _interactiveModules.contextMenu;
+}
+
+function getInsertModule() {
+    return _interactiveModules.insert;
+}
+
+function getEditModalModule() {
+    return _interactiveModules.editModal;
+}
+
+async function loadInteractiveModules() {
+    if (_interactiveModulesPromise) {
+        return _interactiveModulesPromise;
+    }
+
+    _interactiveModulesPromise = Promise.all([
+        import('./drag-drop.js'),
+        import('./insert.js'),
+        import('./edit-modal.js'),
+        import('./context-menu.js')
+    ]).then(([dragDropModule, insertModule, editModalModule, contextMenuModule]) => {
+        _interactiveModules = {
+            dragDrop: dragDropModule.default,
+            insert: insertModule.default,
+            editModal: editModalModule.default,
+            contextMenu: contextMenuModule.default
+        };
+
+        return _interactiveModules;
+    });
+
+    return _interactiveModulesPromise;
+}
 
 const V2Canvas = (function() {
     'use strict';
@@ -230,8 +276,9 @@ const V2Canvas = (function() {
             e.preventDefault();
             e.stopPropagation();
             V2State.selectTile(tileId);
-            if (typeof V2ContextMenu !== 'undefined') {
-                V2ContextMenu.showTileMenu(tileId, e.clientX, e.clientY);
+            const contextMenu = getContextMenuModule();
+            if (contextMenu) {
+                contextMenu.showTileMenu(tileId, e.clientX, e.clientY);
             }
         });
 
@@ -241,8 +288,9 @@ const V2Canvas = (function() {
                 longPressTimer = null;
                 const touch = e.touches[0];
                 V2State.selectTile(tileId);
-                if (typeof V2ContextMenu !== 'undefined') {
-                    V2ContextMenu.showTileMenu(tileId, touch.clientX, touch.clientY);
+                const contextMenu = getContextMenuModule();
+                if (contextMenu) {
+                    contextMenu.showTileMenu(tileId, touch.clientX, touch.clientY);
                 }
             }, 500);
         }, { passive: true });
@@ -260,8 +308,11 @@ const V2Canvas = (function() {
     }
 
     function getVisibilityStatus(rawTile, tileRender) {
-        if (rawTile && typeof V2ContextMenu !== 'undefined' && typeof V2ContextMenu.getVisibilityStatus === 'function') {
-            return V2ContextMenu.getVisibilityStatus(rawTile);
+        if (rawTile) {
+            const contextMenu = getContextMenuModule();
+            if (contextMenu) {
+                return contextMenu.getVisibilityStatus(rawTile);
+            }
         }
 
         if (tileRender.visible === false) {
@@ -465,7 +516,12 @@ const V2Canvas = (function() {
     }
 
     function openTileEditorAtField(tile, fieldName, dataOverrides = {}) {
-        if (!tile || typeof V2EditModal === 'undefined') {
+        if (!tile) {
+            return;
+        }
+
+        const editModal = getEditModalModule();
+        if (!editModal) {
             return;
         }
 
@@ -477,7 +533,7 @@ const V2Canvas = (function() {
             }
         };
 
-        V2EditModal.open(modalTile);
+        editModal.open(modalTile);
 
         requestAnimationFrame(() => {
             window.setTimeout(() => {
@@ -514,7 +570,8 @@ const V2Canvas = (function() {
         if (e.target.matches('input, textarea, select')) return;
         // Don't handle when a modal or popup is open
         if (document.querySelector('.v2-modal-overlay') || document.querySelector('.v2-type-popup[style*="block"]')) return;
-        if (typeof V2ContextMenu !== 'undefined' && V2ContextMenu.isOpen()) return;
+        const contextMenu = getContextMenuModule();
+        if (contextMenu && contextMenu.isOpen()) return;
         
         const selectedId = V2State.getSelectedTileId();
         
@@ -733,7 +790,7 @@ const V2 = (function() {
     
     // === Init ===
     
-    function init() {
+    async function init() {
         cleanupLegacyPublishedHeader();
         initPageMenuInteractions();
         bindShellActions();
@@ -745,34 +802,26 @@ const V2 = (function() {
             settings: V2_CONFIG.settings,
             tileTypes: V2_CONFIG.tileTypes
         });
+
+        const interactiveModules = await loadInteractiveModules();
         
         // Canvas initialisieren
         V2Canvas.init();
         
         // Drag & Drop initialisieren
-        if (typeof V2DragDrop !== 'undefined') {
-            V2DragDrop.init();
-        }
+        interactiveModules.dragDrop?.init();
         
         // Insert-Buttons initialisieren
-        if (typeof V2Insert !== 'undefined') {
-            V2Insert.init();
-        }
+        interactiveModules.insert?.init();
         
         // Edit-Modal initialisieren
-        if (typeof V2EditModal !== 'undefined') {
-            V2EditModal.init();
-        }
+        interactiveModules.editModal?.init();
         
         // Settings-Modal initialisieren
-        if (typeof V2Settings !== 'undefined') {
-            V2Settings.init();
-        }
+        V2Settings.init();
 
         // Rechtsklick-Kontextmenü initialisieren
-        if (typeof V2ContextMenu !== 'undefined') {
-            V2ContextMenu.init();
-        }
+        interactiveModules.contextMenu?.init();
         
         // Session-Timer starten
         initSessionTimer();
@@ -794,14 +843,13 @@ const V2 = (function() {
     
     function addTile() {
         // Nutze das Insert-System falls verfügbar (zeigt Typ-Popup)
-        if (typeof V2Insert !== 'undefined') {
-            const addBtn = document.querySelector('.v2-add-tile-btn');
-            if (addBtn) {
-                const tiles = V2State.getTiles();
-                const insertIndex = tiles.length; // am Ende
-                V2Insert.showTypePopup(addBtn, insertIndex);
-                return;
-            }
+        const insertModule = getInsertModule();
+        const addBtn = document.querySelector('.v2-add-tile-btn');
+        if (insertModule && addBtn) {
+            const tiles = V2State.getTiles();
+            const insertIndex = tiles.length; // am Ende
+            insertModule.showTypePopup(addBtn, insertIndex);
+            return;
         }
         
         // Fallback: prompt-basiert
@@ -877,15 +925,17 @@ const V2 = (function() {
         if (!tile) return;
         
         // Dynamisches Edit-Modal basierend auf fieldMeta des Tile-Typs
-        if (typeof V2EditModal !== 'undefined') {
-            V2EditModal.open(tile);
-        } else {
-            // Fallback: prompt-basiert
-            const title = prompt('Titel bearbeiten:', tile.data?.title || '');
-            if (title === null) return;
-            const updatedTile = { ...tile, data: { ...tile.data, title: title } };
-            saveTileAndRefresh(updatedTile);
+        const editModal = getEditModalModule();
+        if (editModal) {
+            editModal.open(tile);
+            return;
         }
+
+        // Fallback: prompt-basiert
+        const title = prompt('Titel bearbeiten:', tile.data?.title || '');
+        if (title === null) return;
+        const updatedTile = { ...tile, data: { ...tile.data, title: title } };
+        saveTileAndRefresh(updatedTile);
     }
     
     async function duplicateSelectedTile() {
@@ -913,12 +963,13 @@ const V2 = (function() {
     function openContextMenu() {
         const selectedId = V2State.getSelectedTileId();
         if (!selectedId) return;
-        if (typeof V2ContextMenu === 'undefined') return;
+        const contextMenu = getContextMenuModule();
+        if (!contextMenu) return;
 
         const btn = document.getElementById('tbMoreBtn');
         if (btn) {
             const rect = btn.getBoundingClientRect();
-            V2ContextMenu.showTileMenu(selectedId, rect.left, rect.bottom + 4);
+            contextMenu.showTileMenu(selectedId, rect.left, rect.bottom + 4);
         }
     }
 
@@ -1050,7 +1101,7 @@ const V2 = (function() {
     async function publish() {
         if (!confirm('Seite jetzt veröffentlichen?')) return;
         
-        const pubBtn = document.querySelector('.v2-btn-primary[onclick*="publish"]');
+        const pubBtn = document.querySelector('[data-v2-action="publish"]');
         if (pubBtn) {
             pubBtn.disabled = true;
             pubBtn.textContent = '⏳ Wird veröffentlicht...';
@@ -1118,11 +1169,7 @@ const V2 = (function() {
     }
     
     function openSettings() {
-        if (typeof V2Settings !== 'undefined') {
-            V2Settings.open();
-        } else {
-            toast('Settings-Modul nicht geladen', 'error');
-        }
+        V2Settings.open();
     }
 
     function formatBackupCount(count) {
@@ -1209,22 +1256,7 @@ const V2 = (function() {
     // === Toast Notifications ===
     
     function toast(message, type = 'info') {
-        const container = document.getElementById('toastContainer');
-        if (!container) return;
-        
-        const toast = document.createElement('div');
-        toast.className = `v2-toast v2-toast-${type}`;
-        toast.textContent = message;
-        container.appendChild(toast);
-        
-        // Animate in
-        requestAnimationFrame(() => toast.classList.add('v2-toast-visible'));
-        
-        // Auto-remove
-        setTimeout(() => {
-            toast.classList.remove('v2-toast-visible');
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
+        showToast(message, type);
     }
     
     // === Session Timer (Activity-Tracking + Auto-Extend + Restore) ===
@@ -1333,7 +1365,7 @@ function autoInitV2WhenReady() {
     }
 
     _v2AutoInitStarted = true;
-    V2.init();
+    void V2.init();
 }
 
 if (document.readyState === 'loading') {
@@ -1341,9 +1373,6 @@ if (document.readyState === 'loading') {
 } else {
     autoInitV2WhenReady();
 }
-
-window.V2Canvas = V2Canvas;
-window.V2 = V2;
 
 export { V2, V2Canvas };
 export default V2;

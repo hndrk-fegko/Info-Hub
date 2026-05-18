@@ -10,7 +10,7 @@ Geprueft wurden die tragenden Architektur- und Wartungspunkte des Gesamtprojekts
 - Backend-Entry-Points und Service-Bootstrap
 - Tile-Registry und Tile-Metadatenmodell
 - API-Schicht unter `backend/api/endpoints.php`
-- Classic Editor unter `backend/editor.php` plus `assets/js/editor-*.js`
+- Legacy-Editor-Kompatibilitaet unter `backend/editor.php` nach Retirement des Classic-Clients
 - V2 Editor unter `backend/v2/editor.php` plus `assets/js/v2/*.js`
 - Test- und Dokumentationsstand
 
@@ -30,7 +30,7 @@ Hinweis:
 Info-Hub hat eine gute fachliche Grundstruktur: file-based Storage, klare Tile-Module, nutzbare Service-Klassen und inzwischen auch eine solide Backup-Orchestrierung. Die groessten Risiken liegen aktuell nicht in Einzelbugs, sondern in drei systemischen Themen:
 
 1. zentrale Infrastruktur wird noch ueber Globals und manuelle Bootstrap-Reihenfolgen getragen,
-2. Classic und V2 werden parallel als vollwertige Editoren gepflegt,
+2. historische Doku und Review-Artefakte koennen den inzwischen abgeschlossenen Classic-Retirement-Stand noch widerspruechlich abbilden,
 3. mehrere kanonische Dokumente bilden den Ist-Zustand nicht mehr korrekt ab.
 
 Wenn diese drei Ebenen nicht zuerst geordnet werden, steigt die Wahrscheinlichkeit, dass neue Features mehrfach, inkonsistent oder an der falschen Schicht implementiert werden.
@@ -128,9 +128,9 @@ Umgesetzt:
 
 - V2 ist jetzt als Zielrichtung festgelegt.
 - `backend/login.php` bleibt auf V2 als Standardpfad.
-- `backend/editor.php` ist im Code und in der UI als Legacy-/Wartungspfad markiert.
-- Der Classic-Aufruf zeigt einen Warn-/Confirm-Dialog; Abbruch fuehrt zurueck nach V2.
-- `docs/dev/feature-matrix.md`, `docs/dev/architecture.md` und `docs/dev/WYSIWYG-WIP.md` beschreiben den Editor-Status jetzt konsistent als `V2 = kanonisch`, `Classic = Legacy/Wartung`.
+- `backend/editor.php` ist jetzt ein reiner Kompatibilitaets-Redirect auf `backend/v2/editor.php`.
+- Die Classic-spezifischen Runtime-Assets unter `assets/js/editor-*.js` und `assets/css/editor.css` wurden entfernt.
+- `docs/dev/feature-matrix.md`, `docs/dev/architecture.md` und `docs/dev/WYSIWYG-WIP.md` beschreiben den Editor-Status jetzt konsistent als `V2 = kanonisch`, `backend/editor.php = Legacy-Redirect`.
 
 Abhaengigkeiten:
 
@@ -311,13 +311,12 @@ Umgesetzt:
 - `TileBase::getFields()` leitet Feldlisten jetzt standardmaessig aus `getFieldMeta()` ab, statt jede Tile-Klasse zu einer zweiten parallelen Feldliste zu zwingen.
 - Redundante `getFields()`-Overrides wurden aus den Tile-Klassen entfernt; die Feldlisten kommen dort jetzt zentral aus derselben Metadatenquelle.
 - `TileService::getAvailableTypes()` und `TileService::getAvailableTypesWithMeta()` leiten `fields` jetzt primaer aus `fieldMeta` ab, statt zwei unabhaengige Feldlisten weiterzureichen.
-- `backend/editor.php` versorgt den Classic Editor jetzt ebenfalls mit `getAvailableTypesWithMeta()`, nicht mehr nur mit einer reduzierten Feldliste.
-- `assets/js/editor-modals.js` liest Feldtyp, Label, Defaults und Optionen jetzt primaer aus `typeInfo.fieldMeta` und nutzt die alte JS-Feldtabelle nur noch als Legacy-Fallback.
-- `tests/integration/test_phase2.php` und `tests/integration/test_phase3.php` pruefen den gemeinsamen `fieldMeta`-Pfad jetzt explizit fuer TileService, Classic-Konfiguration und Modal-Assets.
+- Nach dem Retirement des Classic-Clients nutzt nur noch der V2-Stack den gemeinsamen `fieldMeta`-Pfad zur Formularableitung.
+- `tests/integration/test_phase2.php` und `tests/integration/test_phase3.php` pruefen den gemeinsamen `fieldMeta`-Pfad jetzt explizit fuer TileService und V2-Konfiguration.
 
 Noch offen:
 
-- Classic enthaelt fuer Legacy-Sonderfaelle weiterhin spezielle Render-Pfade und Fallback-Configs; die Metadatenbasis ist vereinheitlicht, aber noch nicht restlos exklusiv.
+- Weitere isolierte Unit- und Kontrakttests koennen die `fieldMeta`-Ableitung noch feiner absichern; ein zweiter Legacy-Editorpfad ist hier aber nicht mehr zu beruecksichtigen.
 
 Abhaengigkeiten:
 

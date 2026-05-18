@@ -358,7 +358,7 @@ class GeneratorService {
         <div class="legal-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="legal-modal-title">
             <div class="legal-modal__header">
                 <h2 class="legal-modal__title" id="legal-modal-title">Rechtliche Hinweise</h2>
-                <button type="button" class="legal-modal__close" onclick="closeLegalModal()" aria-label="Dialog schließen">&times;</button>
+                <button type="button" class="legal-modal__close" data-legal-modal-close aria-label="Dialog schließen">&times;</button>
             </div>
             <div class="legal-modal__body" id="legal-modal-body"></div>
         </div>
@@ -459,9 +459,25 @@ JS;
 
             modal.dataset.initialized = 'true';
             modal.addEventListener('click', (event) => {
+                const closeTrigger = event.target.closest('[data-legal-modal-close]');
+                if (closeTrigger) {
+                    event.preventDefault();
+                    closeLegalModal();
+                    return;
+                }
+
                 if (event.target === modal) {
                     closeLegalModal();
                 }
+            });
+
+            document.addEventListener('click', (event) => {
+                const trigger = event.target.closest('.site-footer__legal-button[data-legal-key]');
+                if (!trigger) {
+                    return;
+                }
+
+                handleLegalRouteClick(event, trigger.dataset.legalKey || '', trigger);
             });
 
             document.addEventListener('keydown', (event) => {
@@ -1010,12 +1026,12 @@ JS;
             $route = htmlspecialchars($routes[$key], ENT_QUOTES, 'UTF-8');
             if (($entry['mode'] ?? 'off') === 'link') {
                 $target = htmlspecialchars($entry['link'], ENT_QUOTES, 'UTF-8');
-                $actions[] = "<a class=\"site-footer__legal-button\" href=\"{$route}\" data-legal-key=\"{$key}\" data-legal-mode=\"link\" data-legal-target=\"{$target}\" onclick=\"event.stopPropagation(); return handleLegalRouteClick(event, '{$key}', this)\">{$labelHtml}</a>";
+                $actions[] = "<a class=\"site-footer__legal-button\" href=\"{$route}\" data-legal-key=\"{$key}\" data-legal-mode=\"link\" data-legal-target=\"{$target}\">{$labelHtml}</a>";
                 continue;
             }
 
             if (($entry['mode'] ?? 'off') === 'text') {
-                $actions[] = "<a class=\"site-footer__legal-button\" href=\"{$route}\" data-legal-key=\"{$key}\" data-legal-mode=\"text\" onclick=\"event.stopPropagation(); return handleLegalRouteClick(event, '{$key}', this)\">{$labelHtml}</a>";
+                $actions[] = "<a class=\"site-footer__legal-button\" href=\"{$route}\" data-legal-key=\"{$key}\" data-legal-mode=\"text\">{$labelHtml}</a>";
             }
         }
 
@@ -1264,8 +1280,8 @@ CSS;
 {$narrowClose}
 
     <!-- Lightbox -->
-    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
-        <span class="lightbox-close">&times;</span>
+    <div class="lightbox" id="lightbox">
+        <span class="lightbox-close" data-lightbox-close role="button" tabindex="0" aria-label="Bildansicht schließen">&times;</span>
         <img src="" alt="" id="lightbox-img">
     </div>
 
@@ -1274,7 +1290,7 @@ CSS;
         <div class="iframe-modal-content">
             <div class="iframe-modal-header">
                 <h3 class="iframe-modal-title" id="iframe-modal-title">Formular</h3>
-                <button class="iframe-modal-close" onclick="closeIframeModal()">&times;</button>
+                <button type="button" class="iframe-modal-close" data-iframe-close>&times;</button>
             </div>
             <div class="iframe-modal-body">
                 <iframe src="" id="iframe-modal-frame"></iframe>

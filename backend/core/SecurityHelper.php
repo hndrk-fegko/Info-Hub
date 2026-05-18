@@ -128,14 +128,27 @@ class SecurityHelper {
         $html .= implode(' | ', $messages);
         
         $html .= '</div>';
-        $html .= '<button type="button" onclick="dismissSecurityBanner()" class="security-banner-close">×</button>';
+        $html .= '<button type="button" class="security-banner-close" data-security-banner-dismiss>×</button>';
         $html .= '</div>';
         
         $html .= '<script>
-            function dismissSecurityBanner() {
-                document.getElementById("securityBanner").style.display = "none";
-                fetch("?dismiss_security_banner=1");
-            }
+            (function() {
+                const banner = document.getElementById("securityBanner");
+                if (!banner || banner.dataset.dismissBound === "true") {
+                    return;
+                }
+
+                banner.dataset.dismissBound = "true";
+                const dismissButton = banner.querySelector("[data-security-banner-dismiss]");
+                if (!dismissButton) {
+                    return;
+                }
+
+                dismissButton.addEventListener("click", function() {
+                    banner.style.display = "none";
+                    fetch("?dismiss_security_banner=1");
+                });
+            })();
         </script>';
         
         return $html;

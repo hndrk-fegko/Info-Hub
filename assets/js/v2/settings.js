@@ -1,6 +1,7 @@
 import V2State from './state.js';
 import V2Api from './api-client.js';
 import V2MediaPicker from './media-picker.js';
+import { showToast } from './toast.js';
 
 /**
  * V2 Settings Modal - Einstellungen für den WYSIWYG Editor
@@ -114,12 +115,12 @@ const V2Settings = (function() {
         <div class="v2-modal" style="max-width: 640px;">
             <div class="v2-modal-header">
                 <h2>⚙️ Einstellungen</h2>
-                <button class="v2-modal-close" onclick="V2Settings.close()">×</button>
+                <button type="button" class="v2-modal-close" data-v2-settings-action="close">×</button>
             </div>
             <div class="v2-modal-body">
                 <div class="v2-settings-tabs" role="tablist" aria-label="Einstellungsbereiche">
-                    <button type="button" class="v2-settings-tab active" data-v2-settings-tab="design" onclick="V2Settings.switchTab('design')">Design</button>
-                    <button type="button" class="v2-settings-tab" data-v2-settings-tab="system" onclick="V2Settings.switchTab('system')">System</button>
+                    <button type="button" class="v2-settings-tab active" data-v2-settings-tab="design" data-v2-settings-action="switchTab">Design</button>
+                    <button type="button" class="v2-settings-tab" data-v2-settings-tab="system" data-v2-settings-action="switchTab">System</button>
                 </div>
 
                 <div class="v2-settings-panel active" data-v2-settings-panel="design">
@@ -409,8 +410,7 @@ const V2Settings = (function() {
                         <div class="v2-admin-invite" id="v2AdminInvite">
                             <input type="email" class="v2-input" id="v2InviteEmail" 
                                    placeholder="Email-Adresse einladen" style="flex:1">
-                            <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" 
-                                    onclick="V2Settings.inviteAdmin()">➕ Einladen</button>
+                            <button type="button" class="v2-btn v2-btn-secondary v2-btn-small" data-v2-settings-action="inviteAdmin">➕ Einladen</button>
                         </div>
                         <small class="v2-hint">Die eingeladene Person kann sich beim nächsten Login automatisch anmelden</small>
                     </div>
@@ -418,8 +418,8 @@ const V2Settings = (function() {
                 </div>
             </div>
             <div class="v2-modal-footer">
-                <button class="v2-btn v2-btn-secondary" onclick="V2Settings.close()">Abbrechen</button>
-                <button class="v2-btn v2-btn-primary" onclick="V2Settings.save()">💾 Speichern</button>
+                <button type="button" class="v2-btn v2-btn-secondary" data-v2-settings-action="close">Abbrechen</button>
+                <button type="button" class="v2-btn v2-btn-primary" data-v2-settings-action="save">💾 Speichern</button>
             </div>
         </div>`;
     }
@@ -516,6 +516,7 @@ const V2Settings = (function() {
     }
     
     function wireEvents(settings) {
+        _overlay?.addEventListener('click', handleOverlayActionClick);
         document.getElementById('v2SetHeaderSelectBtn')?.addEventListener('click', selectHeader);
         document.getElementById('v2SetHeaderRemoveBtn')?.addEventListener('click', removeHeader);
         document.getElementById('v2SetBackgroundSelectBtn')?.addEventListener('click', selectBackground);
@@ -568,6 +569,38 @@ const V2Settings = (function() {
                     inviteAdmin();
                 }
             });
+        }
+
+        function handleOverlayActionClick(event) {
+            const actionTarget = event.target.closest('[data-v2-settings-action]');
+            if (!actionTarget || actionTarget.disabled) {
+                return;
+            }
+
+            event.preventDefault();
+
+            switch (actionTarget.dataset.v2SettingsAction) {
+                case 'close':
+                    close();
+                    break;
+                case 'save':
+                    void save();
+                    break;
+                case 'switchTab':
+                    switchTab(actionTarget.dataset.v2SettingsTab || 'design');
+                    break;
+                case 'inviteAdmin':
+                    void inviteAdmin();
+                    break;
+                case 'removeAdminEmail':
+                    void removeAdminEmail(actionTarget.dataset.email || '');
+                    break;
+                case 'removeAdminInvite':
+                    void removeAdminInvite(actionTarget.dataset.email || '');
+                    break;
+                default:
+                    break;
+            }
         }
     }
 
@@ -708,17 +741,17 @@ const V2Settings = (function() {
             if (result.success) {
                 V2State.setSettings(result.settings || newSettings);
                 close();
-                V2.toast('Einstellungen gespeichert!', 'success');
+                showToast('Einstellungen gespeichert!', 'success');
                 
                 // Refresh canvas to show updated header/footer/colors
                 // Full page reload ensures PHP re-renders header/footer correctly
                 window.location.reload();
             } else {
-                V2.toast('Speichern fehlgeschlagen: ' + (result.error || ''), 'error');
+                showToast('Speichern fehlgeschlagen: ' + (result.error || ''), 'error');
             }
         } catch(err) {
             console.error('[Settings] save failed:', err);
-            V2.toast('Speichern fehlgeschlagen', 'error');
+            showToast('Speichern fehlgeschlagen', 'error');
         }
     }
     
@@ -978,8 +1011,7 @@ const V2Settings = (function() {
             const title = canRemove ? 'Admin entfernen' : 'Letzte Admin-Adresse kann nicht gelöscht werden';
             return `<div class="v2-admin-item">
                 <span>${escHTML(email)}</span>
-                <button type="button" class="v2-admin-remove" ${disabledAttr} title="${title}"
-                        onclick="V2Settings.removeAdminEmail('${escAttr(email)}')">✕</button>
+                <button type="button" class="v2-admin-remove" ${disabledAttr} title="${title}" data-v2-settings-action="removeAdminEmail" data-email="${escAttr(email)}">✕</button>
             </div>`;
         }).join('');
         
@@ -987,8 +1019,7 @@ const V2Settings = (function() {
             const email = invite.email || '';
             return `<div class="v2-admin-item v2-admin-pending" title="Ausstehend – Einladung wartet auf Login">
                 <span>${escHTML(email)} (ausstehend)</span>
-                <button type="button" class="v2-admin-remove" title="Einladung löschen"
-                        onclick="V2Settings.removeAdminInvite('${escAttr(email)}')">✕</button>
+                <button type="button" class="v2-admin-remove" title="Einladung löschen" data-v2-settings-action="removeAdminInvite" data-email="${escAttr(email)}">✕</button>
             </div>`;
         }).join('');
         
@@ -1007,17 +1038,18 @@ const V2Settings = (function() {
                 _adminInvites = result.invites || _adminInvites;
                 renderAdminList();
                 input.value = '';
-                V2.toast(result.message || 'Einladung gesendet', 'success');
+                showToast(result.message || 'Einladung gesendet', 'success');
             } else {
-                V2.toast(result.message || 'Einladung fehlgeschlagen', 'error');
+                showToast(result.message || 'Einladung fehlgeschlagen', 'error');
             }
         } catch(err) {
             console.error('[Settings] Invite failed:', err);
-            V2.toast('Netzwerkfehler beim Einladen', 'error');
+            showToast('Netzwerkfehler beim Einladen', 'error');
         }
     }
     
     async function removeAdminEmail(email) {
+        if (!email) return;
         if (!confirm('Admin "' + email + '" wirklich entfernen?')) return;
         
         try {
@@ -1026,30 +1058,31 @@ const V2Settings = (function() {
                 _adminEmails = result.emails || _adminEmails;
                 _adminInvites = result.invites || _adminInvites;
                 renderAdminList();
-                V2.toast(result.message || 'Admin entfernt', 'success');
+                showToast(result.message || 'Admin entfernt', 'success');
             } else {
-                V2.toast(result.message || 'Entfernen fehlgeschlagen', 'error');
+                showToast(result.message || 'Entfernen fehlgeschlagen', 'error');
             }
         } catch(err) {
             console.error('[Settings] Remove admin failed:', err);
-            V2.toast('Netzwerkfehler beim Entfernen', 'error');
+            showToast('Netzwerkfehler beim Entfernen', 'error');
         }
     }
     
     async function removeAdminInvite(email) {
+        if (!email) return;
         try {
             const result = await V2Api.post('remove_admin_invite', { email });
             if (result.success) {
                 _adminEmails = result.emails || _adminEmails;
                 _adminInvites = result.invites || _adminInvites;
                 renderAdminList();
-                V2.toast(result.message || 'Einladung entfernt', 'success');
+                showToast(result.message || 'Einladung entfernt', 'success');
             } else {
-                V2.toast(result.message || 'Entfernen fehlgeschlagen', 'error');
+                showToast(result.message || 'Entfernen fehlgeschlagen', 'error');
             }
         } catch(err) {
             console.error('[Settings] Remove invite failed:', err);
-            V2.toast('Netzwerkfehler beim Entfernen', 'error');
+            showToast('Netzwerkfehler beim Entfernen', 'error');
         }
     }
     
@@ -1075,8 +1108,6 @@ const V2Settings = (function() {
         removeAdminInvite
     };
 })();
-
-window.V2Settings = V2Settings;
 
 export { V2Settings };
 export default V2Settings;

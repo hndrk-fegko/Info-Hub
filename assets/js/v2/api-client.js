@@ -9,7 +9,7 @@ const V2Api = (function() {
     'use strict';
 
     function getConfig() {
-        return window.V2_CONFIG || {};
+        return globalThis.V2_CONFIG || {};
     }
     
     function getApiUrl() {
@@ -256,8 +256,6 @@ const V2Api = (function() {
         extendSession
     };
 })();
-
-window.V2Api = V2Api;
 
 export { V2Api };
 export default V2Api;

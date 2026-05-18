@@ -7,7 +7,7 @@
 
 > **Aktueller Stand 2026-05-18:**
 > `backend/v2/editor.php` ist inzwischen der kanonische Editor und der Standardpfad nach dem Login.
-> `backend/editor.php` bleibt nur noch als Legacy-/Wartungspfad im Code.
+> `backend/editor.php` ist inzwischen nur noch ein Kompatibilitaets-Redirect auf V2.
 > Dieses Dokument dient daher nur noch als historische Entwicklungsnotiz und nicht mehr als aktueller Projektstatus.
 > Der aktuelle Ist-Stand liegt in `docs/dev/feature-matrix.md`, die Architektur-Einordnung in `docs/dev/architecture.md`.
 

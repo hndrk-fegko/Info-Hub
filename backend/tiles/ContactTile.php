@@ -161,7 +161,7 @@ class ContactTile extends TileBase {
         
         // Email Button
         if (!empty($email) && $showEmailButton) {
-            $html .= "<button class=\"contact-reveal-btn\" onclick=\"revealContact(this, 'email', '{$emailEncoded}')\">\n";
+            $html .= "<button class=\"contact-reveal-btn\" type=\"button\" data-contact-reveal data-contact-type=\"email\" data-contact-value=\"{$emailEncoded}\">\n";
             $html .= "    <span class=\"contact-icon\">📧</span>\n";
             $html .= "    <span class=\"contact-label\">Email anzeigen</span>\n";
             $html .= "</button>\n";
@@ -169,7 +169,7 @@ class ContactTile extends TileBase {
         
         // Telefon Button
         if (!empty($phone) && $showPhoneButton) {
-            $html .= "<button class=\"contact-reveal-btn\" onclick=\"revealContact(this, 'phone', '{$phoneEncoded}')\">\n";
+            $html .= "<button class=\"contact-reveal-btn\" type=\"button\" data-contact-reveal data-contact-type=\"phone\" data-contact-value=\"{$phoneEncoded}\">\n";
             $html .= "    <span class=\"contact-icon\">📞</span>\n";
             $html .= "    <span class=\"contact-label\">Telefon anzeigen</span>\n";
             $html .= "</button>\n";

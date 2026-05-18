@@ -61,10 +61,10 @@ Manuelle Browser-/E2E-Szenarien sind jetzt ebenfalls zentral registriert und wer
 - [x] Richtiger Code → Redirect zu v2/editor.php
 - [x] Auch ein neu generierter Code wird beim 10 Minuten Lockout abgelehnt (Rate limiting Bypas wird verhindert)
 
-### Classic Legacy
-- [ ] Aufruf von `/backend/editor.php` zeigt einen Legacy-Hinweis per Confirm-Dialog
-- [ ] Abbrechen im Legacy-Dialog leitet zurück zu `/backend/v2/editor.php`
-- [ ] Bestätigen öffnet den Classic Editor mit sichtbarem Legacy-Hinweisbanner
+### Legacy Redirect
+- [ ] Aufruf von `/backend/editor.php` leitet mit gültiger Session direkt zu `/backend/v2/editor.php` weiter
+- [ ] Es erscheint kein Classic-Dialog mehr
+- [ ] Der V2-Editor bleibt nach dem Redirect vollständig bedienbar
 
 ### Session-Management
 - [x] Session-Timer im Header sichtbar

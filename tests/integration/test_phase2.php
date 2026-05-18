@@ -12,7 +12,7 @@
  * 6. All tile types can be rendered individually
  * 7. render_tile_html API endpoint works
  * 8. render_all_tiles_html API endpoint works
- * 9. Classic editor still works (regression)
+ * 9. Legacy editor entry redirects to V2
  * 10. v2 editor page loads without PHP errors
  */
 
@@ -203,18 +203,16 @@ foreach ($typesWithMeta as $type => $typeConfig) {
     test("Tile type '{$type}' renders", $html !== null && strlen($html) > 0);
 }
 
-echo "\n--- Test Group 7: Regression - classic preview() still works ---\n";
+echo "\n--- Test Group 7: Regression - preview render and legacy redirect ---\n";
 $previewHtml = $generator->preview();
-test('Classic preview() returns HTML', strlen($previewHtml) > 1000);
+test('preview() returns HTML', strlen($previewHtml) > 1000);
 test('Preview has DOCTYPE', strpos($previewHtml, '<!DOCTYPE html>') !== false);
 test('Preview has tile-grid', strpos($previewHtml, 'tile-grid') !== false);
 test('Preview has page-sections', strpos($previewHtml, 'page-sections') !== false);
 
-$classicEditorContent = file_get_contents(__DIR__ . '/../../backend/editor.php');
-test('Classic editor bootstraps tileTypes with fieldMeta', strpos($classicEditorContent, 'getAvailableTypesWithMeta()') !== false);
-
-$classicModalContent = file_get_contents(__DIR__ . '/../../assets/js/editor-modals.js');
-test('Classic modal reads fieldMeta as primary field config', strpos($classicModalContent, 'typeInfo?.fieldMeta?.[fieldName]') !== false);
+$legacyEditorContent = file_get_contents(__DIR__ . '/../../backend/editor.php');
+test('Legacy editor entry redirects to V2', strpos($legacyEditorContent, "header('Location: v2/editor.php')") !== false);
+test('Legacy editor no longer references classic assets', strpos($legacyEditorContent, 'editor.css') === false);
 
 echo "\n=== RESULTS ===\n";
 echo "Total: $total | Passed: $passed | Failed: $failed\n";

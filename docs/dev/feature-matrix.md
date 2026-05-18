@@ -20,13 +20,13 @@ Info-Hub ist ein tile-basiertes, file-basiertes CMS mit gemeinsamer Datenbasis f
 
 - oeffentliche statische Ausgabe ueber `index.html`
 - WYSIWYG Editor unter `backend/v2/editor.php` als kanonischer Redaktionspfad
-- Classic Editor unter `backend/editor.php` als Legacy-/Wartungspfad
+- Legacy-URL unter `backend/editor.php`, die als Kompatibilitaets-Redirect auf `backend/v2/editor.php` bestehen bleibt
 
 ## Editor-Status
 
 - `backend/v2/editor.php` ist die Zielrichtung und der standardmaessige Editor nach dem Login.
-- `backend/editor.php` bleibt vorerst als Legacy-Pfad im Code, wird aber nicht mehr aktiv weiterentwickelt.
-- Classic-spezifische Fundstellen koennen schrittweise ueber den Marker `LEGACY_CLASSIC_EDITOR` auffindbar gemacht und spaeter entfernt werden.
+- `backend/editor.php` enthaelt keinen eigenstaendigen Classic-Client mehr, sondern nur noch einen auth-geschuetzten Redirect auf V2.
+- Classic-spezifische Runtime-Assets wurden entfernt; historische Verweise bleiben nur noch in bewusst archivierten Konzept-/WIP-Dokumenten erhalten.
 
 Nicht Ziel dieses Produkts:
 
@@ -41,6 +41,11 @@ Legende:
 - `Ja`: vorhanden und nutzbar
 - `Teilweise`: vorhanden, aber mit Luecken oder eingeschraenkter UX
 - `Nein`: aktuell nicht vorhanden
+
+Hinweis:
+
+- Die Spalte `Classic` in den folgenden Tabellen ist ein historischer Paritaets-Snapshot des zuletzt gepflegten Legacy-Stands.
+- Laufzeitrelevant und supportet ist nur noch V2; `backend/editor.php` redirectet lediglich auf `backend/v2/editor.php`.
 
 ### 1. System- und Plattform-Features
 
@@ -64,7 +69,7 @@ Legende:
 Hinweis:
 
 - V2 ist der kanonische Editor fuer neue Arbeit.
-- Classic wird nur noch gewartet, damit bestehende Workflows voruebergehend weiter verfuegbar bleiben.
+- Die Classic-Spalte dokumentiert nur noch den zuletzt getragenen Altstand vor dem Retirement.
 
 | Feature | Classic | V2 | Status | Hinweise |
 |---|---:|---:|---|---|
@@ -117,7 +122,7 @@ Hinweis:
 
 ### 5. Bekannte Paritaetsluecken V1 ↔ V2
 
-Classic befindet sich bereits im Wartungsmodus. Diese Punkte markieren die wichtigsten Unterschiede, die bei Regressionstests, Bugfixes und spaeterer Entfernung des Legacy-Pfads beachtet werden muessen:
+Vor dem Retirement befand sich Classic bereits im Wartungsmodus. Diese Punkte markieren die wichtigsten Unterschiede, die fuer historische Regressionen und die V2-Nachpflege relevant waren:
 
 1. Classic und V2 nutzen unterschiedliche Interaktionsmodelle; Paritaet muss weiterhin pro Workflow geprueft werden, nicht nur pro Datenfeld.
 2. Classic bleibt bei einigen Verwaltungs- und Randfall-Workflows noch direkter, waehrend V2 weiter konsolidiert wird.

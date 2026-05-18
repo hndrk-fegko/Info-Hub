@@ -18,7 +18,7 @@ const V2State = (function() {
     'use strict';
 
     function getConfig() {
-        return window.V2_CONFIG || {};
+        return globalThis.V2_CONFIG || {};
     }
     
     // === Private State ===
@@ -176,8 +176,6 @@ const V2State = (function() {
         isDirty, setDirty
     };
 })();
-
-window.V2State = V2State;
 
 export { V2State };
 export default V2State;

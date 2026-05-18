@@ -1,5 +1,8 @@
 import V2State from './state.js';
 import V2Api from './api-client.js';
+import V2Insert from './insert.js';
+import { V2Canvas } from './canvas.js';
+import { showToast } from './toast.js';
 
 /**
  * V2 Drag & Drop - Native HTML5 Drag & Drop für Tile-Sortierung
@@ -53,7 +56,7 @@ const V2DragDrop = (function() {
         
         // Resize → Insert-Cache invalidieren
         window.addEventListener('resize', () => {
-            if (typeof V2Insert !== 'undefined') V2Insert.invalidateCache();
+            V2Insert.invalidateCache();
         });
         
         if (V2_CONFIG.debugMode) {
@@ -91,7 +94,7 @@ const V2DragDrop = (function() {
             _draggedEl.classList.remove('v2-dragging');
             _draggedEl.style.opacity = '';
             stopAutoScroll();
-            if (typeof V2Insert !== 'undefined') V2Insert.setDropMode(false);
+            V2Insert.setDropMode(false);
         }
         
         _draggedEl = wrapper;
@@ -106,14 +109,12 @@ const V2DragDrop = (function() {
         });
         
         // Insert in Drop-Mode setzen (zeigt Gaps als Drop-Zonen)
-        if (typeof V2Insert !== 'undefined') {
-            V2Insert.hideTypePopup();
-            V2Insert.invalidateCache();
-            // Kurze Verzögerung damit der Drag-Start-Opacity angewendet ist
-            requestAnimationFrame(() => {
-                V2Insert.setDropMode(true);
-            });
-        }
+        V2Insert.hideTypePopup();
+        V2Insert.invalidateCache();
+        // Kurze Verzögerung damit der Drag-Start-Opacity angewendet ist
+        requestAnimationFrame(() => {
+            V2Insert.setDropMode(true);
+        });
         
         if (V2_CONFIG.debugMode) {
             console.log('[DragDrop] Start:', _draggedId);
@@ -125,9 +126,7 @@ const V2DragDrop = (function() {
         stopAutoScroll();
         
         // Drop-Mode beenden
-        if (typeof V2Insert !== 'undefined') {
-            V2Insert.setDropMode(false);
-        }
+        V2Insert.setDropMode(false);
         
         if (_draggedEl) {
             _draggedEl.classList.remove('v2-dragging');
@@ -149,15 +148,13 @@ const V2DragDrop = (function() {
         handleAutoScroll(e.clientY);
         
         // Drop-Zone anzeigen: nächsten Gap finden via Insert-Modul
-        if (typeof V2Insert !== 'undefined') {
-            const result = V2Insert.findNearestGap(e.clientX, e.clientY, 80);
-            if (result) {
-                _currentDropGap = result.gap;
-                V2Insert.showIndicator(result.gap);
-            } else {
-                _currentDropGap = null;
-                V2Insert.hideIndicator();
-            }
+        const result = V2Insert.findNearestGap(e.clientX, e.clientY, 80);
+        if (result) {
+            _currentDropGap = result.gap;
+            V2Insert.showIndicator(result.gap);
+        } else {
+            _currentDropGap = null;
+            V2Insert.hideIndicator();
         }
     }
     
@@ -168,18 +165,16 @@ const V2DragDrop = (function() {
         // Stoppe alles
         stopAutoScroll();
         
-        if (_currentDropGap && typeof V2Insert !== 'undefined') {
+        if (_currentDropGap) {
             const insertIndex = _currentDropGap.insertIndex;
             reorderToIndex(_draggedId, insertIndex);
         } else {
             // No valid drop zone
-            V2.toast('Kachel hier nicht ablegbar', 'info');
+            showToast('Kachel hier nicht ablegbar', 'info');
         }
         
         // Drop-Mode beenden
-        if (typeof V2Insert !== 'undefined') {
-            V2Insert.setDropMode(false);
-        }
+        V2Insert.setDropMode(false);
         
         if (_draggedEl) {
             _draggedEl.classList.remove('v2-dragging');
@@ -215,9 +210,7 @@ const V2DragDrop = (function() {
         function tick() {
             window.scrollBy(0, direction * SCROLL_SPEED);
             // Gaps aktualisieren (Scroll verändert Positionen)
-            if (typeof V2Insert !== 'undefined') {
-                V2Insert.invalidateCache();
-            }
+            V2Insert.invalidateCache();
             _scrollRAF = requestAnimationFrame(tick);
         }
         _scrollRAF = requestAnimationFrame(tick);
@@ -267,7 +260,7 @@ const V2DragDrop = (function() {
             const result = await V2Api.updatePositions(positions);
             if (result.success) {
                 V2State.setDirty(true);
-                V2.toast('Reihenfolge aktualisiert', 'success');
+                showToast('Reihenfolge aktualisiert', 'success');
                 await V2Canvas.reloadAll();
                 V2State.deselectAll();
                 requestAnimationFrame(() => {
@@ -276,7 +269,7 @@ const V2DragDrop = (function() {
             }
         } catch(err) {
             console.error('[DragDrop] reorder failed:', err);
-            V2.toast('Sortierung fehlgeschlagen', 'error');
+            showToast('Sortierung fehlgeschlagen', 'error');
         }
     }
     
@@ -289,8 +282,6 @@ const V2DragDrop = (function() {
         setEnabled
     };
 })();
-
-window.V2DragDrop = V2DragDrop;
 
 export { V2DragDrop };
 export default V2DragDrop;

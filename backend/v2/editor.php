@@ -180,11 +180,6 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             <button type="button" class="v2-btn v2-btn-secondary v2-btn-icon" data-v2-action="openSettings" title="Einstellungen">
                 ⚙️
             </button>
-            <!-- LEGACY_CLASSIC_EDITOR: Link bleibt fuer den Wartungsmodus erreichbar. -->
-            <a href="../editor.php" class="v2-btn v2-btn-secondary" data-legacy-classic-link="LEGACY_CLASSIC_EDITOR" title="Zum klassischen Editor (Legacy, nur wenn noetig)">
-                <span class="v2-btn-glyph">📝</span>
-                <span class="v2-btn-label">Classic Legacy</span>
-            </a>
             <button type="button" class="v2-btn v2-btn-secondary" data-v2-action="openPreview" title="Vorschau">
                 <span class="v2-btn-glyph">👁️</span>
                 <span class="v2-btn-label">Vorschau</span>
