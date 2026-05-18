@@ -46,6 +46,7 @@ Alle Tiles unterstützen:
 - **5 Farbschemata** - Default, White, Accent1-3
 - **WCAG-Kontrast** - Automatische Textfarben-Anpassung
 - **Sticky Footer** - Immer am unteren Rand
+- **Rechtsrouten** - `/impressum` und `/datenschutz` öffnen Modal oder leiten weiter
 
 ## 📦 Embedding-Optionen
 

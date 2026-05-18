@@ -9,6 +9,7 @@
 require_once __DIR__ . '/ConfigService.php';
 require_once __DIR__ . '/LogService.php';
 require_once __DIR__ . '/MediaPathHelper.php';
+require_once __DIR__ . '/SecurityHelper.php';
 require_once __DIR__ . '/StorageService.php';
 
 class SettingsService {
@@ -29,8 +30,11 @@ class SettingsService {
 
     public function saveSettings(array $newSettings, ?string $fallbackHost = null, ?string $adminEmail = null): array {
         $settings = $this->storage->read();
+        $settings['legal'] = SecurityHelper::normalizeLegalSettings($settings['legal'] ?? []);
+        $hadLegalContent = SecurityHelper::hasLegalContent($settings['legal']);
         $settings = $this->applySiteSettings($settings, $newSettings['site'] ?? null);
         $settings = $this->applyThemeSettings($settings, $newSettings['theme'] ?? null);
+        $settings = $this->applyLegalSettings($settings, $newSettings['legal'] ?? null, $hadLegalContent);
 
         $mailFromAddress = $this->resolveMailFromAddress($newSettings['system'] ?? null, $fallbackHost, $adminEmail);
 
@@ -50,6 +54,7 @@ class SettingsService {
 
     private function buildEditorResponseSettings(array $settings, ?string $fallbackHost, ?string $adminEmail): array {
         $responseSettings = $settings;
+        $responseSettings['legal'] = SecurityHelper::normalizeLegalSettings($responseSettings['legal'] ?? []);
 
         if (isset($responseSettings['auth']['email'])) {
             $responseSettings['auth']['emailMasked'] = $this->maskEmail((string) $responseSettings['auth']['email']);
@@ -116,6 +121,66 @@ class SettingsService {
             $settings['site']['headerImagePlaceholder'] = null;
             $settings['site']['headerImageWidth'] = null;
             $settings['site']['headerImageHeight'] = null;
+        }
+
+        return $settings;
+    }
+
+    private function applyLegalSettings(array $settings, mixed $legalInput, bool $hadLegalContent): array {
+        if (!is_array($legalInput)) {
+            return $settings;
+        }
+
+        $legalSettings = SecurityHelper::normalizeLegalSettings($settings['legal'] ?? []);
+
+        if (array_key_exists('enabled', $legalInput)) {
+            $legalSettings['enabled'] = (bool) $legalInput['enabled'];
+        }
+
+        if (isset($legalInput['displayStyle']) && $legalInput['displayStyle'] === 'subtleButtons') {
+            $legalSettings['displayStyle'] = 'subtleButtons';
+        }
+
+        foreach (['imprint', 'privacy'] as $entryKey) {
+            if (!isset($legalInput[$entryKey]) || !is_array($legalInput[$entryKey])) {
+                continue;
+            }
+
+            $incomingEntry = $legalInput[$entryKey];
+            $mode = strtolower(trim((string) ($incomingEntry['mode'] ?? $legalSettings[$entryKey]['mode'] ?? 'off')));
+            if (!in_array($mode, ['off', 'link', 'text'], true)) {
+                throw new InvalidArgumentException('Ungültiger Legal-Modus für ' . $entryKey);
+            }
+
+            $link = SecurityHelper::sanitizeLegalLink($incomingEntry['link'] ?? $legalSettings[$entryKey]['link'] ?? '');
+            $text = SecurityHelper::sanitizeLegalText($incomingEntry['text'] ?? $legalSettings[$entryKey]['text'] ?? '');
+
+            if ($mode === 'link' && $link === '') {
+                throw new InvalidArgumentException(($entryKey === 'imprint' ? 'Impressum' : 'Datenschutz') . ': gültiger Link erforderlich');
+            }
+
+            if ($mode === 'text') {
+                $plainTextLength = function_exists('mb_strlen')
+                    ? mb_strlen(trim(strip_tags($text)))
+                    : strlen(trim(strip_tags($text)));
+                if ($plainTextLength === 0) {
+                    throw new InvalidArgumentException(($entryKey === 'imprint' ? 'Impressum' : 'Datenschutz') . ': Text erforderlich');
+                }
+                if ($plainTextLength > 12000) {
+                    throw new InvalidArgumentException(($entryKey === 'imprint' ? 'Impressum' : 'Datenschutz') . ': Text zu lang');
+                }
+            }
+
+            $legalSettings[$entryKey] = [
+                'mode' => $mode,
+                'link' => $link,
+                'text' => $text,
+            ];
+        }
+
+        $settings['legal'] = SecurityHelper::normalizeLegalSettings($legalSettings);
+        if (!$hadLegalContent && SecurityHelper::hasLegalContent($settings['legal'])) {
+            $settings['legal']['enabled'] = true;
         }
 
         return $settings;

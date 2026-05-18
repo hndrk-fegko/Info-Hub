@@ -41,6 +41,7 @@ $tileService = $container->tileService();
 $settingsStorage = $container->storage('settings.json');
 $settings = $settingsStorage->read();
 $configService = $container->configService();
+$settings['legal'] = SecurityHelper::normalizeLegalSettings($settings['legal'] ?? []);
 $settings['system']['mailFromAddress'] = $configService->getMailFromAddress(
     $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '',
     $_SESSION['auth_email'] ?? ''
@@ -53,6 +54,8 @@ $quickRestoreView = $backupService->getQuickRestoreViewData();
 $quickRestoreAvailable = !empty($quickRestoreView['available']);
 $quickRestorePublishedLabel = (string)($quickRestoreView['publishedLabel'] ?? '');
 $quickRestoreTargetLabel = (string)($quickRestoreView['targetLabel'] ?? '');
+$footerMarkup = $generator->renderFooterMarkup($settings);
+$legalModalMarkup = $generator->renderLegalModalMarkup($settings);
 
 // Alle Canvas-Abschnitte als HTML rendern (Server-Side Rendering für den Editor)
 // PARALLEL RENDER CONTRACT:
@@ -86,7 +89,6 @@ $accentColor3 = htmlspecialchars($settings['theme']['accentColor3'] ?? '#ed8936'
 $siteTitle = htmlspecialchars($settings['site']['title'] ?? '');
 $headerImage = $settings['site']['headerImage'] ?? null;
 $headerFocusPoint = htmlspecialchars($settings['site']['headerFocusPoint'] ?? 'center center');
-$footerText = nl2br(htmlspecialchars($settings['site']['footerText'] ?? ''));
 
 // Generierte Seite Info
 $indexExists = file_exists(__DIR__ . '/../../index.html');
@@ -234,8 +236,8 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             
             <!-- Footer (aus Settings) -->
             <div class="v2-canvas-footer v2-editable-region" id="canvasFooter" data-editor-region="footer" onclick="V2.openSettings()" title="Klicken um Footer zu bearbeiten">
-                <?php if ($footerText): ?>
-                    <footer class="site-footer"><?= $footerText ?></footer>
+                <?php if ($footerMarkup !== ''): ?>
+                    <?= $footerMarkup ?>
                     <div class="v2-region-edit-hint">✏️ Footer bearbeiten</div>
                 <?php else: ?>
                     <div class="v2-empty-footer">
@@ -245,6 +247,8 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             </div>
         </div>
     </main>
+
+    <?= $legalModalMarkup ?>
     
     <!-- ===== Tile Selection Toolbar (floating) ===== -->
     <div id="tileToolbar" class="v2-tile-toolbar" style="display: none;">

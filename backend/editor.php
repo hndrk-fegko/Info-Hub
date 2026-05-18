@@ -35,6 +35,7 @@ $tiles = $tileService->getTiles();
 $settingsStorage = $container->storage('settings.json');
 $settings = $settingsStorage->read();
 $configService = $container->configService();
+$settings['legal'] = SecurityHelper::normalizeLegalSettings($settings['legal'] ?? []);
 $settings['system']['mailFromAddress'] = $configService->getMailFromAddress(
     $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '',
     $_SESSION['auth_email'] ?? ''
@@ -269,6 +270,64 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                         <label for="footerText">Footer-Text</label>
                         <textarea name="footerText" id="footerText" rows="3" placeholder="© 2026 ..."><?= htmlspecialchars($settings['site']['footerText'] ?? '') ?></textarea>
                         <small>Mehrzeilig möglich. Leer = kein Footer</small>
+                    </div>
+
+                    <div class="settings-section settings-section-compact legal-settings-section">
+                        <h3>Rechtliches</h3>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="legalEnabled" id="legalEnabled" <?= !empty($settings['legal']['enabled']) ? 'checked' : '' ?>>
+                                Impressum und Datenschutz im Footer anzeigen
+                            </label>
+                            <small>Beim ersten befüllten Rechtseintrag aktiviert sich dieser Bereich automatisch.</small>
+                        </div>
+
+                        <div class="form-row form-row-2 legal-settings-grid">
+                            <div class="legal-settings-card">
+                                <h4>Impressum</h4>
+                                <div class="form-group">
+                                    <label for="legalImprintMode">Darstellung</label>
+                                    <select name="legalImprintMode" id="legalImprintMode">
+                                        <option value="off" <?= ($settings['legal']['imprint']['mode'] ?? 'off') === 'off' ? 'selected' : '' ?>>Ausblenden</option>
+                                        <option value="link" <?= ($settings['legal']['imprint']['mode'] ?? '') === 'link' ? 'selected' : '' ?>>Externer Link</option>
+                                        <option value="text" <?= ($settings['legal']['imprint']['mode'] ?? '') === 'text' ? 'selected' : '' ?>>Eigener Text im Modal</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="legalImprintLinkGroup" style="<?= ($settings['legal']['imprint']['mode'] ?? 'off') === 'link' ? '' : 'display:none' ?>">
+                                    <label for="legalImprintLink">Link</label>
+                                    <input type="url" name="legalImprintLink" id="legalImprintLink" value="<?= htmlspecialchars($settings['legal']['imprint']['link'] ?? '') ?>" placeholder="https://example.org/impressum">
+                                    <small>Für Verweise auf die Hauptdomain oder bestehende Rechtstexte.</small>
+                                </div>
+                                <div class="form-group" id="legalImprintTextGroup" style="<?= ($settings['legal']['imprint']['mode'] ?? 'off') === 'text' ? '' : 'display:none' ?>">
+                                    <label for="legalImprintText">Eigener Text</label>
+                                    <textarea name="legalImprintText" id="legalImprintText" rows="8" placeholder="Im Vollbild-Modal angezeigt..."><?= htmlspecialchars($settings['legal']['imprint']['text'] ?? '') ?></textarea>
+                                    <small>Erlaubte Tags: &lt;p&gt;, &lt;br&gt;, &lt;strong&gt;, &lt;em&gt;, &lt;ul&gt;, &lt;ol&gt;, &lt;li&gt;, &lt;a&gt;.</small>
+                                </div>
+                            </div>
+
+                            <div class="legal-settings-card">
+                                <h4>Datenschutz</h4>
+                                <div class="form-group">
+                                    <label for="legalPrivacyMode">Darstellung</label>
+                                    <select name="legalPrivacyMode" id="legalPrivacyMode">
+                                        <option value="off" <?= ($settings['legal']['privacy']['mode'] ?? 'off') === 'off' ? 'selected' : '' ?>>Ausblenden</option>
+                                        <option value="link" <?= ($settings['legal']['privacy']['mode'] ?? '') === 'link' ? 'selected' : '' ?>>Externer Link</option>
+                                        <option value="text" <?= ($settings['legal']['privacy']['mode'] ?? '') === 'text' ? 'selected' : '' ?>>Eigener Text im Modal</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="legalPrivacyLinkGroup" style="<?= ($settings['legal']['privacy']['mode'] ?? 'off') === 'link' ? '' : 'display:none' ?>">
+                                    <label for="legalPrivacyLink">Link</label>
+                                    <input type="url" name="legalPrivacyLink" id="legalPrivacyLink" value="<?= htmlspecialchars($settings['legal']['privacy']['link'] ?? '') ?>" placeholder="https://example.org/datenschutz">
+                                    <small>Für Verweise auf die Hauptdomain oder bestehende Rechtstexte.</small>
+                                </div>
+                                <div class="form-group" id="legalPrivacyTextGroup" style="<?= ($settings['legal']['privacy']['mode'] ?? 'off') === 'text' ? '' : 'display:none' ?>">
+                                    <label for="legalPrivacyText">Eigener Text</label>
+                                    <textarea name="legalPrivacyText" id="legalPrivacyText" rows="8" placeholder="Im Vollbild-Modal angezeigt..."><?= htmlspecialchars($settings['legal']['privacy']['text'] ?? '') ?></textarea>
+                                    <small>Erlaubte Tags: &lt;p&gt;, &lt;br&gt;, &lt;strong&gt;, &lt;em&gt;, &lt;ul&gt;, &lt;ol&gt;, &lt;li&gt;, &lt;a&gt;.</small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="form-group">

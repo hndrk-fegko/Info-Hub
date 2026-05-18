@@ -76,6 +76,23 @@ Siehe ausführliche Dokumentation in `TileBase.php`.
 | LogService | Zentrales Logging |
 | SecurityHelper | Debug/HTTPS-Warnungen |
 
+## Globale Settings
+
+Die `settings.json` enthaelt neben `site`, `theme` und `auth` auch einen `legal`-Block:
+
+```json
+"legal": {
+   "enabled": false,
+   "displayStyle": "subtleButtons",
+   "imprint": { "mode": "off", "link": "", "text": "" },
+   "privacy": { "mode": "off", "link": "", "text": "" }
+}
+```
+
+- `GeneratorService` rendert daraus dezente Footer-Aktionen sowie optional ein Vollbild-Modal fuer eigene Rechtstexte.
+- `SecurityHelper` normalisiert und sanitisiert Legal-Texte zentral, damit Link- und Text-Modus dieselben Regeln nutzen.
+- `SettingsService` kapselt die Persistenz des `legal`-Blocks, damit beide Editoren und API-Endpunkte denselben fachlichen Pfad verwenden.
+
 ## Bootstrap und Composition Root
 
 - `backend/bootstrap.php` ist der gemeinsame Einstieg fuer Backend-Entry-Points.

@@ -33,5 +33,19 @@
     "auth": {
         "emails": [""],
         "invites": []
+    },
+    "legal": {
+        "enabled": false,
+        "displayStyle": "subtleButtons",
+        "imprint": {
+            "mode": "off",
+            "link": "",
+            "text": ""
+        },
+        "privacy": {
+            "mode": "off",
+            "link": "",
+            "text": ""
+        }
     }
 }

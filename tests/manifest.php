@@ -93,6 +93,13 @@ return [
         'suites' => ['contracts', 'api', 'crud', 'integration', 'editor'],
     ],
     [
+        'id' => 'legal-footer-render',
+        'path' => __DIR__ . '/integration/test_legal_footer.php',
+        'label' => 'Legal footer render contract',
+        'description' => 'Prueft Footer- und Modal-Rendering fuer Impressum/Datenschutz inklusive Sanitizing und Route-Hooks.',
+        'suites' => ['contracts', 'render', 'integration'],
+    ],
+    [
         'id' => 'unit-media-path-helper',
         'path' => __DIR__ . '/unit/test_media_path_helper.php',
         'label' => 'MediaPathHelper unit',

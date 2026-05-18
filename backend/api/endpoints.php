@@ -51,7 +51,6 @@ set_error_handler(function($severity, $message, $file, $line) {
 try {
     // Auth prüfen (außer für bestimmte Actions)
     $auth = $container->authService();
-    $configService = $container->configService();
     $settingsService = $container->settingsService();
     $requestJson = null;
     $readJsonRequest = static function() use (&$requestJson): array {
