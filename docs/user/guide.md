@@ -116,6 +116,26 @@ Klicke auf **[ Settings]** um zu ändern:
 - **Hintergrundfarbe** - Farbe der Seite
 - **Akzentfarben** (4 Stück) - Für Buttons, Links und Farbschemata
 - **Footer-Text** - Text am Seitenende (mehrzeilig möglich)
+- **Rechtliches** - Impressum und Datenschutz als Link oder eigener Modal-Text
+
+### Rechtliches im Footer
+
+Im Bereich **Rechtliches** kannst du **Impressum** und **Datenschutz** unabhängig voneinander konfigurieren:
+
+- **Ausblenden** - Der Button erscheint nicht im Footer.
+- **Externer Link** - Verweist z.B. auf die Hauptdomain.
+- **Eigener Text im Modal** - Öffnet einen Vollbild-Dialog direkt auf der Seite.
+
+Die Einträge sind zusätzlich unter festen Pfaden erreichbar:
+
+- **/impressum**
+- **/datenschutz**
+
+Wenn ein Eintrag als **Modal-Text** konfiguriert ist, öffnet dieser Pfad direkt die Startseite mit geöffnetem Dialog. Bei **Externer Link** leitet derselbe Pfad automatisch an das hinterlegte Ziel weiter.
+
+Wenn du zum ersten Mal einen Rechtstext oder Link einträgst, aktiviert das System die Footer-Anzeige automatisch, damit dieser Schritt nicht vergessen wird.
+
+**Hinweis zu eigenem Text:** Erlaubt ist vereinfachtes HTML mit Absätzen, Zeilenumbrüchen, Hervorhebungen, Listen und Links.
 
 ---
 

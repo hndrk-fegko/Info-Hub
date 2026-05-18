@@ -69,6 +69,23 @@ Siehe ausführliche Dokumentation in `TileBase.php`.
 | LogService | Zentrales Logging |
 | SecurityHelper | Debug/HTTPS-Warnungen |
 
+## Globale Settings
+
+Die `settings.json` enthält neben `site`, `theme` und `auth` jetzt auch einen `legal`-Block:
+
+```json
+"legal": {
+   "enabled": false,
+   "displayStyle": "subtleButtons",
+   "imprint": { "mode": "off", "link": "", "text": "" },
+   "privacy": { "mode": "off", "link": "", "text": "" }
+}
+```
+
+- `GeneratorService` rendert daraus dezente Footer-Aktionen sowie optional ein Vollbild-Modal für eigene Rechtstexte.
+- `SecurityHelper` normalisiert und sanitisiert Legal-Texte zentral, damit Link- und Text-Modus dieselben Regeln nutzen.
+- Beide Editoren schreiben denselben `legal`-Block, damit die Konfiguration nicht auseinanderläuft.
+
 ## Sicherheitsarchitektur
 
 `

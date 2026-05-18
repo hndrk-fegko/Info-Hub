@@ -137,6 +137,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'auth' => [
                 'emails' => [$email],
                 'invites' => []
+            ],
+            'legal' => [
+                'enabled' => false,
+                'displayStyle' => 'subtleButtons',
+                'imprint' => [
+                    'mode' => 'off',
+                    'link' => '',
+                    'text' => ''
+                ],
+                'privacy' => [
+                    'mode' => 'off',
+                    'link' => '',
+                    'text' => ''
+                ]
             ]
         ];
         

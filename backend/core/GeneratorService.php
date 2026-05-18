@@ -7,6 +7,7 @@
  */
 
 require_once __DIR__ . '/LogService.php';
+require_once __DIR__ . '/SecurityHelper.php';
 require_once __DIR__ . '/StorageService.php';
 require_once __DIR__ . '/TileService.php';
 require_once __DIR__ . '/../tiles/_registry.php';
@@ -294,7 +295,76 @@ class GeneratorService {
         $tileJS = $this->collectTileJS();
         $initCalls = $this->collectTileInitCalls();
         $contrastJS = $this->getContrastJS();
-        return $contrastJS . $tileJS . $initCalls;
+        $legalJS = $this->getLegalModalJS();
+        return $contrastJS . $legalJS . $tileJS . $initCalls;
+    }
+
+    /**
+     * Rendert den Footer inklusive optionaler Rechts-Buttons.
+     */
+    public function renderFooterMarkup(array $settings): string {
+        $site = is_array($settings['site'] ?? null) ? $settings['site'] : [];
+        $legal = SecurityHelper::normalizeLegalSettings($settings['legal'] ?? []);
+
+        $footerText = $this->renderFooterText($site['footerText'] ?? '');
+        $legalActions = $this->renderLegalActions($legal);
+
+        if ($footerText === '' && $legalActions === '') {
+            return '';
+        }
+
+        $footerTextHtml = $footerText !== ''
+            ? "<div class=\"site-footer__text\">{$footerText}</div>"
+            : '';
+        $legalActionsHtml = $legalActions !== ''
+            ? "<div class=\"site-footer__legal-actions\" aria-label=\"Rechtliche Hinweise\">{$legalActions}</div>"
+            : '';
+
+        return "<footer class=\"site-footer\">{$footerTextHtml}{$legalActionsHtml}</footer>";
+    }
+
+    /**
+     * Rendert das Modal fuer Impressum/Datenschutz, falls Text-Inhalte konfiguriert sind.
+     */
+    public function renderLegalModalMarkup(array $settings): string {
+        $legal = SecurityHelper::normalizeLegalSettings($settings['legal'] ?? []);
+        if (empty($legal['enabled'])) {
+            return '';
+        }
+
+        $labels = [
+            'imprint' => 'Impressum',
+            'privacy' => 'Datenschutz'
+        ];
+
+        $templates = [];
+        foreach ($labels as $key => $label) {
+            $entry = $legal[$key] ?? [];
+            if (($entry['mode'] ?? 'off') !== 'text' || !SecurityHelper::isLegalEntryConfigured($entry)) {
+                continue;
+            }
+
+            $templates[] = "        <template id=\"legal-template-{$key}\" data-legal-title=\"" . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . "\">{$entry['text']}</template>";
+        }
+
+        if (empty($templates)) {
+            return '';
+        }
+
+        $templatesHtml = implode("\n", $templates);
+
+        return <<<HTML
+    <div class="legal-modal" id="legal-modal" aria-hidden="true">
+        <div class="legal-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="legal-modal-title">
+            <div class="legal-modal__header">
+                <h2 class="legal-modal__title" id="legal-modal-title">Rechtliche Hinweise</h2>
+                <button type="button" class="legal-modal__close" onclick="closeLegalModal()" aria-label="Dialog schließen">&times;</button>
+            </div>
+            <div class="legal-modal__body" id="legal-modal-body"></div>
+        </div>
+{$templatesHtml}
+    </div>
+HTML;
     }
 
     /**
@@ -345,6 +415,230 @@ class GeneratorService {
             });
         }
 
+JS;
+    }
+
+    /**
+     * Steuert das Frontend-Modal fuer Rechtstexte.
+     */
+    private function getLegalModalJS(): string {
+        return <<<'JS'
+        let legalModalTrigger = null;
+
+        function getLegalModalFocusable(modal) {
+            return Array.from(modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+                .filter((element) => !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true');
+        }
+
+        function trapLegalModalFocus(event, modal) {
+            const focusable = getLegalModalFocusable(modal);
+            if (focusable.length === 0) {
+                return;
+            }
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+
+            if (event.shiftKey && document.activeElement === first) {
+                last.focus();
+                event.preventDefault();
+                return;
+            }
+
+            if (!event.shiftKey && document.activeElement === last) {
+                first.focus();
+                event.preventDefault();
+            }
+        }
+
+        function initLegalModal() {
+            const modal = document.getElementById('legal-modal');
+            if (!modal || modal.dataset.initialized === 'true') {
+                return;
+            }
+
+            modal.dataset.initialized = 'true';
+            modal.addEventListener('click', (event) => {
+                if (event.target === modal) {
+                    closeLegalModal();
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (!modal.classList.contains('active')) {
+                    return;
+                }
+
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    closeLegalModal();
+                    return;
+                }
+
+                if (event.key === 'Tab') {
+                    trapLegalModalFocus(event, modal);
+                }
+            });
+
+            window.addEventListener('popstate', syncLegalRouteFromLocation);
+        }
+
+        function normalizeLegalRoutePath(pathname) {
+            const normalized = String(pathname || '/').replace(/\/+$/, '') || '/';
+            return normalized.toLowerCase();
+        }
+
+        function getLegalRouteTypeFromLocation(pathname) {
+            const normalized = normalizeLegalRoutePath(pathname);
+            if (normalized === '/impressum') {
+                return 'imprint';
+            }
+
+            if (normalized === '/datenschutz') {
+                return 'privacy';
+            }
+
+            return null;
+        }
+
+        function getLegalRoutePath(type) {
+            return type === 'privacy' ? '/datenschutz' : '/impressum';
+        }
+
+        function getLegalHomePath() {
+            return '/' + window.location.search + window.location.hash;
+        }
+
+        function getLegalRouteUrl(type) {
+            return getLegalRoutePath(type) + window.location.search + window.location.hash;
+        }
+
+        function getLegalRouteEntry(type) {
+            return document.querySelector('.site-footer__legal-button[data-legal-key="' + type + '"]');
+        }
+
+        function handleLegalRouteClick(event, type, trigger) {
+            const entry = getLegalRouteEntry(type) || trigger;
+            if (!entry) {
+                return true;
+            }
+
+            if (entry.dataset.legalMode !== 'text') {
+                return true;
+            }
+
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+
+            const targetUrl = getLegalRouteUrl(type);
+            if (normalizeLegalRoutePath(window.location.pathname) !== getLegalRoutePath(type)) {
+                window.history.pushState({}, '', targetUrl);
+            }
+
+            openLegalModal(type, trigger || entry);
+            return false;
+        }
+
+        function syncLegalRouteFromLocation() {
+            const routeType = getLegalRouteTypeFromLocation(window.location.pathname);
+            const modal = document.getElementById('legal-modal');
+
+            if (!routeType) {
+                closeLegalModal({ preserveRoute: true });
+                return;
+            }
+
+            const entry = getLegalRouteEntry(routeType);
+            if (!entry) {
+                window.history.replaceState({}, '', getLegalHomePath());
+                if (modal && modal.classList.contains('active')) {
+                    closeLegalModal({ preserveRoute: true });
+                }
+                return;
+            }
+
+            if (entry.dataset.legalMode === 'link') {
+                const target = entry.dataset.legalTarget || '';
+                if (target) {
+                    window.location.assign(target);
+                    return;
+                }
+
+                window.history.replaceState({}, '', getLegalHomePath());
+                return;
+            }
+
+            if (entry.dataset.legalMode === 'text') {
+                openLegalModal(routeType, entry);
+            }
+        }
+
+        function openLegalModal(type, trigger) {
+            const modal = document.getElementById('legal-modal');
+            const body = document.getElementById('legal-modal-body');
+            const title = document.getElementById('legal-modal-title');
+            const template = document.getElementById('legal-template-' + type);
+            if (!modal || !body || !title || !template) {
+                return;
+            }
+
+            legalModalTrigger = trigger || document.activeElement;
+            title.textContent = template.dataset.legalTitle || (type === 'privacy' ? 'Datenschutz' : 'Impressum');
+            body.innerHTML = template.innerHTML;
+
+            modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('legal-modal-open');
+
+            const closeButton = modal.querySelector('.legal-modal__close');
+            if (closeButton) {
+                closeButton.focus();
+            }
+        }
+
+        function closeLegalModal(options) {
+            const modal = document.getElementById('legal-modal');
+            const body = document.getElementById('legal-modal-body');
+            if (!modal || !modal.classList.contains('active')) {
+                return;
+            }
+
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('legal-modal-open');
+
+            if (body) {
+                body.innerHTML = '';
+            }
+
+            if (!options || options.preserveRoute !== true) {
+                const routeType = getLegalRouteTypeFromLocation(window.location.pathname);
+                if (routeType) {
+                    window.history.replaceState({}, '', getLegalHomePath());
+                }
+            }
+
+            if (legalModalTrigger && typeof legalModalTrigger.focus === 'function') {
+                legalModalTrigger.focus();
+            }
+
+            legalModalTrigger = null;
+        }
+
+        (function() {
+            const onReady = () => {
+                initLegalModal();
+                syncLegalRouteFromLocation();
+            };
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', onReady);
+                return;
+            }
+
+            onReady();
+        })();
 JS;
     }
     
@@ -673,6 +967,62 @@ JS;
     }
 
     /**
+     * Rendert mehrzeiligen Klartext sicher fuer den Footer.
+     */
+    private function renderFooterText($text): string {
+        if (!is_string($text)) {
+            return '';
+        }
+
+        $text = trim(str_replace(["\r\n", "\r"], "\n", $text));
+        if ($text === '') {
+            return '';
+        }
+
+        return nl2br(htmlspecialchars($text, ENT_QUOTES, 'UTF-8'));
+    }
+
+    /**
+     * Rendert die sichtbaren Impressum/Datenschutz-Buttons.
+     */
+    private function renderLegalActions(array $legal): string {
+        if (empty($legal['enabled'])) {
+            return '';
+        }
+
+        $labels = [
+            'imprint' => 'Impressum',
+            'privacy' => 'Datenschutz'
+        ];
+        $routes = [
+            'imprint' => '/impressum',
+            'privacy' => '/datenschutz'
+        ];
+        $actions = [];
+
+        foreach ($labels as $key => $label) {
+            $entry = $legal[$key] ?? [];
+            if (!SecurityHelper::isLegalEntryConfigured($entry)) {
+                continue;
+            }
+
+            $labelHtml = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
+            $route = htmlspecialchars($routes[$key], ENT_QUOTES, 'UTF-8');
+            if (($entry['mode'] ?? 'off') === 'link') {
+                $target = htmlspecialchars($entry['link'], ENT_QUOTES, 'UTF-8');
+                $actions[] = "<a class=\"site-footer__legal-button\" href=\"{$route}\" data-legal-key=\"{$key}\" data-legal-mode=\"link\" data-legal-target=\"{$target}\" onclick=\"event.stopPropagation(); return handleLegalRouteClick(event, '{$key}', this)\">{$labelHtml}</a>";
+                continue;
+            }
+
+            if (($entry['mode'] ?? 'off') === 'text') {
+                $actions[] = "<a class=\"site-footer__legal-button\" href=\"{$route}\" data-legal-key=\"{$key}\" data-legal-mode=\"text\" onclick=\"event.stopPropagation(); return handleLegalRouteClick(event, '{$key}', this)\">{$labelHtml}</a>";
+            }
+        }
+
+        return implode('', $actions);
+    }
+
+    /**
      * Baut die Narrow-Layout-Konfiguration mit defensiven Defaults.
      */
     private function getNarrowConfig(array $theme): array {
@@ -754,6 +1104,7 @@ JS;
         $tileJS = $this->collectTileJS();
         $tileInitCalls = $this->collectTileInitCalls();
         $contrastJS = $this->getContrastJS();
+        $legalJS = $this->getLegalModalJS();
         
         // Shared CSS laden
         $sharedCSS = $this->loadSharedCSS();
@@ -768,7 +1119,6 @@ JS;
         $headerImageWidth = (int)($site['headerImageWidth'] ?? 0);
         $headerImageHeight = (int)($site['headerImageHeight'] ?? 0);
         $headerFocusPoint = htmlspecialchars($site['headerFocusPoint'] ?? 'center center');
-        $footerText = nl2br(htmlspecialchars($site['footerText'] ?? ''));
         $bgColor = htmlspecialchars($theme['backgroundColor'] ?? '#f5f5f5');
         // primaryColor als Fallback für alte settings.json Dateien, accentColor ist der aktuelle Name
         $accentColor = htmlspecialchars($theme['accentColor'] ?? $theme['primaryColor'] ?? '#667eea');
@@ -841,11 +1191,9 @@ HTML;
 HTML;
         }
         
-        // Footer HTML
-        $footerHtml = '';
-        if ($footerText) {
-            $footerHtml = "<footer class=\"site-footer\">{$footerText}</footer>";
-        }
+        // Footer + Rechtsmodal
+        $footerHtml = $this->renderFooterMarkup($settings);
+        $legalModalHtml = $this->renderLegalModalMarkup($settings);
         
         // Narrow Layout (optional: zentrierter Container mit begrenzter Breite)
         $narrowCSS = '';
@@ -934,7 +1282,10 @@ CSS;
         </div>
     </div>
 
+{$legalModalHtml}
+
     <script>
+{$legalJS}
 {$contrastJS}
         // URL-Parameter auswerten für Embedding und Styles
         function applyUrlParams() {

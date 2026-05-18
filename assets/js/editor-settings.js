@@ -9,6 +9,7 @@
 function openSettingsModal() {
     document.getElementById('settingsModal').classList.add('active');
     switchSettingsTab('design');
+    refreshLegalSettingsUI();
     loadAdminEmails();
 }
 
@@ -43,7 +44,65 @@ document.addEventListener('DOMContentLoaded', function() {
             narrowValue.textContent = narrowRange.value;
         });
     }
+
+    ['legalImprintMode', 'legalPrivacyMode'].forEach((id) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('change', () => {
+                refreshLegalSettingsUI();
+                autoEnableLegalIfNeeded();
+            });
+        }
+    });
+
+    ['legalImprintLink', 'legalImprintText', 'legalPrivacyLink', 'legalPrivacyText'].forEach((id) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('input', autoEnableLegalIfNeeded);
+            element.addEventListener('change', autoEnableLegalIfNeeded);
+        }
+    });
+
+    refreshLegalSettingsUI();
 });
+
+function refreshLegalSettingsUI() {
+    toggleSettingsField('legalImprintLinkGroup', document.getElementById('legalImprintMode')?.value === 'link');
+    toggleSettingsField('legalImprintTextGroup', document.getElementById('legalImprintMode')?.value === 'text');
+    toggleSettingsField('legalPrivacyLinkGroup', document.getElementById('legalPrivacyMode')?.value === 'link');
+    toggleSettingsField('legalPrivacyTextGroup', document.getElementById('legalPrivacyMode')?.value === 'text');
+}
+
+function autoEnableLegalIfNeeded() {
+    const toggle = document.getElementById('legalEnabled');
+    if (!toggle || toggle.checked) {
+        return;
+    }
+
+    if (hasLegalEntryContent('legalImprint') || hasLegalEntryContent('legalPrivacy')) {
+        toggle.checked = true;
+    }
+}
+
+function hasLegalEntryContent(prefix) {
+    const mode = document.getElementById(prefix + 'Mode')?.value || 'off';
+    if (mode === 'link') {
+        return !!document.getElementById(prefix + 'Link')?.value.trim();
+    }
+
+    if (mode === 'text') {
+        return !!document.getElementById(prefix + 'Text')?.value.trim();
+    }
+
+    return false;
+}
+
+function toggleSettingsField(id, visible) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.style.display = visible ? '' : 'none';
+    }
+}
 
 async function saveSettings(event) {
     event.preventDefault();
@@ -69,6 +128,20 @@ async function saveSettings(event) {
             accentColor3: formData.get('accentColor3'),
             narrowLayout: document.getElementById('narrowLayout')?.checked || false,
             narrowWidth: parseInt(document.getElementById('narrowWidth')?.value, 10) || 960
+        },
+        legal: {
+            enabled: document.getElementById('legalEnabled')?.checked || false,
+            displayStyle: 'subtleButtons',
+            imprint: {
+                mode: formData.get('legalImprintMode') || 'off',
+                link: (formData.get('legalImprintLink') || '').trim(),
+                text: (formData.get('legalImprintText') || '').trim()
+            },
+            privacy: {
+                mode: formData.get('legalPrivacyMode') || 'off',
+                link: (formData.get('legalPrivacyLink') || '').trim(),
+                text: (formData.get('legalPrivacyText') || '').trim()
+            }
         },
         system: {
             mailFromAddress: (formData.get('mailFromAddress') || '').trim()

@@ -1328,6 +1328,28 @@ hr {
     border-bottom: 1px solid var(--border);
 }
 
+.settings-section-compact {
+    margin-top: 20px;
+    margin-bottom: 0;
+}
+
+.legal-settings-grid {
+    align-items: start;
+}
+
+.legal-settings-card {
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--bg);
+}
+
+.legal-settings-card h4 {
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+    color: var(--text);
+}
+
 /* Header Image Preview im Settings Dialog */
 .header-image-preview {
     margin: 10px 0;

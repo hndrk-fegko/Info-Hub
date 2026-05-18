@@ -55,12 +55,14 @@ window.V2Settings = (function() {
 
         refreshNarrowSettingsUI();
         syncNarrowRangeLabels();
+        refreshLegalSettingsUI();
     }
     
     function buildModalHTML(settings) {
         const site = settings.site || {};
         const theme = settings.theme || {};
         const system = settings.system || {};
+        const legal = getLegalState(settings);
         
         const headerImage = site.headerImage || '';
         const focusPoint = site.headerFocusPoint || 'center center';
@@ -102,6 +104,7 @@ window.V2Settings = (function() {
         const gradientAngle = clampNumber(theme.narrowGradientAngle, 0, 360, 180);
         const overlayOpacity = narrowOverlay.opacity;
         const overlayBlurStrength = narrowOverlay.blurStrength;
+        const legalEnabled = legal.enabled ? 'checked' : '';
         
         return `
         <div class="v2-modal" style="max-width: 640px;">
@@ -141,6 +144,23 @@ window.V2Settings = (function() {
                         <textarea class="v2-input" id="v2SetFooter" rows="2" 
                                   placeholder="© 2026 ...">${escHTML(site.footerText || '')}</textarea>
                         <small class="v2-hint">Mehrzeilig möglich. Leer = kein Footer</small>
+                    </div>
+                </fieldset>
+
+                <fieldset class="v2-modal-fieldset">
+                    <legend>Rechtliches</legend>
+
+                    <div class="v2-field">
+                        <label class="v2-checkbox-label">
+                            <input type="checkbox" id="v2SetLegalEnabled" ${legalEnabled}>
+                            Impressum und Datenschutz im Footer anzeigen
+                        </label>
+                        <small class="v2-hint">Beim ersten befüllten Rechtseintrag aktiviert sich dieser Bereich automatisch.</small>
+                    </div>
+
+                    <div class="v2-settings-stack">
+                        ${buildLegalEntrySection('v2LegalImprint', 'Impressum', legal.imprint, 'Externer Link oder eigener Text im Vollbild-Modal')}
+                        ${buildLegalEntrySection('v2LegalPrivacy', 'Datenschutz', legal.privacy, 'Eigener Text nutzt vereinfachtes, serverseitig sanitisiertes HTML')}
                     </div>
                 </fieldset>
                 
@@ -434,6 +454,62 @@ window.V2Settings = (function() {
             blurStrength: clampNumber(theme.narrowBackgroundOverlayBlurStrength, 0, 100, 24)
         };
     }
+
+    function getLegalState(settings) {
+        const legal = settings.legal || {};
+        return {
+            enabled: !!legal.enabled,
+            imprint: getLegalEntryState(legal.imprint),
+            privacy: getLegalEntryState(legal.privacy)
+        };
+    }
+
+    function getLegalEntryState(entry) {
+        const legalEntry = entry && typeof entry === 'object' ? entry : {};
+        return {
+            mode: normalizeOption(legalEntry.mode, ['off', 'link', 'text'], 'off'),
+            link: typeof legalEntry.link === 'string' ? legalEntry.link : '',
+            text: typeof legalEntry.text === 'string' ? legalEntry.text : ''
+        };
+    }
+
+    function buildLegalEntrySection(baseId, label, entry, hint) {
+        const mode = entry.mode;
+        const linkStyle = mode === 'link' ? '' : 'display:none';
+        const textStyle = mode === 'text' ? '' : 'display:none';
+
+        return `
+        <div class="v2-settings-subsection v2-settings-subsection--nested" id="${baseId}Panel">
+            <div class="v2-settings-subsection__header">
+                <strong>${escHTML(label)}</strong>
+                <span>${escHTML(hint)}</span>
+            </div>
+
+            <div class="v2-field">
+                <label class="v2-label" for="${baseId}Mode">Darstellung</label>
+                <select class="v2-input" id="${baseId}Mode">
+                    <option value="off" ${mode === 'off' ? 'selected' : ''}>Ausblenden</option>
+                    <option value="link" ${mode === 'link' ? 'selected' : ''}>Externer Link</option>
+                    <option value="text" ${mode === 'text' ? 'selected' : ''}>Eigener Text im Modal</option>
+                </select>
+            </div>
+
+            <div class="v2-field" id="${baseId}LinkField" style="${linkStyle}">
+                <label class="v2-label" for="${baseId}Link">Link</label>
+                <input type="url" class="v2-input" id="${baseId}Link"
+                       value="${escAttr(entry.link)}"
+                       placeholder="https://example.org/impressum">
+                <small class="v2-hint">Ideal für Verweise auf die Hauptdomain oder bestehende Rechtstexte.</small>
+            </div>
+
+            <div class="v2-field" id="${baseId}TextField" style="${textStyle}">
+                <label class="v2-label" for="${baseId}Text">Eigener Text</label>
+                <textarea class="v2-input" id="${baseId}Text" rows="8"
+                          placeholder="Im Modal angezeigt...">${escHTML(entry.text)}</textarea>
+                <small class="v2-hint">Erlaubte Tags: &lt;p&gt;, &lt;br&gt;, &lt;strong&gt;, &lt;em&gt;, &lt;ul&gt;, &lt;ol&gt;, &lt;li&gt;, &lt;a&gt;.</small>
+            </div>
+        </div>`;
+    }
     
     function wireEvents(settings) {
         document.getElementById('v2SetHeaderSelectBtn')?.addEventListener('click', selectHeader);
@@ -455,6 +531,24 @@ window.V2Settings = (function() {
             const element = document.getElementById(id);
             if (element) {
                 element.addEventListener('input', syncNarrowRangeLabels);
+            }
+        });
+
+        ['v2LegalImprintMode', 'v2LegalPrivacyMode'].forEach((id) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('change', () => {
+                    refreshLegalSettingsUI();
+                    autoEnableLegalIfNeeded();
+                });
+            }
+        });
+
+        ['v2LegalImprintLink', 'v2LegalImprintText', 'v2LegalPrivacyLink', 'v2LegalPrivacyText'].forEach((id) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('input', autoEnableLegalIfNeeded);
+                element.addEventListener('change', autoEnableLegalIfNeeded);
             }
         });
         
@@ -586,6 +680,20 @@ window.V2Settings = (function() {
                 narrowBackgroundOverlayBlurStrength: parseInt(document.getElementById('v2SetNarrowOverlayBlurStrength').value, 10) || 0,
                 narrowContentShadow: document.getElementById('v2SetNarrowShadow').checked
             },
+            legal: {
+                enabled: document.getElementById('v2SetLegalEnabled').checked,
+                displayStyle: 'subtleButtons',
+                imprint: {
+                    mode: document.getElementById('v2LegalImprintMode').value,
+                    link: document.getElementById('v2LegalImprintLink').value.trim(),
+                    text: document.getElementById('v2LegalImprintText').value.trim()
+                },
+                privacy: {
+                    mode: document.getElementById('v2LegalPrivacyMode').value,
+                    link: document.getElementById('v2LegalPrivacyLink').value.trim(),
+                    text: document.getElementById('v2LegalPrivacyText').value.trim()
+                }
+            },
             system: {
                 mailFromAddress: document.getElementById('v2SetMailFromAddress').value.trim()
             }
@@ -661,6 +769,38 @@ window.V2Settings = (function() {
         toggleDisplay('v2NarrowBlurPanel', narrowEnabled && mode === 'image' && overlayEnabled);
         togglePanelState('v2NarrowColorPanel', narrowEnabled && mode === 'image' && overlayEnabled && overlayColorEnabled);
         togglePanelState('v2NarrowBlurPanel', narrowEnabled && mode === 'image' && overlayEnabled && overlayBlurEnabled);
+    }
+
+    function refreshLegalSettingsUI() {
+        ['v2LegalImprint', 'v2LegalPrivacy'].forEach((baseId) => {
+            const mode = document.getElementById(`${baseId}Mode`)?.value || 'off';
+            toggleDisplay(`${baseId}LinkField`, mode === 'link');
+            toggleDisplay(`${baseId}TextField`, mode === 'text');
+        });
+    }
+
+    function autoEnableLegalIfNeeded() {
+        const enabledToggle = document.getElementById('v2SetLegalEnabled');
+        if (!enabledToggle || enabledToggle.checked) {
+            return;
+        }
+
+        if (hasLegalEntryContent('v2LegalImprint') || hasLegalEntryContent('v2LegalPrivacy')) {
+            enabledToggle.checked = true;
+        }
+    }
+
+    function hasLegalEntryContent(baseId) {
+        const mode = document.getElementById(`${baseId}Mode`)?.value || 'off';
+        if (mode === 'link') {
+            return !!document.getElementById(`${baseId}Link`)?.value.trim();
+        }
+
+        if (mode === 'text') {
+            return !!document.getElementById(`${baseId}Text`)?.value.trim();
+        }
+
+        return false;
     }
 
     function togglePanelState(id, active) {

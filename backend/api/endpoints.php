@@ -53,6 +53,7 @@ try {
     require_once __DIR__ . '/../core/GeneratorService.php';
     require_once __DIR__ . '/../core/StorageService.php';
     require_once __DIR__ . '/../core/ConfigService.php';
+    require_once __DIR__ . '/../core/SecurityHelper.php';
 
     $isValidHexColor = static function($value): bool {
         return is_string($value) && preg_match('/^#[0-9a-fA-F]{6}$/', $value) === 1;
@@ -250,6 +251,7 @@ try {
         case 'get_settings':
             $storage = new StorageService('settings.json');
             $settings = $storage->read();
+            $settings['legal'] = SecurityHelper::normalizeLegalSettings($settings['legal'] ?? []);
             $responseSettings = $settings;
             
             // Email für Security maskieren (nur letzte 4 Zeichen zeigen)
@@ -283,6 +285,8 @@ try {
             // Aktuelle Settings laden
             $storage = new StorageService('settings.json');
             $settings = $storage->read();
+            $settings['legal'] = SecurityHelper::normalizeLegalSettings($settings['legal'] ?? []);
+            $hadLegalContent = SecurityHelper::hasLegalContent($settings['legal']);
             
             // Nur erlaubte Felder aktualisieren (Email ist geschützt)
             if (isset($newSettings['site'])) {
@@ -396,6 +400,60 @@ try {
 
                 if (array_key_exists('narrowBackgroundImage', $newSettings['theme'])) {
                     $settings['theme']['narrowBackgroundImage'] = $sanitizeMediaPath($newSettings['theme']['narrowBackgroundImage']);
+                }
+            }
+
+            if (isset($newSettings['legal']) && is_array($newSettings['legal'])) {
+                $incomingLegal = $newSettings['legal'];
+                $legalSettings = $settings['legal'];
+
+                if (array_key_exists('enabled', $incomingLegal)) {
+                    $legalSettings['enabled'] = (bool) $incomingLegal['enabled'];
+                }
+
+                if (isset($incomingLegal['displayStyle']) && $incomingLegal['displayStyle'] === 'subtleButtons') {
+                    $legalSettings['displayStyle'] = 'subtleButtons';
+                }
+
+                foreach (['imprint', 'privacy'] as $entryKey) {
+                    if (!isset($incomingLegal[$entryKey]) || !is_array($incomingLegal[$entryKey])) {
+                        continue;
+                    }
+
+                    $incomingEntry = $incomingLegal[$entryKey];
+                    $mode = strtolower(trim((string) ($incomingEntry['mode'] ?? $legalSettings[$entryKey]['mode'] ?? 'off')));
+                    if (!in_array($mode, ['off', 'link', 'text'], true)) {
+                        throw new InvalidArgumentException('Ungültiger Legal-Modus für ' . $entryKey);
+                    }
+
+                    $link = SecurityHelper::sanitizeLegalLink($incomingEntry['link'] ?? $legalSettings[$entryKey]['link'] ?? '');
+                    $text = SecurityHelper::sanitizeLegalText($incomingEntry['text'] ?? $legalSettings[$entryKey]['text'] ?? '');
+
+                    if ($mode === 'link' && $link === '') {
+                        throw new InvalidArgumentException(($entryKey === 'imprint' ? 'Impressum' : 'Datenschutz') . ': gültiger Link erforderlich');
+                    }
+
+                    if ($mode === 'text') {
+                        $plainTextLength = mb_strlen(trim(strip_tags($text)));
+                        if ($plainTextLength === 0) {
+                            throw new InvalidArgumentException(($entryKey === 'imprint' ? 'Impressum' : 'Datenschutz') . ': Text erforderlich');
+                        }
+                        if ($plainTextLength > 12000) {
+                            throw new InvalidArgumentException(($entryKey === 'imprint' ? 'Impressum' : 'Datenschutz') . ': Text zu lang');
+                        }
+                    }
+
+                    $legalSettings[$entryKey] = [
+                        'mode' => $mode,
+                        'link' => $link,
+                        'text' => $text
+                    ];
+                }
+
+                $settings['legal'] = SecurityHelper::normalizeLegalSettings($legalSettings);
+
+                if (!$hadLegalContent && SecurityHelper::hasLegalContent($settings['legal'])) {
+                    $settings['legal']['enabled'] = true;
                 }
             }
 

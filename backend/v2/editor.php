@@ -24,6 +24,7 @@ require_once __DIR__ . '/../core/TileService.php';
 require_once __DIR__ . '/../core/StorageService.php';
 require_once __DIR__ . '/../core/GeneratorService.php';
 require_once __DIR__ . '/../core/ConfigService.php';
+require_once __DIR__ . '/../core/SecurityHelper.php';
 
 // Auth prüfen
 $auth = new AuthService();
@@ -39,12 +40,15 @@ $csrfToken = $_SESSION['csrf_token'] ?? '';
 $tileService = new TileService();
 $settingsStorage = new StorageService('settings.json');
 $settings = $settingsStorage->read();
+$settings['legal'] = SecurityHelper::normalizeLegalSettings($settings['legal'] ?? []);
 $configService = new ConfigService(__DIR__ . '/../config.php');
 $settings['system']['mailFromAddress'] = $configService->getMailFromAddress(
     $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '',
     $_SESSION['auth_email'] ?? ''
 );
 $generator = new GeneratorService();
+$footerMarkup = $generator->renderFooterMarkup($settings);
+$legalModalMarkup = $generator->renderLegalModalMarkup($settings);
 
 // Alle Canvas-Abschnitte als HTML rendern (Server-Side Rendering für den Editor)
 // PARALLEL RENDER CONTRACT:
@@ -76,7 +80,6 @@ $accentColor3 = htmlspecialchars($settings['theme']['accentColor3'] ?? '#ed8936'
 $siteTitle = htmlspecialchars($settings['site']['title'] ?? '');
 $headerImage = $settings['site']['headerImage'] ?? null;
 $headerFocusPoint = htmlspecialchars($settings['site']['headerFocusPoint'] ?? 'center center');
-$footerText = nl2br(htmlspecialchars($settings['site']['footerText'] ?? ''));
 
 // Generierte Seite Info
 $indexExists = file_exists(__DIR__ . '/../../index.html');
@@ -191,8 +194,8 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             
             <!-- Footer (aus Settings) -->
             <div class="v2-canvas-footer v2-editable-region" id="canvasFooter" data-editor-region="footer" onclick="V2.openSettings()" title="Klicken um Footer zu bearbeiten">
-                <?php if ($footerText): ?>
-                    <footer class="site-footer"><?= $footerText ?></footer>
+                <?php if ($footerMarkup !== ''): ?>
+                    <?= $footerMarkup ?>
                     <div class="v2-region-edit-hint">✏️ Footer bearbeiten</div>
                 <?php else: ?>
                     <div class="v2-empty-footer">
@@ -202,6 +205,8 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             </div>
         </div>
     </main>
+
+    <?= $legalModalMarkup ?>
     
     <!-- ===== Tile Selection Toolbar (floating) ===== -->
     <div id="tileToolbar" class="v2-tile-toolbar" style="display: none;">
