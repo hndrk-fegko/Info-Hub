@@ -20,10 +20,6 @@ class ImageTile extends TileBase {
         return 'Bild mit optionaler Lightbox oder Link-Funktion';
     }
     
-    public function getFields(): array {
-        return ['title', 'showTitle', 'image', 'caption', 'lightbox', 'link'];
-    }
-    
     public function getFieldMeta(): array {
         return [
             'title' => [

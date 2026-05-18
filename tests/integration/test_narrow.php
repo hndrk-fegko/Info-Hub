@@ -2,12 +2,12 @@
 /**
  * Quick test: narrow layout generation
  */
-require_once __DIR__ . '/../backend/config.php';
-require_once __DIR__ . '/../backend/core/StorageService.php';
-require_once __DIR__ . '/../backend/core/TileService.php';
-require_once __DIR__ . '/../backend/core/LogService.php';
-require_once __DIR__ . '/../backend/core/GeneratorService.php';
-require_once __DIR__ . '/../backend/tiles/_registry.php';
+require_once __DIR__ . '/../../backend/config.php';
+require_once __DIR__ . '/../../backend/core/StorageService.php';
+require_once __DIR__ . '/../../backend/core/TileService.php';
+require_once __DIR__ . '/../../backend/core/LogService.php';
+require_once __DIR__ . '/../../backend/core/GeneratorService.php';
+require_once __DIR__ . '/../../backend/tiles/_registry.php';
 
 // Enable narrow layout temporarily
 $ss = new StorageService('settings.json');

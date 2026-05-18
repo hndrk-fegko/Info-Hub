@@ -31,24 +31,6 @@ class AccordionTile extends TileBase {
         return 'Auf-/zuklappbare Bereiche für kompakte Infos';
     }
     
-    public function getFields(): array {
-        $fields = ['title', 'showTitle'];
-        
-        // 10 Sections
-        for ($i = 1; $i <= self::MAX_SECTIONS; $i++) {
-            $fields[] = "section{$i}_heading";
-            $fields[] = "section{$i}_content";
-        }
-        
-        // Optionen
-        $fields[] = 'singleOpen';
-        $fields[] = 'autoScroll';
-        $fields[] = 'defaultOpen';
-        $fields[] = 'fullRow';
-        
-        return $fields;
-    }
-    
     public function getFieldMeta(): array {
         $meta = [
             'title' => [

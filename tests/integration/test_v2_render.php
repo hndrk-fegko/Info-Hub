@@ -13,8 +13,8 @@ $_SESSION['auth_email'] = 'test@example.com';
 // Buffer output - suppress session warnings from test bootstrap
 ob_start();
 $oldLevel = error_reporting(E_ALL & ~E_WARNING);
-chdir(__DIR__ . '/../backend/v2');
-include __DIR__ . '/../backend/v2/editor.php';
+chdir(__DIR__ . '/../../backend/v2');
+include __DIR__ . '/../../backend/v2/editor.php';
 error_reporting($oldLevel);
 $html = ob_get_clean();
 

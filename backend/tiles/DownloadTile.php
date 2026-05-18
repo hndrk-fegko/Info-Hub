@@ -19,10 +19,6 @@ class DownloadTile extends TileBase {
         return 'Datei-Download mit Titel und Beschreibung';
     }
     
-    public function getFields(): array {
-        return ['title', 'showTitle', 'description', 'file', 'buttonText'];
-    }
-    
     public function getFieldMeta(): array {
         return [
             'title' => [

@@ -11,7 +11,7 @@ Es ergaenzt die bestehende Doku mit klarer Rollenverteilung:
 - `docs/vision.md`: Produktvision, Zielbild, grobere Anforderungen
 - `docs/ROADMAP.md`: Zukunft, Ideen, Priorisierung
 - `docs/dev/WYSIWYG-KONZEPT.md`: Migrations- und Architekturentscheidungen fuer v2
-- `docs/dev/WYSIWYG-WIP.md`: Arbeits- und Fortschrittsdokument fuer laufende V2-Portierung
+- `docs/dev/WYSIWYG-WIP.md`: historisches Arbeitsdokument der V2-Portierung
 - `docs/dev/feature-matrix.md`: kanonischer Ist-Stand aller Features und Editor-Paritaet
 
 ## Produktgrenzen
@@ -19,8 +19,14 @@ Es ergaenzt die bestehende Doku mit klarer Rollenverteilung:
 Info-Hub ist ein tile-basiertes, file-basiertes CMS mit gemeinsamer Datenbasis fuer:
 
 - oeffentliche statische Ausgabe ueber `index.html`
-- Classic Editor unter `backend/editor.php`
-- WYSIWYG Editor unter `backend/v2/editor.php`
+- WYSIWYG Editor unter `backend/v2/editor.php` als kanonischer Redaktionspfad
+- Classic Editor unter `backend/editor.php` als Legacy-/Wartungspfad
+
+## Editor-Status
+
+- `backend/v2/editor.php` ist die Zielrichtung und der standardmaessige Editor nach dem Login.
+- `backend/editor.php` bleibt vorerst als Legacy-Pfad im Code, wird aber nicht mehr aktiv weiterentwickelt.
+- Classic-spezifische Fundstellen koennen schrittweise ueber den Marker `LEGACY_CLASSIC_EDITOR` auffindbar gemacht und spaeter entfernt werden.
 
 Nicht Ziel dieses Produkts:
 
@@ -54,6 +60,11 @@ Legende:
 | Ausgabe | Publish | Ja | Ja | Ja | Ja | `generate` |
 
 ### 2. Editor-Paritaet
+
+Hinweis:
+
+- V2 ist der kanonische Editor fuer neue Arbeit.
+- Classic wird nur noch gewartet, damit bestehende Workflows voruebergehend weiter verfuegbar bleiben.
 
 | Feature | Classic | V2 | Status | Hinweise |
 |---|---:|---:|---|---|
@@ -106,7 +117,7 @@ Legende:
 
 ### 5. Bekannte Paritaetsluecken V1 ↔ V2
 
-Diese Punkte verhindern aktuell, dass der Classic Editor vollstaendig in Wartungsmodus gehen kann:
+Classic befindet sich bereits im Wartungsmodus. Diese Punkte markieren die wichtigsten Unterschiede, die bei Regressionstests, Bugfixes und spaeterer Entfernung des Legacy-Pfads beachtet werden muessen:
 
 1. Classic und V2 nutzen unterschiedliche Interaktionsmodelle; Paritaet muss weiterhin pro Workflow geprueft werden, nicht nur pro Datenfeld.
 2. Classic bleibt bei einigen Verwaltungs- und Randfall-Workflows noch direkter, waehrend V2 weiter konsolidiert wird.

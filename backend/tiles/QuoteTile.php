@@ -25,10 +25,6 @@ class QuoteTile extends TileBase {
         return 'Zitat oder Bibelvers mit optionaler Quellenangabe';
     }
     
-    public function getFields(): array {
-        return ['title', 'showTitle', 'quote', 'source', 'link'];
-    }
-    
     public function getFieldMeta(): array {
         return [
             'title' => [

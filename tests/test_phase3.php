@@ -190,10 +190,13 @@ check("EditModal has overlay close on backdrop click", strpos($editModalContent,
 
 // ---- 11. Type-aware Toolbar ----
 echo "\n--- Type-aware Toolbar ---\n";
-check("Toolbar has data-tb-group attributes", strpos($editorContent, 'data-tb-group="appearance"') !== false);
-check("canvas.js has _noAppearanceTypes", strpos($canvasContent, '_noAppearanceTypes') !== false);
-check("canvas.js separator in noAppearance list", strpos($canvasContent, "['separator']") !== false);
-check("canvas.js toggles appearance group", strpos($canvasContent, 'data-tb-group') !== false);
+check("Toolbar has layout group attributes", strpos($editorContent, 'data-tb-group="layout"') !== false);
+check("Toolbar has color group attributes", strpos($editorContent, 'data-tb-group="color"') !== false);
+check("canvas.js has _noLayoutTypes", strpos($canvasContent, '_noLayoutTypes') !== false);
+check("canvas.js has _noColorTypes", strpos($canvasContent, '_noColorTypes') !== false);
+check("canvas.js separator in noColor list", strpos($canvasContent, "const _noColorTypes = ['separator']") !== false);
+check("canvas.js toggles layout group", strpos($canvasContent, '[data-tb-group="layout"]') !== false);
+check("canvas.js toggles color group", strpos($canvasContent, '[data-tb-group="color"]') !== false);
 
 // ---- 12. API uploadDownload ----
 echo "\n--- API uploadDownload ---\n";

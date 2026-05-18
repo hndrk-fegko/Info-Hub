@@ -6,17 +6,17 @@
  * Restore und Delete an.
  */
 
-if (file_exists(__DIR__ . '/config.php')) {
-    require_once __DIR__ . '/config.php';
-} else {
-    header('Location: setup.php');
-    exit;
-}
+$bootstrapMode = 'page';
+$bootstrapServices = [
+    'AuthService',
+    'BackupService',
+];
+$bootstrapMissingConfigRedirect = 'setup.php';
+$bootstrap = require __DIR__ . '/bootstrap.php';
 
-require_once __DIR__ . '/core/AuthService.php';
-require_once __DIR__ . '/core/BackupService.php';
+$container = $bootstrap['container'];
 
-$auth = new AuthService();
+$auth = $container->authService();
 if (!$auth->isAuthenticated()) {
     header('Location: login.php');
     exit;
@@ -27,7 +27,7 @@ if (empty($_SESSION['csrf_token'])) {
 }
 
 $csrfToken = $_SESSION['csrf_token'];
-$backupService = new BackupService();
+$backupService = $container->backupService();
 $backups = $backupService->listBackups();
 $packageCount = count(array_filter($backups, fn($backup) => ($backup['format'] ?? '') === 'package'));
 $legacyCount = count($backups) - $packageCount;
@@ -75,7 +75,8 @@ function backupFormatBytes(int $bytes): string {
                     </div>
                     <nav class="backup-nav">
                         <a class="backup-btn backup-btn--secondary" href="v2/editor.php">✏️ Editor</a>
-                        <a class="backup-btn backup-btn--secondary" href="editor.php">📝 Classic</a>
+                        <!-- LEGACY_CLASSIC_EDITOR: Link bleibt fuer den Wartungsmodus erreichbar. -->
+                        <a class="backup-btn backup-btn--secondary" href="editor.php" data-legacy-classic-link="LEGACY_CLASSIC_EDITOR" title="Zum klassischen Editor (Legacy, nur wenn noetig)">📝 Classic Legacy</a>
                         <a class="backup-btn backup-btn--secondary" href="../index.html" target="_blank" rel="noopener">🌐 Seite</a>
                     </nav>
                 </div>

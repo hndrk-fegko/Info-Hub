@@ -11,24 +11,23 @@
  * - Shared CSS + Tile-CSS sorgen für pixelgenaue Vorschau
  */
 
-// Config laden
-if (file_exists(__DIR__ . '/../config.php')) {
-    require_once __DIR__ . '/../config.php';
-} else {
-    header('Location: ../setup.php');
-    exit;
-}
+$bootstrapMode = 'page';
+$bootstrapServices = [
+    'AuthService',
+    'TileService',
+    'StorageService',
+    'GeneratorService',
+    'ConfigService',
+    'SecurityHelper',
+    'BackupService',
+];
+$bootstrapMissingConfigRedirect = '../setup.php';
+$bootstrap = require __DIR__ . '/../bootstrap.php';
 
-require_once __DIR__ . '/../core/AuthService.php';
-require_once __DIR__ . '/../core/TileService.php';
-require_once __DIR__ . '/../core/StorageService.php';
-require_once __DIR__ . '/../core/GeneratorService.php';
-require_once __DIR__ . '/../core/ConfigService.php';
-require_once __DIR__ . '/../core/SecurityHelper.php';
-require_once __DIR__ . '/../core/BackupService.php';
+$container = $bootstrap['container'];
 
 // Auth prüfen
-$auth = new AuthService();
+$auth = $container->authService();
 if (!$auth->isAuthenticated()) {
     header('Location: ../login.php');
     exit;
@@ -38,16 +37,16 @@ if (!$auth->isAuthenticated()) {
 $csrfToken = $_SESSION['csrf_token'] ?? '';
 
 // Daten laden
-$tileService = new TileService();
-$settingsStorage = new StorageService('settings.json');
+$tileService = $container->tileService();
+$settingsStorage = $container->storage('settings.json');
 $settings = $settingsStorage->read();
-$configService = new ConfigService(__DIR__ . '/../config.php');
+$configService = $container->configService();
 $settings['system']['mailFromAddress'] = $configService->getMailFromAddress(
     $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '',
     $_SESSION['auth_email'] ?? ''
 );
-$generator = new GeneratorService();
-$backupService = new BackupService();
+$generator = $container->generatorService();
+$backupService = $container->backupService();
 $backupCount = count($backupService->listBackups());
 $backupCountLabel = $backupCount === 1 ? '1 Sicherung' : $backupCount . ' Sicherungen';
 $quickRestoreView = $backupService->getQuickRestoreViewData();
@@ -57,8 +56,10 @@ $quickRestoreTargetLabel = (string)($quickRestoreView['targetLabel'] ?? '');
 
 // Alle Canvas-Abschnitte als HTML rendern (Server-Side Rendering für den Editor)
 // PARALLEL RENDER CONTRACT:
-// Erwartet die Struktur aus GeneratorService::renderCanvasSections().
+// Erwartet die Struktur aus GeneratorService::renderCanvasSections()
+// gemaess RenderContract::CANVAS_SECTION_KEYS.
 // Änderungen an Wrappern, Section-Struktur oder Metadaten müssen auch in assets/js/v2/canvas.js geprüft werden.
+// Der ausführbare Contract-Anker dafür liegt in tests/test_section_layout.php.
 $renderedSections = $generator->renderCanvasSections();
 
 // Canvas CSS (shared + tile-spezifisch)
@@ -167,9 +168,10 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             <button type="button" class="v2-btn v2-btn-secondary v2-btn-icon" onclick="V2.openSettings()" title="Einstellungen">
                 ⚙️
             </button>
-            <a href="../editor.php" class="v2-btn v2-btn-secondary" title="Zum klassischen Editor">
+            <!-- LEGACY_CLASSIC_EDITOR: Link bleibt fuer den Wartungsmodus erreichbar. -->
+            <a href="../editor.php" class="v2-btn v2-btn-secondary" data-legacy-classic-link="LEGACY_CLASSIC_EDITOR" title="Zum klassischen Editor (Legacy, nur wenn noetig)">
                 <span class="v2-btn-glyph">📝</span>
-                <span class="v2-btn-label">Classic</span>
+                <span class="v2-btn-label">Classic Legacy</span>
             </a>
             <button type="button" class="v2-btn v2-btn-secondary" onclick="V2.openPreview()" title="Vorschau">
                 <span class="v2-btn-glyph">👁️</span>
@@ -288,6 +290,7 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
             ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
             debugMode: <?= (defined('DEBUG_MODE') && DEBUG_MODE) ? 'true' : 'false' ?>,
             // Pre-rendered section HTML from server
+            renderContractVersion: <?= json_encode(RenderContract::CANVAS_SECTION_VERSION, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
             renderedSections: <?= json_encode($renderedSections, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
             // Tile type metadata for add/edit
             tileTypes: <?= json_encode($tileTypesWithMeta, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,

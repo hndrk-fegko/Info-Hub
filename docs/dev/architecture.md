@@ -6,11 +6,13 @@
 
 Info-Hub ist ein file-based CMS ohne Datenbank. Die Architektur folgt dem Prinzip der strikten Trennung von Layout, Logic und Services.
 
+Der kanonische Redaktionspfad ist `backend/v2/editor.php`. `backend/editor.php` bleibt vorerst als Legacy-Editor im Wartungsmodus erreichbar, wird aber nicht mehr aktiv weiterentwickelt.
+
 ## Schichtenarchitektur
 
 `
 
-   Frontend (editor.php, index.html)    UI Layer
+   Frontend (v2/editor.php, editor.php legacy, index.html)    UI Layer
 
    API (endpoints.php)                  Dünne Wrapper + CSRF
 
@@ -25,6 +27,8 @@ Info-Hub ist ein file-based CMS ohne Datenbank. Die Architektur folgt dem Prinzi
 Neue Tile-Typen werden durch einfaches Hinzufügen von Dateien in `/backend/tiles/` registriert:
 
 ```
+
+Die Laufzeit-Registry fuer diese Tile-Typen wird zentral ueber `backend/core/TileRegistry.php` aufgebaut. Services wie `TileService` und `GeneratorService` greifen damit nicht mehr direkt auf einen globalen Registry-Zustand zu.
 /backend/tiles/
 ├── _registry.php      # Auto-Import
 ├── TileBase.php       # Abstrakte Basis (siehe Anleitung dort!)
@@ -62,13 +66,34 @@ Siehe ausführliche Dokumentation in `TileBase.php`.
 | Service | Verantwortung |
 |---------|---------------|
 | TileService | CRUD-Operationen für Tiles |
+| TileRegistry | Discovery, Lookup und Instanziierung von Tile-Typen |
 | GeneratorService | HTML-Generierung |
 | BackupService | Paket-Backups, Export, Restore und Publish-/Quick-Restore-Orchestrierung |
 | AuthService | Email-Code-Auth + Session |
+| SettingsService | Laden, Maskieren, Validieren und Speichern globaler Settings |
 | StorageService | JSON File-Operationen |
 | UploadService | Datei-Upload & Validierung |
 | LogService | Zentrales Logging |
 | SecurityHelper | Debug/HTTPS-Warnungen |
+
+## Bootstrap und Composition Root
+
+- `backend/bootstrap.php` ist der gemeinsame Einstieg fuer Backend-Entry-Points.
+- Der Bootstrap laedt Config, Session und die benoetigten Service-Dateien.
+- `backend/core/AppContainer.php` bildet die request-lokale Composition Root fuer Entry-Points wie `login.php`, `backup.php`, `editor.php`, `v2/editor.php`, `setup.php` und `api/endpoints.php`.
+- Shared-Serviceinstanzen wie `AuthService`, `TileService`, `GeneratorService`, `SettingsService` und `BackupService` werden dort lazy pro Request bereitgestellt statt in jedem Entry-Point neu verdrahtet.
+
+## V2 Render-Vertrag
+
+- `backend/core/RenderContract.php` ist die zentrale Shape-Definition fuer den parallelen Render-Vertrag zwischen `GeneratorService`, `backend/v2/editor.php`, den Render-Endpoints und `assets/js/v2/canvas.js`.
+- `RenderContract::CANVAS_SECTION_KEYS` und `RenderContract::RENDERED_TILE_KEYS` definieren die kanonischen Felder der V2-Section- und Tile-Payloads.
+- Die Contract-Tests unter `tests/test_section_layout.php`, `tests/test_render_canvas_layout_endpoint.php` und `tests/test_render_all_tiles_html_endpoint.php` pruefen diese Definition direkt gegen die Runtime.
+
+## Editor-Status
+
+- `backend/v2/editor.php` ist der Standard-Editor nach dem Login und die Zielrichtung fuer weitere Editor-Features.
+- `backend/editor.php` bleibt als Legacy-Pfad fuer bestehende Workflows erhalten.
+- Classic-spezifische Stellen werden schrittweise mit `LEGACY_CLASSIC_EDITOR` markiert, damit der Pfad spaeter gezielt entfernt werden kann.
 
 ## Backup- und Publish-Flow
 
@@ -118,7 +143,7 @@ enderSecurityBanner() - Banner für Login-Seite
 ## Datenfluss
 
 `
-User  editor.php  API (CSRF prüfen)  TileService  StorageService  tiles.json
+User  v2/editor.php (Standard) / editor.php (Legacy)  API (CSRF prüfen)  TileService  StorageService  tiles.json
                                 
                          LogService (protokolliert)
 `

@@ -30,10 +30,6 @@ class ContactTile extends TileBase {
         return 'Kontaktperson mit Crawler-geschützter Email/Telefon';
     }
     
-    public function getFields(): array {
-        return ['title', 'name', 'role', 'image', 'email', 'phone', 'showEmailButton', 'showPhoneButton'];
-    }
-    
     public function getFieldMeta(): array {
         return [
             'title' => [

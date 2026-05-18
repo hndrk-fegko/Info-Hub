@@ -40,6 +40,90 @@ function test($name, $condition, $detail = '') {
     }
 }
 
+function buildSampleFieldValue(string $tileType, string $fieldName, array $meta) {
+    $fieldType = $meta['type'] ?? 'text';
+    $fieldNameLower = strtolower($fieldName);
+
+    switch ($fieldType) {
+        case 'checkbox':
+            return $meta['default'] ?? false;
+        case 'select':
+            if (array_key_exists('default', $meta)) {
+                return $meta['default'];
+            }
+            return is_array($meta['options'] ?? null) ? (array_key_first($meta['options']) ?? '') : '';
+        case 'textarea':
+            return strpos($fieldNameLower, 'content') !== false ? 'Testinhalt fuer ' . $tileType : 'Testbeschreibung fuer ' . $tileType;
+        case 'url':
+            return 'https://example.com';
+        case 'email':
+            return 'test@example.com';
+        case 'tel':
+            return '+49123456789';
+        case 'number':
+        case 'range':
+            if (array_key_exists('default', $meta)) {
+                return $meta['default'];
+            }
+            return $meta['min'] ?? 1;
+        case 'color':
+            return $meta['default'] ?? '#000000';
+        case 'file':
+            return '/backend/media/downloads/test.pdf';
+        case 'image':
+            return ($meta['mediaType'] ?? '') === 'backgrounds'
+                ? '/backend/media/header/test.jpg'
+                : '/backend/media/images/test.jpg';
+        case 'text':
+        default:
+            if (strpos($fieldNameLower, 'date') !== false) {
+                return '2026-12-31';
+            }
+            if (strpos($fieldNameLower, 'time') !== false) {
+                return '23:59';
+            }
+            if (strpos($fieldNameLower, 'email') !== false) {
+                return 'test@example.com';
+            }
+            if (strpos($fieldNameLower, 'phone') !== false || strpos($fieldNameLower, 'tel') !== false) {
+                return '+49123456789';
+            }
+            if (strpos($fieldNameLower, 'url') !== false) {
+                return 'https://example.com';
+            }
+            if (strpos($fieldNameLower, 'name') !== false) {
+                return 'Test Person';
+            }
+            if (strpos($fieldNameLower, 'quote') !== false) {
+                return 'Testzitat fuer ' . $tileType;
+            }
+            if (strpos($fieldNameLower, 'linktext') !== false) {
+                return 'Mehr erfahren';
+            }
+            if (array_key_exists('default', $meta) && $meta['default'] !== '') {
+                return $meta['default'];
+            }
+            return $fieldNameLower === 'title' ? 'Test ' . ucfirst($tileType) : 'Test ' . $fieldName;
+    }
+}
+
+function buildSampleTile(string $tileType, array $typeConfig): array {
+    $data = [];
+    foreach (($typeConfig['fieldMeta'] ?? []) as $fieldName => $meta) {
+        $data[$fieldName] = buildSampleFieldValue($tileType, $fieldName, $meta);
+    }
+
+    return [
+        'id' => 'test_' . $tileType,
+        'type' => $tileType,
+        'position' => 10,
+        'size' => in_array($tileType, ['separator', 'section'], true) ? 'full' : 'medium',
+        'style' => in_array($tileType, ['separator', 'section'], true) ? 'flat' : 'card',
+        'colorScheme' => 'default',
+        'data' => $data,
+    ];
+}
+
 echo "=== PHASE 2 TESTS: WYSIWYG Canvas + Server-Side Renderer ===\n\n";
 
 // === Test 1: renderSingleTile ===
@@ -112,33 +196,8 @@ test('Contains hasCSS flag', isset($typesWithMeta['infobox']['hasCSS']));
 test('Contains hasJS flag', isset($typesWithMeta['infobox']['hasJS']));
 
 echo "\n--- Test Group 6: All tile types render individually ---\n";
-global $TILE_TYPES;
-$allTypes = array_keys($TILE_TYPES);
-foreach ($allTypes as $type) {
-    $tile = [
-        'id' => 'test_' . $type,
-        'type' => $type,
-        'position' => 10,
-        'size' => 'medium',
-        'style' => 'card',
-        'colorScheme' => 'default',
-        'data' => ['title' => 'Test ' . $type, 'showTitle' => true]
-    ];
-    
-    // Add required fields for specific types
-    if ($type === 'download') $tile['data']['file'] = '/backend/media/downloads/test.pdf';
-    if ($type === 'image') $tile['data']['image'] = '/backend/media/images/test.jpg';
-    if ($type === 'link') { $tile['data']['url'] = 'https://example.com'; $tile['data']['linkText'] = 'Link'; }
-    if ($type === 'quote') $tile['data']['quote'] = 'Test quote';
-    if ($type === 'separator') { $tile['data']['height'] = 40; $tile['data']['showLine'] = true; }
-    if ($type === 'contact') { $tile['data']['name'] = 'Test'; $tile['data']['email'] = 'test@example.com'; }
-    if ($type === 'countdown') { $tile['data']['targetDate'] = '2026-12-31'; $tile['data']['targetTime'] = '23:59'; }
-    if ($type === 'iframe') $tile['data']['url'] = 'https://example.com';
-    if ($type === 'accordion') { 
-        $tile['data']['section1_heading'] = 'Section 1'; 
-        $tile['data']['section1_content'] = 'Content 1'; 
-    }
-    
+foreach ($typesWithMeta as $type => $typeConfig) {
+    $tile = buildSampleTile($type, $typeConfig);
     $html = $generator->renderSingleTile($tile);
     test("Tile type '{$type}' renders", $html !== null && strlen($html) > 0);
 }

@@ -17,10 +17,6 @@ class InfoboxTile extends TileBase {
         return 'Einfache Textbox mit Titel und Beschreibung';
     }
     
-    public function getFields(): array {
-        return ['title', 'showTitle', 'textAlign', 'description'];
-    }
-    
     public function getFieldMeta(): array {
         return [
             'title' => [

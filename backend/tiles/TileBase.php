@@ -32,7 +32,10 @@ abstract class TileBase {
      * 
      * @return array Liste der Feldnamen
      */
-    abstract public function getFields(): array;
+    public function getFields(): array {
+        $fieldMeta = $this->getFieldMeta();
+        return $fieldMeta !== [] ? array_keys($fieldMeta) : [];
+    }
     
     /**
      * Validiert die Tile-Daten

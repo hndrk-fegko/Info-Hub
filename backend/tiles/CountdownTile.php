@@ -34,19 +34,6 @@ class CountdownTile extends TileBase {
         return 'initCountdowns';
     }
     
-    public function getFields(): array {
-        return [
-            'title', 
-            'showTitle', 
-            'description', 
-            'targetDate', 
-            'targetTime', 
-            'countMode', 
-            'expiredText', 
-            'hideOnExpiry'
-        ];
-    }
-    
     public function getFieldMeta(): array {
         return [
             'title' => [

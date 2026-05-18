@@ -1,8 +1,8 @@
 <?php
 
-require_once __DIR__ . '/../backend/config.php';
-require_once __DIR__ . '/../backend/core/BackupService.php';
-require_once __DIR__ . '/../backend/core/GeneratorService.php';
+require_once __DIR__ . '/../../backend/config.php';
+require_once __DIR__ . '/../../backend/core/BackupService.php';
+require_once __DIR__ . '/../../backend/core/GeneratorService.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -22,8 +22,8 @@ function backupHash(?string $path): ?string {
 $service = new BackupService();
 
 $indexPath = __DIR__ . '/../index.html';
-$tilesPath = __DIR__ . '/../backend/data/tiles.json';
-$settingsPath = __DIR__ . '/../backend/data/settings.json';
+$tilesPath = __DIR__ . '/../../backend/data/tiles.json';
+$settingsPath = __DIR__ . '/../../backend/data/settings.json';
 
 $beforeHashes = [
     'index' => backupHash($indexPath),

@@ -20,10 +20,6 @@ class LinkTile extends TileBase {
         return 'Link zu externer oder interner Seite';
     }
     
-    public function getFields(): array {
-        return ['title', 'showTitle', 'description', 'url', 'linkText', 'external', 'showDomain'];
-    }
-    
     public function getFieldMeta(): array {
         return [
             'title' => [

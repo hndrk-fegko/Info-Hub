@@ -99,7 +99,7 @@ function updateTileFields() {
         return;
     }
     
-    const fields = tileTypes[type].fields || [];
+    const fields = tileTypes[type].fields || Object.keys(tileTypes[type].fieldMeta || {});
     const typeInfo = tileTypes[type];
     
     let html = '';
@@ -117,28 +117,28 @@ function updateTileFields() {
         
         // Kombiniere title + showTitle in einer Zeile
         if (field === 'title' && fields.includes('showTitle')) {
-            html += renderInlineFieldWithCheckbox('title', 'showTitle');
+            html += renderInlineFieldWithCheckbox('title', 'showTitle', typeInfo);
             processedFields.add('title');
             processedFields.add('showTitle');
             i++;
         }
         // Kombiniere caption + lightbox
         else if (field === 'caption' && fields.includes('lightbox')) {
-            html += renderInlineFieldWithCheckbox('caption', 'lightbox');
+            html += renderInlineFieldWithCheckbox('caption', 'lightbox', typeInfo);
             processedFields.add('caption');
             processedFields.add('lightbox');
             i++;
         }
         // Kombiniere link + external für ImageTile
         else if (field === 'link' && fields.includes('external')) {
-            html += renderInlineFieldWithCheckbox('link', 'external');
+            html += renderInlineFieldWithCheckbox('link', 'external', typeInfo);
             processedFields.add('link');
             processedFields.add('external');
             i++;
         }
         // Kombiniere url + external für LinkTile
         else if (field === 'url' && fields.includes('external') && type === 'link') {
-            html += renderInlineFieldWithCheckbox('url', 'external');
+            html += renderInlineFieldWithCheckbox('url', 'external', typeInfo);
             processedFields.add('url');
             processedFields.add('external');
             i++;
@@ -430,10 +430,9 @@ window.moveAccordionSection = moveAccordionSection;
 // ===== Field Configuration & Rendering =====
 
 // Feld mit Checkbox in einer Zeile
-function renderInlineFieldWithCheckbox(fieldName, checkboxName) {
-    const fieldConfigs = getFieldConfigs();
-    const fieldConfig = fieldConfigs[fieldName] || { type: 'text', label: fieldName };
-    const checkboxConfig = fieldConfigs[checkboxName] || { label: checkboxName, default: false };
+function renderInlineFieldWithCheckbox(fieldName, checkboxName, typeInfo) {
+    const fieldConfig = getFieldConfig(typeInfo, fieldName);
+    const checkboxConfig = getFieldConfig(typeInfo, checkboxName);
     
     const required = fieldConfig.required ? 'required' : '';
     const checked = checkboxConfig.default ? 'checked' : '';
@@ -449,6 +448,34 @@ function renderInlineFieldWithCheckbox(fieldName, checkboxName) {
             </label>
         </div>
     `;
+}
+
+function getFieldConfig(typeInfo, fieldName) {
+    const legacyConfig = getFieldConfigs()[fieldName] || {};
+    const metaConfig = typeInfo?.fieldMeta?.[fieldName] || {};
+
+    const config = {
+        ...legacyConfig,
+        ...metaConfig,
+    };
+
+    if (!config.type) {
+        config.type = 'text';
+    }
+
+    if (!config.label) {
+        config.label = fieldName;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(config, 'required')) {
+        config.required = false;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(config, 'default')) {
+        config.default = '';
+    }
+
+    return config;
 }
 
 function getFieldConfigs() {
@@ -610,11 +637,9 @@ function getFieldConfigs() {
 }
 
 function renderField(fieldName, typeInfo) {
-    const fieldConfigs = getFieldConfigs();
-    
-    const config = fieldConfigs[fieldName] || { type: 'text', label: fieldName, required: false };
+    const config = getFieldConfig(typeInfo, fieldName);
     const required = config.required ? 'required' : '';
-    const defaultValue = config.default || '';
+    const defaultValue = Object.prototype.hasOwnProperty.call(config, 'default') ? config.default : '';
     const reqMark = config.required ? ' *' : '';
     
     switch (config.type) {

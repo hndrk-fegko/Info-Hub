@@ -1,9 +1,15 @@
-# WYSIWYG Editor – Work in Progress
+# WYSIWYG Editor – Historisches WIP-Dokument
 
 > **Branch:** `feature/wysiwyg-editor`  
 > **Basis:** Variante B (Integration) – paralleler Editor, gleiche Datenbasis  
 > **Start:** 2026-03-26  
-> **Status:** 🟡 Phase 0 abgeschlossen
+> **Status:** 📦 Archiviert als Arbeitsstand der fruehen V2-Portierung
+
+> **Aktueller Stand 2026-05-18:**
+> `backend/v2/editor.php` ist inzwischen der kanonische Editor und der Standardpfad nach dem Login.
+> `backend/editor.php` bleibt nur noch als Legacy-/Wartungspfad im Code.
+> Dieses Dokument dient daher nur noch als historische Entwicklungsnotiz und nicht mehr als aktueller Projektstatus.
+> Der aktuelle Ist-Stand liegt in `docs/dev/feature-matrix.md`, die Architektur-Einordnung in `docs/dev/architecture.md`.
 
 ---
 

@@ -8,8 +8,8 @@
  * 3. User gibt Code ein
  * 4. Session wird aktiviert (konfigurierbare Dauer)
  * 
- * HINWEIS: config.php muss VOR diesem Service geladen werden!
- * (Passiert automatisch durch login.php, editor.php, endpoints.php)
+ * HINWEIS: config.php muss VOR diesem Service geladen werden.
+ * Passiert zentral ueber backend/bootstrap.php in den Entry-Points.
  * Fallback-Werte im Konstruktor für Robustheit.
  */
 

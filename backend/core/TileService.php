@@ -8,14 +8,16 @@
 
 require_once __DIR__ . '/LogService.php';
 require_once __DIR__ . '/StorageService.php';
-require_once __DIR__ . '/../tiles/_registry.php';
+require_once __DIR__ . '/TileRegistry.php';
 
 class TileService {
     
     private StorageService $storage;
+    private TileRegistry $tileRegistry;
     
-    public function __construct() {
+    public function __construct(?TileRegistry $tileRegistry = null) {
         $this->storage = new StorageService('tiles.json');
+        $this->tileRegistry = $tileRegistry ?? TileRegistry::shared();
     }
     
     /**
@@ -55,8 +57,6 @@ class TileService {
      * @return array ['success' => bool, 'tile' => array] oder ['errors' => array]
      */
     public function saveTile(array $tileData): array {
-        global $TILE_TYPES;
-        
         LogService::info('TileService', 'Saving tile', ['id' => $tileData['id'] ?? 'new']);
         
         // 1. Pflichtfelder prüfen
@@ -66,13 +66,16 @@ class TileService {
         
         // 2. Tile-Typ validieren
         $type = $tileData['type'];
-        if (!isset($TILE_TYPES[$type])) {
+        if (!$this->tileRegistry->has($type)) {
             return ['success' => false, 'errors' => ["Unbekannter Tile-Typ: $type"]];
         }
         
         // 3. Tile-spezifische Validierung
-        $tileClass = $TILE_TYPES[$type];
-        $tileInstance = new $tileClass();
+        $tileInstance = $this->tileRegistry->create($type);
+        if ($tileInstance === null) {
+            return ['success' => false, 'errors' => ["Unbekannter Tile-Typ: $type"]];
+        }
+
         $errors = $tileInstance->validate($tileData['data'] ?? []);
         
         if (!empty($errors)) {
@@ -231,16 +234,18 @@ class TileService {
      * @return array ['type' => ['name' => string, 'fields' => array]]
      */
     public function getAvailableTypes(): array {
-        global $TILE_TYPES;
-        
         $types = [];
         
-        foreach ($TILE_TYPES as $type => $class) {
+        foreach ($this->tileRegistry->all() as $type => $class) {
             $instance = new $class();
+            $fieldMeta = method_exists($instance, 'getFieldMeta') ? $instance->getFieldMeta() : [];
+            $fields = $fieldMeta !== [] ? array_keys($fieldMeta) : $instance->getFields();
+
             $types[$type] = [
                 'name' => $instance->getName(),
-                'fields' => $instance->getFields(),
-                'description' => $instance->getDescription()
+                'fields' => $fields,
+                'description' => $instance->getDescription(),
+                'fieldMeta' => $fieldMeta,
             ];
         }
         
@@ -255,17 +260,18 @@ class TileService {
      * @return array ['type' => ['name' => ..., 'fields' => ..., 'fieldMeta' => ...]]
      */
     public function getAvailableTypesWithMeta(): array {
-        global $TILE_TYPES;
-        
         $types = [];
         
-        foreach ($TILE_TYPES as $type => $class) {
+        foreach ($this->tileRegistry->all() as $type => $class) {
             $instance = new $class();
+            $fieldMeta = method_exists($instance, 'getFieldMeta') ? $instance->getFieldMeta() : [];
+            $fields = $fieldMeta !== [] ? array_keys($fieldMeta) : $instance->getFields();
+
             $types[$type] = [
                 'name' => $instance->getName(),
-                'fields' => $instance->getFields(),
+                'fields' => $fields,
                 'description' => $instance->getDescription(),
-                'fieldMeta' => method_exists($instance, 'getFieldMeta') ? $instance->getFieldMeta() : [],
+                'fieldMeta' => $fieldMeta,
                 'hasCSS' => !empty($instance->getCSS()),
                 'hasJS' => !empty($instance->getJS()),
                 'initFunction' => $instance->getInitFunction()

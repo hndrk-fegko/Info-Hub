@@ -4,8 +4,8 @@
  * 
  * Validiert und speichert hochgeladene Dateien.
  * 
- * HINWEIS: config.php muss VOR diesem Service geladen werden!
- * Fallback-Werte im Konstruktor für Robustheit.
+ * HINWEIS: config.php muss VOR diesem Service geladen werden.
+ * Passiert zentral ueber backend/bootstrap.php; Fallback-Werte im Konstruktor bleiben fuer Robustheit bestehen.
  */
 
 require_once __DIR__ . '/LogService.php';
@@ -14,6 +14,7 @@ class UploadService {
     
     private const ALLOWED_IMAGES = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
     private const ALLOWED_DOWNLOADS = ['pdf', 'docx', 'xlsx', 'zip', 'doc', 'xls', 'pptx', 'ppt', 'txt'];
+    private const ALLOWED_MEDIA_TYPES = ['images', 'downloads', 'header', 'backgrounds'];
     private const HEADER_MAX_DIMENSION = 1920;
     private const HEADER_PLACEHOLDER_WIDTH = 32;
     
@@ -54,7 +55,7 @@ class UploadService {
     /**
      * Lädt ein Header-Bild hoch
      */
-    public function uploadHeader(array $file): array {
+    public function uploadHeader(array $file, ?string $clientPlaceholder = null, $clientWidth = null, $clientHeight = null): array {
         $result = $this->upload($file, 'header', self::ALLOWED_IMAGES, $this->maxImageSize);
         if (!$result['success']) {
             return $result;
@@ -67,7 +68,7 @@ class UploadService {
             $result = array_merge($result, $derivatives);
         }
 
-        return $result;
+        return $this->mergeHeaderMetadata($result, $clientPlaceholder, $clientWidth, $clientHeight);
     }
 
     /**
@@ -154,6 +155,47 @@ class UploadService {
         }
 
         return $result;
+    }
+
+    private function mergeHeaderMetadata(array $result, ?string $clientPlaceholder, $clientWidth, $clientHeight): array {
+        $normalizedPlaceholder = $this->normalizeHeaderPlaceholder($clientPlaceholder);
+        $normalizedWidth = $this->normalizePositiveInt($clientWidth);
+        $normalizedHeight = $this->normalizePositiveInt($clientHeight);
+
+        if (empty($result['placeholder']) && $normalizedPlaceholder !== null) {
+            $result['placeholder'] = $normalizedPlaceholder;
+        }
+
+        if (empty($result['width']) && $normalizedWidth !== null) {
+            $result['width'] = $normalizedWidth;
+        }
+
+        if (empty($result['height']) && $normalizedHeight !== null) {
+            $result['height'] = $normalizedHeight;
+        }
+
+        return $result;
+    }
+
+    private function normalizeHeaderPlaceholder(?string $value): ?string {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (!preg_match('#^data:image/(?:webp|jpeg);base64,[A-Za-z0-9+/=]+$#', $value) || strlen($value) > 100000) {
+            return null;
+        }
+
+        return $value;
+    }
+
+    private function normalizePositiveInt($value): ?int {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $intValue = (int) $value;
+        return $intValue > 0 ? $intValue : null;
     }
 
     /**
@@ -373,6 +415,7 @@ class UploadService {
      * Listet Dateien eines Typs
      */
     public function listFiles(string $type): array {
+        $type = $this->normalizeMediaType($type);
         $dir = self::MEDIA_PATH . $type . '/';
         if (!is_dir($dir)) {
             return [];
@@ -399,9 +442,11 @@ class UploadService {
     /**
      * Löscht eine Datei
      */
-    public function deleteFile(string $type, string $filename): bool {
-        // Sicherheit: Nur Dateiname, kein Pfad
-        $filename = basename($filename);
+    public function deleteFile(string $type, string $filename, ?string $path = null): bool {
+        $target = $this->resolveDeleteTarget($type, $filename, $path);
+        $type = $target['type'];
+        $filename = $target['filename'];
+
         $filepath = self::MEDIA_PATH . $type . '/' . $filename;
         
         if (file_exists($filepath) && is_file($filepath)) {
@@ -412,4 +457,38 @@ class UploadService {
         
         return false;
     }
+
+            /**
+             * Loest Delete-Request-Parameter in einen validierten Typ und Dateinamen auf.
+             *
+             * @return array{type: string, filename: string}
+             */
+            private function resolveDeleteTarget(?string $type, ?string $filename, ?string $path = null): array {
+                $resolvedType = is_string($type) ? trim($type) : '';
+                $resolvedFilename = is_string($filename) ? trim($filename) : '';
+
+                if ($resolvedType === '' && is_string($path) && $path !== '') {
+                    if (preg_match('#/backend/media/(images|downloads|header|backgrounds)/(.+)$#', $path, $matches)) {
+                        $resolvedType = $matches[1];
+                        $resolvedFilename = $matches[2];
+                    }
+                }
+
+                if ($resolvedType === '' || $resolvedFilename === '') {
+                    throw new InvalidArgumentException('Typ und Dateiname erforderlich');
+                }
+
+                return [
+                    'type' => $this->normalizeMediaType($resolvedType),
+                    'filename' => basename($resolvedFilename),
+                ];
+            }
+
+            private function normalizeMediaType(string $type): string {
+                if (!in_array($type, self::ALLOWED_MEDIA_TYPES, true)) {
+                    throw new InvalidArgumentException('Ungültiger Dateityp');
+                }
+
+                return $type;
+            }
 }

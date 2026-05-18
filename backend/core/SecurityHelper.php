@@ -4,7 +4,8 @@
  * 
  * Prüft auf unsichere Konfigurationen und gibt Warnungen aus.
  * 
- * HINWEIS: config.php muss VOR diesem Service geladen werden!
+ * HINWEIS: config.php muss VOR diesem Service geladen werden.
+ * Passiert zentral ueber backend/bootstrap.php in den Entry-Points.
  * Statische Methoden prüfen mit defined() für Robustheit.
  */
 

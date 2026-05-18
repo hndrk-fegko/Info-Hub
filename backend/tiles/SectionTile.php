@@ -17,22 +17,6 @@ class SectionTile extends TileBase {
         return 'Markiert einen neuen Abschnitt mit eigenem Hintergrund und eigener Sichtbarkeit';
     }
 
-    public function getFields(): array {
-        return [
-            'title',
-            'backgroundMode',
-            'backgroundImage',
-            'backgroundAttachment',
-            'backgroundDisplay',
-            'overlayEnabled',
-            'overlayColor',
-            'overlayOpacity',
-            'overlayColorEnabled',
-            'overlayBlurEnabled',
-            'overlayBlurStrength'
-        ];
-    }
-
     public function getFieldMeta(): array {
         return [
             'title' => [

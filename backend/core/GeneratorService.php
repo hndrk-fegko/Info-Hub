@@ -7,19 +7,22 @@
  */
 
 require_once __DIR__ . '/LogService.php';
+require_once __DIR__ . '/RenderContract.php';
 require_once __DIR__ . '/StorageService.php';
+require_once __DIR__ . '/TileRegistry.php';
 require_once __DIR__ . '/TileService.php';
-require_once __DIR__ . '/../tiles/_registry.php';
 
 class GeneratorService {
     
     private StorageService $settingsStorage;
     private TileService $tileService;
+    private TileRegistry $tileRegistry;
     private string $outputPath;
     
-    public function __construct() {
+    public function __construct(?TileRegistry $tileRegistry = null, ?TileService $tileService = null) {
         $this->settingsStorage = new StorageService('settings.json');
-        $this->tileService = new TileService();
+        $this->tileRegistry = $tileRegistry ?? TileRegistry::shared();
+        $this->tileService = $tileService ?? new TileService($this->tileRegistry);
         $this->outputPath = __DIR__ . '/../../index.html';
     }
     
@@ -31,8 +34,6 @@ class GeneratorService {
      * @return array ['success' => bool, 'message' => string]
      */
     public function generate(): array {
-        global $TILE_TYPES;
-        
         LogService::info('GeneratorService', 'Starting HTML generation');
         
         try {
@@ -87,11 +88,9 @@ class GeneratorService {
      * Sammelt CSS von allen registrierten Tile-Typen
      */
     private function collectTileCSS(): string {
-        global $TILE_TYPES;
-        
         $css = "\n        /* ===== TILE-SPEZIFISCHE STYLES ===== */\n";
         
-        foreach ($TILE_TYPES as $type => $class) {
+        foreach ($this->tileRegistry->all() as $type => $class) {
             $instance = new $class();
             $tileCSS = $instance->getCSS();
             if (!empty($tileCSS)) {
@@ -106,11 +105,9 @@ class GeneratorService {
      * Sammelt JavaScript von allen registrierten Tile-Typen
      */
     private function collectTileJS(): string {
-        global $TILE_TYPES;
-        
         $js = "\n        // ===== TILE-SPEZIFISCHES JAVASCRIPT =====\n";
         
-        foreach ($TILE_TYPES as $type => $class) {
+        foreach ($this->tileRegistry->all() as $type => $class) {
             $instance = new $class();
             $tileJS = $instance->getJS();
             if (!empty($tileJS)) {
@@ -125,11 +122,9 @@ class GeneratorService {
      * Sammelt Init-Funktionen von allen Tile-Typen für DOMContentLoaded
      */
     private function collectTileInitCalls(): string {
-        global $TILE_TYPES;
-        
         $calls = [];
         
-        foreach ($TILE_TYPES as $type => $class) {
+        foreach ($this->tileRegistry->all() as $type => $class) {
             $instance = new $class();
             $initFn = $instance->getInitFunction();
             if (!empty($initFn)) {
@@ -157,17 +152,18 @@ class GeneratorService {
      * @return string|null HTML-String oder null bei unbekanntem Typ
      */
     public function renderSingleTile(array $tile, bool $applyScheduledVisibility = true): ?string {
-        global $TILE_TYPES;
-        
         $type = $tile['type'] ?? '';
         
-        if (!isset($TILE_TYPES[$type])) {
+        if (!$this->tileRegistry->has($type)) {
             LogService::warning('GeneratorService', 'Unknown tile type', ['type' => $type]);
             return null;
         }
         
-        $class = $TILE_TYPES[$type];
-        $instance = new $class();
+        $instance = $this->tileRegistry->create($type);
+        if ($instance === null) {
+            LogService::warning('GeneratorService', 'Unknown tile type', ['type' => $type]);
+            return null;
+        }
         
         // Tile-Wrapper mit gemeinsamen Klassen
         $size = $this->isFullWidthType($type) ? 'full' : htmlspecialchars($tile['size'] ?? 'medium');
@@ -201,10 +197,12 @@ class GeneratorService {
      * Rendert die Abschnittsstruktur für den WYSIWYG-Canvas.
      *
      * PARALLEL RENDER CONTRACT:
-     * Diese Rückgabe wird direkt von backend/v2/editor.php und assets/js/v2/canvas.js konsumiert.
-     * Änderungen an Struktur oder Metadaten hier müssen dort mitgepflegt werden.
+      * Diese Rückgabe wird direkt von backend/v2/editor.php und assets/js/v2/canvas.js konsumiert.
+      * RenderContract::CANVAS_SECTION_KEYS ist die kanonische Shape-Definition.
+      * Änderungen an Struktur oder Metadaten hier müssen dort mitgepflegt werden.
+      * tests/test_section_layout.php dient als ausführbarer Contract-Test für diese Struktur.
      *
-     * @return array [{id, html, markerTileId, tileIds, backgroundMode, visible}, ...]
+      * @return array<int, array<string, mixed>>
      */
     public function renderCanvasSections(): array {
         $tiles = $this->tileService->getTiles();
@@ -218,22 +216,22 @@ class GeneratorService {
                 continue;
             }
 
-            $result[] = [
+            $result[] = RenderContract::canvasSection([
                 'id' => $section['id'],
                 'html' => $html,
                 'markerTileId' => $markerTile['id'] ?? null,
-                'markerTitle' => $section['config']['title'],
-                'backgroundMode' => $section['config']['backgroundMode'],
-                'backgroundAttachment' => $section['config']['backgroundAttachment'],
-                'backgroundDisplay' => $section['config']['backgroundDisplay'],
-                'overlayEnabled' => $section['config']['overlayColorEnabled'] || $section['config']['overlayBlurEnabled'],
-                'overlayOpacity' => $section['config']['overlayOpacity'],
-                'visible' => $markerTile['visible'] ?? true,
+                'markerTitle' => (string) ($section['config']['title'] ?? ''),
+                'backgroundMode' => (string) ($section['config']['backgroundMode'] ?? 'none'),
+                'backgroundAttachment' => (string) ($section['config']['backgroundAttachment'] ?? 'content'),
+                'backgroundDisplay' => (string) ($section['config']['backgroundDisplay'] ?? 'cover'),
+                'overlayEnabled' => (bool) (($section['config']['overlayColorEnabled'] ?? false) || ($section['config']['overlayBlurEnabled'] ?? false)),
+                'overlayOpacity' => (int) ($section['config']['overlayOpacity'] ?? 0),
+                'visible' => (bool) ($markerTile['visible'] ?? true),
                 'tileIds' => array_values(array_map(static function($tile) {
                     return $tile['id'] ?? '';
                 }, $section['tiles'])),
                 'isImplicit' => $markerTile === null
-            ];
+            ]);
         }
 
         return $result;
@@ -245,7 +243,9 @@ class GeneratorService {
      * Für den WYSIWYG-Editor: liefert das gerenderte HTML jeder Tile,
      * sodass der Editor es direkt in den Canvas platzieren kann.
      * 
-     * @return array [{id, type, html, size, style, colorScheme}, ...]
+        * RenderContract::RENDERED_TILE_KEYS ist die kanonische Shape-Definition.
+        *
+        * @return array<int, array<string, mixed>>
      */
     public function renderAllTilesHtml(): array {
         $tiles = $this->tileService->getTiles();
@@ -254,16 +254,16 @@ class GeneratorService {
         foreach ($tiles as $tile) {
             $html = $this->renderSingleTile($tile, false);
             if ($html !== null) {
-                $result[] = [
+                $result[] = RenderContract::renderedTile([
                     'id' => $tile['id'],
                     'type' => $tile['type'],
                     'html' => $html,
-                    'size' => $tile['size'] ?? 'medium',
-                    'style' => $tile['style'] ?? 'card',
-                    'colorScheme' => $tile['colorScheme'] ?? 'default',
-                    'position' => $tile['position'] ?? 0,
-                    'visible' => $tile['visible'] ?? true
-                ];
+                    'size' => (string) ($tile['size'] ?? 'medium'),
+                    'style' => (string) ($tile['style'] ?? 'card'),
+                    'colorScheme' => (string) ($tile['colorScheme'] ?? 'default'),
+                    'position' => (int) ($tile['position'] ?? 0),
+                    'visible' => (bool) ($tile['visible'] ?? true)
+                ]);
             }
         }
         

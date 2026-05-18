@@ -22,10 +22,6 @@ class SeparatorTile extends TileBase {
         return 'Trenner/Abschnittsumbruch mit optionaler Linie';
     }
     
-    public function getFields(): array {
-        return ['height', 'showLine', 'lineWidth', 'lineStyle'];
-    }
-    
     public function getFieldMeta(): array {
         return [
             'height' => [

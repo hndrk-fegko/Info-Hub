@@ -2,6 +2,51 @@
 
 > Manuelle Testschritte für alle Features
 
+## Automatisierte Test-Suite
+
+Der maschinenbedienbare Einstieg fuer automatisierte Tests ist `tests/run.php`.
+
+Beispiele:
+
+```bash
+php tests/run.php --list
+php tests/run.php --suite=contracts
+php tests/run.php --suite=unit
+php tests/run.php --suite=render,api --format=json
+php tests/run.php --test=section-render-contract
+php tests/run.php --suite=e2e
+```
+
+Wrapper:
+
+```powershell
+./scripts/test.ps1 --suite=contracts
+```
+
+```bash
+./scripts/test.sh --suite=contracts
+```
+
+Aktuelle Suite-Tags:
+
+- `unit`: isolierte Helper-/Contract-Tests ohne Storage-, Session-, HTTP- oder Browser-Kontext
+- `smoke`: schnelle Render-/Editor-Grundchecks
+- `contracts`: explizite Generator-/API-/V2-Rendervertraege
+- `integration`: Service- und Workflow-Tests
+- `render`: HTML-/CSS-/Canvas-Renderpfade
+- `api`: API-Endpunkte und deren Vertraege
+- `editor`: Editor-spezifische Regressionen
+- `backup`: Backup-/Restore-Workflows
+- `auth`: Login-/Code-/Session-Vertraege des AuthService
+- `upload`: Upload-Validierung sowie Media-List/Delete-Vertraege
+- `settings`: SettingsService- und Settings-Endpoint-Vertraege
+- `crud`: Tile-CRUD-Endpunkte gegen TileService
+- `service`: Service-zentrierte Vertraege ohne UI/Browser
+
+Die Suite-Zuordnung wird in `tests/manifest.php` gepflegt.
+
+Manuelle Browser-/E2E-Szenarien sind jetzt ebenfalls zentral registriert und werden ueber `php tests/run.php --suite=e2e` als Schrittlisten aus `tests/e2e/*.md` ausgegeben.
+
 ## 🔐 Authentifizierung
 
 ### Login-Flow
@@ -13,8 +58,13 @@
 - [x] Richtige Email → Code wird gesendet / angezeigt (DEBUG_MODE)
 - [x] Code-Eingabe-Feld erscheint
 - [x] Falscher Code 3x → 10 Minuten Sperre (off by one in der Anzeige gefixt)
-- [x] Richtiger Code → Redirect zu editor.php
+- [x] Richtiger Code → Redirect zu v2/editor.php
 - [x] Auch ein neu generierter Code wird beim 10 Minuten Lockout abgelehnt (Rate limiting Bypas wird verhindert)
+
+### Classic Legacy
+- [ ] Aufruf von `/backend/editor.php` zeigt einen Legacy-Hinweis per Confirm-Dialog
+- [ ] Abbrechen im Legacy-Dialog leitet zurück zu `/backend/v2/editor.php`
+- [ ] Bestätigen öffnet den Classic Editor mit sichtbarem Legacy-Hinweisbanner
 
 ### Session-Management
 - [x] Session-Timer im Header sichtbar

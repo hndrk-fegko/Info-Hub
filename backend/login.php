@@ -8,21 +8,17 @@
  * 3. Redirect zu v2/editor.php
  */
 
-// Zentrale Konfiguration laden
-if (file_exists(__DIR__ . '/config.php')) {
-    require_once __DIR__ . '/config.php';
-} else {
-    // Config fehlt - zurück zu Setup
-    header('Location: setup.php');
-    exit;
-}
+$bootstrapMode = 'page';
+$bootstrapServices = [
+    'AuthService',
+    'SecurityHelper',
+];
+$bootstrapMissingConfigRedirect = 'setup.php';
+$bootstrap = require __DIR__ . '/bootstrap.php';
 
-session_start();
+$container = $bootstrap['container'];
 
-require_once __DIR__ . '/core/AuthService.php';
-require_once __DIR__ . '/core/SecurityHelper.php';
-
-$auth = new AuthService();
+$auth = $container->authService();
 $securityStatus = SecurityHelper::getSecurityStatus();
 
 // Logout-Request

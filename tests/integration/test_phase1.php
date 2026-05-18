@@ -2,9 +2,9 @@
 /**
  * Phase 1 Test: Prüft ob GeneratorService mit Shared CSS korrekt arbeitet
  */
-chdir(__DIR__ . '/..');
+chdir(__DIR__ . '/../../');
 
-require_once 'backend/core/GeneratorService.php';
+require_once __DIR__ . '/../../backend/core/GeneratorService.php';
 
 $g = new GeneratorService();
 $html = $g->preview();

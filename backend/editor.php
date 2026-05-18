@@ -1,29 +1,26 @@
 <?php
 /**
- * Editor - Hauptverwaltung für Tiles
- * 
- * Geschützter Bereich - erfordert Authentifizierung
+ * LEGACY_CLASSIC_EDITOR
+ * Classic Editor - Legacy-Hauptverwaltung für Tiles.
+ *
+ * Geschützter Bereich - erfordert Authentifizierung.
+ * V2 ist die kanonische Weiterentwicklung; Classic bleibt nur im Wartungsmodus.
  */
+$bootstrapMode = 'page';
+$bootstrapServices = [
+    'AuthService',
+    'TileService',
+    'StorageService',
+    'SecurityHelper',
+    'ConfigService',
+];
+$bootstrapMissingConfigRedirect = 'setup.php';
+$bootstrap = require __DIR__ . '/bootstrap.php';
 
-// WICHTIG: Config ZUERST laden, bevor andere Services!
-if (file_exists(__DIR__ . '/config.php')) {
-    require_once __DIR__ . '/config.php';
-} else {
-    // Config fehlt - zurück zu Setup
-    header('Location: setup.php');
-    exit;
-}
-
-// Error Reporting basierend auf DEBUG_MODE (bereits in config.php gesetzt)
-
-require_once __DIR__ . '/core/AuthService.php';
-require_once __DIR__ . '/core/TileService.php';
-require_once __DIR__ . '/core/StorageService.php';
-require_once __DIR__ . '/core/SecurityHelper.php';
-require_once __DIR__ . '/core/ConfigService.php';
+$container = $bootstrap['container'];
 
 // Auth prüfen
-$auth = new AuthService();
+$auth = $container->authService();
 if (!$auth->isAuthenticated()) {
     header('Location: login.php');
     exit;
@@ -33,11 +30,11 @@ if (!$auth->isAuthenticated()) {
 $csrfToken = $_SESSION['csrf_token'] ?? '';
 
 // Services
-$tileService = new TileService();
+$tileService = $container->tileService();
 $tiles = $tileService->getTiles();
-$settingsStorage = new StorageService('settings.json');
+$settingsStorage = $container->storage('settings.json');
 $settings = $settingsStorage->read();
-$configService = new ConfigService(__DIR__ . '/config.php');
+$configService = $container->configService();
 $settings['system']['mailFromAddress'] = $configService->getMailFromAddress(
     $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '',
     $_SESSION['auth_email'] ?? ''
@@ -76,16 +73,18 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'none';">
-    <title>Editor - <?= htmlspecialchars($settings['site']['title'] ?? 'Info-Hub') ?></title>
+    <title>Classic Editor (Legacy) - <?= htmlspecialchars($settings['site']['title'] ?? 'Info-Hub') ?></title>
     <link rel="stylesheet" href="../assets/css/editor.css">
 </head>
-<body>
+<body data-legacy-classic="LEGACY_CLASSIC_EDITOR">
+    <!-- LEGACY_CLASSIC_EDITOR: Classic bleibt vorerst erreichbar, wird aber nicht mehr weiterentwickelt. -->
     <div class="editor">
         <header class="editor-header">
             <div class="header-top">
                 <div class="header-left">
                     <div class="header-title-group">
-                        <h1>📝 Editor</h1>
+                        <h1>📝 Classic Editor</h1>
+                        <span class="legacy-classic-tag">Legacy</span>
                         <span class="site-name"><?= htmlspecialchars($settings['site']['title'] ?? 'Info-Hub') ?></span>
                     </div>
                     <div class="header-meta">
@@ -107,9 +106,9 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                     <div class="session-timer" id="sessionTimer" title="Verbleibende Session-Zeit">
                         🕐 <span id="sessionTimeDisplay">--</span>
                     </div>
-                    <a href="v2/editor.php" class="btn btn-secondary" title="Zum WYSIWYG Editor">
+                    <a href="v2/editor.php" class="btn btn-secondary" title="Zum V2-Editor">
                         <span class="btn-glyph">✏️</span>
-                        <span class="btn-label">WYSIWYG</span>
+                        <span class="btn-label">V2 Editor</span>
                     </a>
                     <button type="button" class="btn btn-icon" onclick="openSettingsModal()" title="Einstellungen (S)">
                         ⚙️
@@ -138,6 +137,16 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
                 </div>
             </div>
         </header>
+
+        <div class="legacy-classic-note diag-banner diag-warning" data-legacy-classic="LEGACY_CLASSIC_EDITOR">
+            <strong>Legacy-Modus:</strong>
+            Classic wird nicht mehr weiterentwickelt. Breaking Changes werden hier ggf. nicht mehr beruecksichtigt.
+            Nutzung auf eigene Gefahr. Vor groesseren Aenderungen zuerst ein Backup anlegen.
+            <span class="legacy-classic-note__actions">
+                <a href="backup.php">Backup-Verwaltung</a>
+                <a href="v2/editor.php">Zum V2-Editor</a>
+            </span>
+        </div>
         
         <main class="editor-main">
             <div class="tiles-header">
@@ -434,9 +443,12 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
             sessionWarning: <?= $sessionWarning ?>,
             sessionRemaining: <?= $remainingTime ?>,
             debugMode: <?= (defined('DEBUG_MODE') && DEBUG_MODE) ? 'true' : 'false' ?>,
+            legacyClassicTag: 'LEGACY_CLASSIC_EDITOR',
+            legacyClassicMode: true,
+            legacyClassicWarning: 'Hinweis: Classic wird nicht mehr entwickelt und ggf. werden Breaking Changes hier nicht mehr beruecksichtigt. Nutzung auf eigene Gefahr. Bitte zuerst ein Backup anlegen.',
             // Daten für Editor
             tiles: <?= json_encode($tiles, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
-            tileTypes: <?= json_encode($tileService->getAvailableTypes(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
+            tileTypes: <?= json_encode($tileService->getAvailableTypesWithMeta(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
             settings: <?= json_encode($settings, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>
         };
         
@@ -448,6 +460,34 @@ $securityWarnings = SecurityHelper::getSecurityStatus();
             console.log('Session warning:', window.CONFIG.sessionWarning, 'seconds before');
             console.log('Tiles:', window.CONFIG.tiles?.length || 0);
         }
+
+        // LEGACY_CLASSIC_EDITOR: Classic bleibt nur als Wartungspfad erreichbar.
+        (function enforceClassicLegacyAcknowledgement() {
+            const storageKey = 'infoHubClassicLegacyConfirmed';
+            let alreadyConfirmed = false;
+
+            try {
+                alreadyConfirmed = window.sessionStorage.getItem(storageKey) === '1';
+            } catch (error) {
+                alreadyConfirmed = false;
+            }
+
+            if (alreadyConfirmed) {
+                return;
+            }
+
+            const accepted = window.confirm(window.CONFIG.legacyClassicWarning);
+            if (!accepted) {
+                window.location.replace('v2/editor.php');
+                return;
+            }
+
+            try {
+                window.sessionStorage.setItem(storageKey, '1');
+            } catch (error) {
+                // Kein Storage verfuegbar: Hinweis dann beim naechsten Aufruf erneut zeigen.
+            }
+        })();
         
     </script>
     <!-- Editor Module (Reihenfolge wichtig: core → tiles → modals → settings → session → init) -->

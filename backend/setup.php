@@ -12,18 +12,14 @@
  * - Erstellt initiale JSON-Dateien
  */
 
-// Zentrale Konfiguration laden (falls vorhanden)
-if (file_exists(__DIR__ . '/config.php')) {
-    require_once __DIR__ . '/config.php';
-} else {
-    // Fallback für frische Installation
-    define('DEBUG_MODE', false);
-    error_reporting(0);
-    ini_set('display_errors', '0');
-}
+$bootstrapMode = 'setup';
+$bootstrapServices = [
+    'UploadService',
+    'ConfigService',
+];
+$bootstrap = require __DIR__ . '/bootstrap.php';
 
-require_once __DIR__ . '/core/UploadService.php';
-require_once __DIR__ . '/core/ConfigService.php';
+$container = $bootstrap['container'];
 
 // Bereits konfiguriert?
 $settingsFile = __DIR__ . '/data/settings.json';
@@ -105,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $headerImageWidth = null;
         $headerImageHeight = null;
         if (!empty($_FILES['headerImage']['tmp_name'])) {
-            $uploadService = new UploadService();
+            $uploadService = $container->uploadService();
             $uploadResult = $uploadService->uploadHeader($_FILES['headerImage']);
 
             if (!empty($uploadResult['success'])) {
@@ -199,7 +195,7 @@ CONFIG;
             }
         }
 
-        if (empty($errors) && !(new ConfigService($configFile))->updateMailFromAddress($mailFromAddress)) {
+        if (empty($errors) && !$container->configService()->updateMailFromAddress($mailFromAddress)) {
             $errors[] = 'MAIL_FROM_ADDRESS konnte nicht in config.php gespeichert werden';
         }
         

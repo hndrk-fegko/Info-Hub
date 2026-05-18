@@ -108,6 +108,38 @@ kbd {
     color: var(--warning);
 }
 
+.legacy-classic-note {
+    margin: 12px 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.legacy-classic-note__actions {
+    display: inline-flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.legacy-classic-note__actions a {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.legacy-classic-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.15);
+    color: #9a6700;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
 .diag-banner details > summary {
     cursor: pointer;
     font-weight: 500;

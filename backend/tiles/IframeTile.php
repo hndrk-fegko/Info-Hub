@@ -21,10 +21,6 @@ class IframeTile extends TileBase {
         return 'Externe Inhalte einbetten (Formulare, Widgets, etc.)';
     }
     
-    public function getFields(): array {
-        return ['title', 'showTitle', 'url', 'description', 'displayMode', 'aspectRatio', 'customHeight'];
-    }
-    
     public function getFieldMeta(): array {
         return [
             'title' => [
