@@ -100,6 +100,7 @@ $siteTitle = htmlspecialchars($settings['site']['title'] ?? '');
 $hideHeaderTitle = !empty($settings['site']['hideHeaderTitle']);
 $headerImage = $settings['site']['headerImage'] ?? null;
 $headerFocusPoint = htmlspecialchars($settings['site']['headerFocusPoint'] ?? 'center center');
+$securityBadgeMarkup = SecurityHelper::renderSecurityBadge();
 
 // Generierte Seite Info
 $indexExists = file_exists(__DIR__ . '/../../index.html');
@@ -172,28 +173,61 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
                 <span class="v2-toolbar-note">⚠️ Noch nicht veröffentlicht</span>
             <?php endif; ?>
         </div>
-        <div class="v2-toolbar-center" aria-hidden="true">
+        <div class="v2-toolbar-center">
             <span class="v2-site-name"><?= $siteTitle ?></span>
         </div>
         <div class="v2-toolbar-right">
-            <?= SecurityHelper::renderSecurityBadge() ?>
-            <div class="v2-session-timer" id="sessionTimer" title="Verbleibende Session-Zeit">
-                🕐 <span id="sessionTimeDisplay">--</span>
+            <?php if ($securityBadgeMarkup !== ''): ?>
+                <div class="v2-toolbar-desktop-only">
+                    <?= $securityBadgeMarkup ?>
+                </div>
+            <?php endif; ?>
+            <div class="v2-session-timer v2-toolbar-desktop-only" id="sessionTimer" data-v2-session-timer title="Verbleibende Session-Zeit">
+                🕐 <span id="sessionTimeDisplay" data-v2-session-display>--</span>
             </div>
-            <button type="button" class="v2-btn v2-btn-secondary v2-btn-icon" data-v2-action="openSettings" title="Einstellungen">
+            <button type="button" class="v2-btn v2-btn-secondary v2-btn-icon v2-toolbar-desktop-only" data-v2-action="openSettings" title="Einstellungen">
                 ⚙️
             </button>
-            <button type="button" class="v2-btn v2-btn-secondary" data-v2-action="openPreview" title="Vorschau">
+            <button type="button" class="v2-btn v2-btn-secondary v2-toolbar-desktop-only" data-v2-action="openPreview" title="Vorschau">
                 <span class="v2-btn-glyph">👁️</span>
                 <span class="v2-btn-label">Vorschau</span>
             </button>
-            <button type="button" class="v2-btn v2-btn-primary" data-v2-action="publish" title="Veröffentlichen">
+            <button type="button" class="v2-btn v2-btn-primary v2-toolbar-primary-action" data-v2-action="publish" title="Veröffentlichen">
                 <span class="v2-btn-glyph">🚀</span>
                 <span class="v2-btn-label">Veröffentlichen</span>
             </button>
-            <button type="button" class="v2-btn v2-btn-secondary v2-btn-icon" data-v2-action="logout" title="Abmelden">
+            <button type="button" class="v2-btn v2-btn-secondary v2-btn-icon v2-toolbar-desktop-only" data-v2-action="logout" title="Abmelden">
                 🚪
             </button>
+            <details class="v2-toolbar-overflow">
+                <summary class="v2-btn v2-btn-secondary v2-btn-icon v2-toolbar-overflow__toggle" title="Weitere Aktionen" aria-label="Weitere Aktionen öffnen">
+                    ☰
+                </summary>
+                <div class="v2-dropdown-menu v2-toolbar-overflow__menu">
+                    <?php if ($securityBadgeMarkup !== ''): ?>
+                        <div class="v2-dropdown-item v2-dropdown-item--static v2-dropdown-item--row">
+                            <span class="v2-dropdown-label">Sicherheit</span>
+                            <span class="v2-toolbar-overflow__meta"><?= $securityBadgeMarkup ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <div class="v2-dropdown-item v2-dropdown-item--static v2-dropdown-item--row v2-toolbar-session-status" data-v2-session-timer>
+                        <span class="v2-dropdown-label">Session</span>
+                        <span class="v2-toolbar-overflow__value">🕐 <span data-v2-session-display>--</span></span>
+                    </div>
+                    <button type="button" class="v2-dropdown-item v2-dropdown-item--button" data-v2-action="openSettings">
+                        <span class="v2-dropdown-value">⚙️ Einstellungen</span>
+                        <span class="v2-dropdown-label">Titel, Header, Farben und System</span>
+                    </button>
+                    <button type="button" class="v2-dropdown-item v2-dropdown-item--button" data-v2-action="openPreview">
+                        <span class="v2-dropdown-value">👁️ Vorschau</span>
+                        <span class="v2-dropdown-label">Gerenderte Seite im neuen Fenster prüfen</span>
+                    </button>
+                    <button type="button" class="v2-dropdown-item v2-dropdown-item--button" data-v2-action="logout">
+                        <span class="v2-dropdown-value">🚪 Abmelden</span>
+                        <span class="v2-dropdown-label">Zur Login-Seite zurückkehren</span>
+                    </button>
+                </div>
+            </details>
         </div>
     </header>
     

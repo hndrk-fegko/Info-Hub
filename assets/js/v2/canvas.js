@@ -679,15 +679,15 @@ const V2 = (function() {
 
     let _shellActionsBound = false;
 
-    function closePageMenus() {
-        document.querySelectorAll('.v2-page-menu__dropdown[open]').forEach((menu) => {
+    function closeShellMenus() {
+        document.querySelectorAll('.v2-page-menu__dropdown[open], .v2-toolbar-overflow[open]').forEach((menu) => {
             menu.removeAttribute('open');
         });
     }
 
     function initPageMenuInteractions() {
         document.addEventListener('click', (event) => {
-            document.querySelectorAll('.v2-page-menu__dropdown[open]').forEach((menu) => {
+            document.querySelectorAll('.v2-page-menu__dropdown[open], .v2-toolbar-overflow[open]').forEach((menu) => {
                 if (!menu.contains(event.target)) {
                     menu.removeAttribute('open');
                 }
@@ -718,6 +718,7 @@ const V2 = (function() {
         }
 
         event.preventDefault();
+    closeShellMenus();
         handler();
     }
 
@@ -762,6 +763,7 @@ const V2 = (function() {
         }
 
         event.preventDefault();
+    closeShellMenus();
         handler();
     }
 
@@ -1268,9 +1270,9 @@ const V2 = (function() {
     function initSessionTimer() {
         const timeout = V2_CONFIG.sessionTimeout || 3600;
         const warningBefore = V2_CONFIG.sessionWarning || 300;
-        const display = document.getElementById('sessionTimeDisplay');
-        const timer = document.getElementById('sessionTimer');
-        if (!display) return;
+        const displays = Array.from(document.querySelectorAll('[data-v2-session-display]'));
+        const timers = Array.from(document.querySelectorAll('[data-v2-session-timer]'));
+        if (displays.length === 0) return;
         
         // Restore last activity from sessionStorage (survives reload)
         const stored = sessionStorage.getItem('v2_lastActivity');
@@ -1301,18 +1303,21 @@ const V2 = (function() {
             const mins = Math.floor(remaining / 60);
             const secs = remaining % 60;
             
+            let displayText = '0:00';
             if (remaining <= 300 && remaining > 0) {
-                display.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+                displayText = `${mins}:${secs.toString().padStart(2, '0')}`;
             } else if (remaining > 0) {
-                display.textContent = `${mins}min`;
-            } else {
-                display.textContent = '0:00';
+                displayText = `${mins}min`;
             }
+
+            displays.forEach((display) => {
+                display.textContent = displayText;
+            });
             
             // Warning state
-            if (timer) {
+            timers.forEach((timer) => {
                 timer.classList.toggle('v2-session-warning', remaining < warningBefore);
-            }
+            });
             
             // Session expired → redirect
             if (remaining <= 0) {

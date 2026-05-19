@@ -219,6 +219,7 @@ const V2EditModal = (function() {
 
         // Spacer to push cancel/save to the right
         const spacer = document.createElement('div');
+        spacer.className = 'v2-modal-footer-spacer';
         spacer.style.flex = '1';
         footer.appendChild(spacer);
 
