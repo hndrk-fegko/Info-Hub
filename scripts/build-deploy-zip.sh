@@ -3,6 +3,15 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="${ROOT_DIR}/dist"
+REQUIRED_DIRECTORIES=(
+    "backend/data"
+    "backend/logs"
+    "backend/archive"
+    "backend/media/images"
+    "backend/media/downloads"
+    "backend/media/header"
+    "backend/media/backgrounds"
+)
 
 if ! command -v git >/dev/null 2>&1; then
     echo "git ist erforderlich." >&2
@@ -55,6 +64,10 @@ while IFS= read -r -d '' relative_path; do
     mkdir -p "${target_dir}"
     cp -p "${ROOT_DIR}/${relative_path}" "${PACKAGE_DIR}/${relative_path}"
 done < <(git ls-files -z -- "${PATHSPECS[@]}")
+
+for relative_dir in "${REQUIRED_DIRECTORIES[@]}"; do
+    mkdir -p "${PACKAGE_DIR}/${relative_dir}"
+done
 
 rm -f "${ARCHIVE_PATH}"
 (

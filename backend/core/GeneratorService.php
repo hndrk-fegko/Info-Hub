@@ -657,6 +657,255 @@ JS;
         })();
 JS;
     }
+
+    /**
+     * Styling fuer den mobilen Pull-to-Refresh-Indikator.
+     */
+    private function getPullToRefreshCSS(): string {
+        return <<<'CSS'
+        .page-root {
+            transform: translateY(var(--pull-refresh-surface-offset, 0px));
+            transition: transform 0.22s ease;
+            will-change: transform;
+        }
+
+        .pull-refresh-indicator {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            z-index: 1200;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 190px;
+            max-width: calc(100vw - 24px);
+            padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-top: 0;
+            border-radius: 0 0 16px 16px;
+            background: rgba(15, 23, 42, 0.92);
+            color: #f8fafc;
+            box-shadow: 0 14px 34px rgba(2, 6, 23, 0.3);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            pointer-events: none;
+            opacity: 0;
+            transform: translate(-50%, calc(-100% + var(--pull-refresh-offset, 0px)));
+            transition: transform 0.22s ease, opacity 0.22s ease, box-shadow 0.22s ease;
+        }
+
+        .pull-refresh-indicator.is-visible {
+            opacity: 1;
+        }
+
+        .pull-refresh-indicator.is-ready {
+            box-shadow: 0 18px 38px rgba(14, 165, 233, 0.22);
+        }
+
+        .pull-refresh-indicator__glyph {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            flex: 0 0 28px;
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.16);
+            color: #bae6fd;
+            font-size: 16px;
+            line-height: 1;
+            transition: transform 0.22s ease, background 0.22s ease, color 0.22s ease;
+        }
+
+        .pull-refresh-indicator.is-ready .pull-refresh-indicator__glyph {
+            transform: rotate(180deg);
+            background: rgba(14, 165, 233, 0.22);
+            color: #f8fafc;
+        }
+
+        .pull-refresh-indicator.is-loading .pull-refresh-indicator__glyph {
+            color: transparent;
+            background: rgba(14, 165, 233, 0.22);
+        }
+
+        .pull-refresh-indicator.is-loading .pull-refresh-indicator__glyph::after {
+            content: '';
+            position: absolute;
+            inset: 6px;
+            border: 2px solid rgba(255, 255, 255, 0.28);
+            border-top-color: #ffffff;
+            border-radius: 999px;
+            animation: pull-refresh-spin 0.8s linear infinite;
+        }
+
+        .pull-refresh-indicator__label {
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        @keyframes pull-refresh-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .page-root,
+            .pull-refresh-indicator,
+            .pull-refresh-indicator__glyph {
+                transition: none;
+            }
+        }
+CSS;
+    }
+
+    /**
+     * Aktiviert einen einfachen Pull-to-Refresh-Flow auf Touch-Geräten.
+     */
+    private function getPullToRefreshJS(): string {
+        return <<<'JS'
+        function initPullToRefresh() {
+            const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0;
+            if (!hasCoarsePointer || window.self !== window.top) {
+                return;
+            }
+
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('embedded') === 'true') {
+                return;
+            }
+
+            const indicator = document.getElementById('pullRefreshIndicator');
+            const pageRoot = document.getElementById('pageRoot');
+            const label = indicator?.querySelector('.pull-refresh-indicator__label');
+            if (!indicator || !pageRoot || !label) {
+                return;
+            }
+
+            const threshold = 88;
+            const maxPull = 132;
+            const resistance = 0.58;
+            const surfaceRatio = 0.42;
+            let tracking = false;
+            let startY = 0;
+            let ready = false;
+            let loading = false;
+
+            const getScrollTop = () => Math.max(
+                window.scrollY || 0,
+                document.documentElement.scrollTop || 0,
+                document.body.scrollTop || 0
+            );
+
+            const hasBlockingOverlay = () => document.querySelector('.lightbox.active, .iframe-modal.active, #legal-modal.active') !== null;
+
+            const resetVisualState = () => {
+                ready = false;
+                indicator.classList.remove('is-visible', 'is-ready');
+                if (!loading) {
+                    indicator.classList.remove('is-loading');
+                    label.textContent = 'Zum Neuladen ziehen';
+                }
+                indicator.style.setProperty('--pull-refresh-offset', '0px');
+                pageRoot.style.setProperty('--pull-refresh-surface-offset', '0px');
+            };
+
+            const updateVisualState = (deltaY) => {
+                const pulled = Math.min(maxPull, Math.max(0, deltaY * resistance));
+                ready = pulled >= threshold;
+                indicator.classList.add('is-visible');
+                indicator.classList.toggle('is-ready', ready);
+                indicator.style.setProperty('--pull-refresh-offset', `${pulled}px`);
+                pageRoot.style.setProperty('--pull-refresh-surface-offset', `${Math.round(pulled * surfaceRatio)}px`);
+                label.textContent = ready ? 'Loslassen zum Neuladen' : 'Zum Neuladen ziehen';
+                return pulled;
+            };
+
+            const finishGesture = () => {
+                if (!tracking) {
+                    return;
+                }
+
+                tracking = false;
+
+                if (!ready || loading) {
+                    resetVisualState();
+                    return;
+                }
+
+                loading = true;
+                indicator.classList.add('is-visible', 'is-loading');
+                indicator.classList.remove('is-ready');
+                indicator.style.setProperty('--pull-refresh-offset', '72px');
+                pageRoot.style.setProperty('--pull-refresh-surface-offset', '24px');
+                label.textContent = 'Lädt neu...';
+
+                window.setTimeout(() => {
+                    window.location.reload();
+                }, 120);
+            };
+
+            document.addEventListener('touchstart', (event) => {
+                if (loading || hasBlockingOverlay()) {
+                    return;
+                }
+
+                if (event.touches.length !== 1 || getScrollTop() > 0) {
+                    return;
+                }
+
+                const target = event.target;
+                if (target instanceof Element && target.closest('input, textarea, select, button, [contenteditable="true"]')) {
+                    return;
+                }
+
+                startY = event.touches[0].clientY;
+                tracking = startY <= Math.max(120, window.innerHeight * 0.18);
+                ready = false;
+
+                if (tracking) {
+                    label.textContent = 'Zum Neuladen ziehen';
+                }
+            }, { passive: true });
+
+            document.addEventListener('touchmove', (event) => {
+                if (!tracking || loading) {
+                    return;
+                }
+
+                if (event.touches.length !== 1 || getScrollTop() > 0) {
+                    tracking = false;
+                    resetVisualState();
+                    return;
+                }
+
+                const deltaY = event.touches[0].clientY - startY;
+                if (deltaY <= 0) {
+                    resetVisualState();
+                    return;
+                }
+
+                const pulled = updateVisualState(deltaY);
+                if (pulled > 2) {
+                    event.preventDefault();
+                }
+            }, { passive: false });
+
+            document.addEventListener('touchend', finishGesture, { passive: true });
+            document.addEventListener('touchcancel', () => {
+                tracking = false;
+                if (!loading) {
+                    resetVisualState();
+                }
+            }, { passive: true });
+        }
+JS;
+    }
     
     /**
      * Rendert die veröffentlichte Abschnittsstruktur.
@@ -1121,6 +1370,8 @@ JS;
         $tileInitCalls = $this->collectTileInitCalls();
         $contrastJS = $this->getContrastJS();
         $legalJS = $this->getLegalModalJS();
+        $pullToRefreshCSS = $this->getPullToRefreshCSS();
+        $pullToRefreshJS = $this->getPullToRefreshJS();
         
         // Shared CSS laden
         $sharedCSS = $this->loadSharedCSS();
@@ -1130,6 +1381,7 @@ JS;
         $theme = $settings['theme'] ?? [];
         $siteTitle = htmlspecialchars($site['title'] ?? '');
         $siteTitleRaw = $site['title'] ?? '';
+        $hideHeaderTitle = !empty($site['hideHeaderTitle']);
         $headerImage = $site['headerImage'] ?? null;
         $headerImagePlaceholder = $site['headerImagePlaceholder'] ?? null;
         $headerImageWidth = (int)($site['headerImageWidth'] ?? 0);
@@ -1174,7 +1426,8 @@ JS;
         // Header HTML - Titel nur wenn nicht leer
         $headerHtml = '';
         $headerPreloadHtml = '';
-        $titleHtml = !empty($siteTitleRaw) ? "<h1 class=\"site-title\">{$siteTitle}</h1>" : '';
+        $showHeaderTitle = !$hideHeaderTitle && !empty($siteTitleRaw);
+        $titleHtml = $showHeaderTitle ? "<h1 class=\"site-title\">{$siteTitle}</h1>" : '';
         
         if ($headerImage) {
             $headerImage = htmlspecialchars($headerImage);
@@ -1198,7 +1451,7 @@ JS;
         {$titleHtml}
     </header>
 HTML;
-        } elseif (!empty($siteTitleRaw)) {
+        } elseif ($showHeaderTitle) {
             // Minimaler Header nur wenn Titel vorhanden
             $headerHtml = <<<HTML
     <header class="site-header site-header--minimal">
@@ -1266,9 +1519,15 @@ CSS;
 {$narrowSharedCSS}
 {$tileCSS}
 {$narrowCSS}
+{$pullToRefreshCSS}
     </style>
 </head>
 <body{$bodyClassAttr}>
+    <div class="pull-refresh-indicator" id="pullRefreshIndicator" aria-live="polite" aria-atomic="true">
+        <span class="pull-refresh-indicator__glyph" aria-hidden="true">↓</span>
+        <span class="pull-refresh-indicator__label">Zum Neuladen ziehen</span>
+    </div>
+    <div class="page-root" id="pageRoot">
 {$narrowOpen}
 {$headerHtml}
 
@@ -1278,6 +1537,7 @@ CSS;
 
 {$footerHtml}
 {$narrowClose}
+    </div>
 
     <!-- Lightbox -->
     <div class="lightbox" id="lightbox">
@@ -1303,6 +1563,7 @@ CSS;
     <script>
 {$legalJS}
 {$contrastJS}
+{$pullToRefreshJS}
         // URL-Parameter auswerten für Embedding und Styles
         function applyUrlParams() {
             const params = new URLSearchParams(window.location.search);
@@ -1404,6 +1665,7 @@ CSS;
             initHeaderReveal();
             initEntranceMotion();
             initNarrowParallax();
+            initPullToRefresh();
             applyUrlParams();
             // Kontrast NUR berechnen wenn NICHT minimalbox
             const params = new URLSearchParams(window.location.search);

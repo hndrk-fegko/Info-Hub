@@ -417,6 +417,7 @@ class SecurityHelper {
             __DIR__ . '/../media/images',
             __DIR__ . '/../media/downloads',
             __DIR__ . '/../media/header',
+            __DIR__ . '/../media/backgrounds',
             __DIR__ . '/../data',
             __DIR__ . '/../logs',
             __DIR__ . '/../archive'
@@ -438,7 +439,7 @@ class SecurityHelper {
         }
         
         if (!empty($issues)) {
-            $recommendations[] = "Schreibrechte setzen: chmod 777 backend/media/images backend/media/downloads backend/media/header backend/data backend/logs backend/archive";
+            $recommendations[] = "Schreibrechte setzen: chmod 777 backend/media/images backend/media/downloads backend/media/header backend/media/backgrounds backend/data backend/logs backend/archive";
             $recommendations[] = "Oder mit Webserver-Eigentümer (z.B. www-data): chown -R www-data:www-data backend/ && chmod 755 backend/media backend/data backend/logs";
         }
         

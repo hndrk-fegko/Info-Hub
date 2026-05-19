@@ -19,6 +19,43 @@ body {
     overflow-x: hidden;
 }
 
+html.v2-modal-open {
+    overflow: hidden;
+}
+
+body.v2-modal-open {
+    position: fixed;
+    width: 100%;
+    overflow: hidden;
+}
+
+body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0);
+    backdrop-filter: blur(0px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, backdrop-filter 0.18s ease, background 0.18s ease;
+    z-index: 5500;
+}
+
+body.v2-page-reloading::after {
+    background: rgba(15, 23, 42, 0.26);
+    backdrop-filter: blur(4px);
+    opacity: 1;
+}
+
+body.v2-page-reloading .v2-toolbar,
+body.v2-page-reloading .v2-canvas-wrapper,
+body.v2-page-reloading #tileToolbar {
+    opacity: 0.72;
+    filter: blur(1px);
+    transform: scale(0.995);
+    transition: opacity 0.18s ease, filter 0.18s ease, transform 0.18s ease;
+}
+
 /* ===== Top Toolbar ===== */
 
 .v2-toolbar {
@@ -27,9 +64,10 @@ body {
     left: 0;
     right: 0;
     z-index: 1000;
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
+    gap: 16px;
     padding: 0 16px;
     height: 52px;
     background: #16213e;
@@ -42,12 +80,22 @@ body {
     align-items: center;
     gap: 10px;
     min-width: 0;
+    justify-self: start;
+}
+
+.v2-toolbar-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
 }
 
 .v2-toolbar-right {
     display: flex;
     align-items: center;
     gap: 6px;
+    min-width: 0;
+    justify-self: end;
 }
 
 .v2-logo {
@@ -60,10 +108,11 @@ body {
 .v2-site-name {
     font-size: 13px;
     color: #999;
-    max-width: 200px;
+    max-width: min(40vw, 420px);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    text-align: center;
 }
 
 /* ===== Buttons ===== */
@@ -229,7 +278,8 @@ body {
 .v2-dropdown-menu {
     position: absolute;
     top: calc(100% + 8px);
-    right: 0;
+    left: 0;
+    right: auto;
     min-width: 250px;
     padding: 8px;
     border-radius: 12px;
@@ -1189,6 +1239,8 @@ body {
     align-items: center;
     justify-content: center;
     padding: 20px;
+    overflow: hidden;
+    overscroll-behavior: contain;
 }
 
 .v2-modal {
@@ -1256,6 +1308,7 @@ body {
     padding: 20px;
     flex: 1;
     min-height: 0;
+    overscroll-behavior: contain;
 }
 
 .v2-modal-footer {
@@ -1790,9 +1843,10 @@ body {
     .v2-toolbar {
         padding: 0 8px;
         height: 48px;
+        gap: 10px;
     }
     
-    .v2-site-name {
+    .v2-toolbar-center {
         display: none;
     }
 
@@ -1804,6 +1858,10 @@ body {
     .v2-canvas-wrapper {
         padding: 8px;
         margin-top: 48px;
+    }
+
+    .v2-page-menu__menu {
+        min-width: min(250px, calc(100vw - 16px));
     }
 
     .v2-media-picker__dropzone,
@@ -1836,11 +1894,6 @@ body {
         padding-inline: 8px;
     }
 
-    .v2-dropdown-menu {
-        right: auto;
-        left: 0;
-    }
-    
     .v2-tile-toolbar {
         flex-wrap: wrap;
         max-width: 280px;

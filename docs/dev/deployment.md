@@ -245,6 +245,7 @@ Info-Hub unterstützt mehrere Administratoren. Der erste Admin wird beim Setup f
 chmod 777 backend/media/images
 chmod 777 backend/media/downloads
 chmod 777 backend/media/header
+chmod 777 backend/media/backgrounds
 chmod 777 backend/data
 chmod 777 backend/logs
 chmod 777 backend/archive
@@ -255,6 +256,7 @@ chown -R www-data:www-data backend/
 chmod 755 backend/media/images
 chmod 755 backend/media/downloads
 chmod 755 backend/media/header
+chmod 755 backend/media/backgrounds
 chmod 755 backend/data
 ```
 
@@ -291,9 +293,9 @@ umask
 2. Manuell erstellen und Rechte setzen:
 
 ```bash
-mkdir -p backend/{data,logs,archive,media/{images,downloads,header}}
+mkdir -p backend/{data,logs,archive,media/{images,downloads,header,backgrounds}}
 chmod 777 backend/data backend/logs backend/archive
-chmod 777 backend/media/images backend/media/downloads backend/media/header
+chmod 777 backend/media/images backend/media/downloads backend/media/header backend/media/backgrounds
 ```
 
 3. Setup erneut ausführen

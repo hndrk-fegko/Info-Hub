@@ -68,7 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             __DIR__ . '/archive',
             __DIR__ . '/media/images',
             __DIR__ . '/media/downloads',
-            __DIR__ . '/media/header'
+            __DIR__ . '/media/header',
+            __DIR__ . '/media/backgrounds'
         ];
         
         $permissionWarnings = [];

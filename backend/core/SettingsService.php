@@ -80,6 +80,7 @@ class SettingsService {
         $previousHeaderImage = $settings['site']['headerImage'] ?? null;
         $allowedSiteKeys = [
             'title',
+            'hideHeaderTitle',
             'pageTitle',
             'headerImage',
             'headerFocusPoint',
@@ -91,6 +92,11 @@ class SettingsService {
 
         foreach ($allowedSiteKeys as $key) {
             if (!array_key_exists($key, $siteInput)) {
+                continue;
+            }
+
+            if ($key === 'hideHeaderTitle') {
+                $settings['site'][$key] = (bool) $siteInput[$key];
                 continue;
             }
 

@@ -97,6 +97,7 @@ $accentColor3 = htmlspecialchars($settings['theme']['accentColor3'] ?? '#ed8936'
 
 // Header Info
 $siteTitle = htmlspecialchars($settings['site']['title'] ?? '');
+$hideHeaderTitle = !empty($settings['site']['hideHeaderTitle']);
 $headerImage = $settings['site']['headerImage'] ?? null;
 $headerFocusPoint = htmlspecialchars($settings['site']['headerFocusPoint'] ?? 'center center');
 
@@ -134,7 +135,6 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
     <header class="v2-toolbar">
         <div class="v2-toolbar-left">
             <h1 class="v2-logo">✏️ Editor</h1>
-            <span class="v2-site-name"><?= $siteTitle ?></span>
             <?php if ($indexExists): ?>
                 <div class="v2-page-menu">
                     <a href="../../index.html" target="_blank" class="v2-btn v2-btn-secondary v2-page-menu__link" title="Veröffentlichte Seite anzeigen">
@@ -172,6 +172,9 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
                 <span class="v2-toolbar-note">⚠️ Noch nicht veröffentlicht</span>
             <?php endif; ?>
         </div>
+        <div class="v2-toolbar-center" aria-hidden="true">
+            <span class="v2-site-name"><?= $siteTitle ?></span>
+        </div>
         <div class="v2-toolbar-right">
             <?= SecurityHelper::renderSecurityBadge() ?>
             <div class="v2-session-timer" id="sessionTimer" title="Verbleibende Session-Zeit">
@@ -206,12 +209,12 @@ $lastGenerated = $indexExists ? filemtime(__DIR__ . '/../../index.html') : null;
                         <div class="header-image">
                             <img src="<?= htmlspecialchars($headerImage) ?>" alt="" style="object-position: <?= $headerFocusPoint ?>;">
                         </div>
-                        <?php if (!empty($siteTitle)): ?>
+                        <?php if (!$hideHeaderTitle && !empty($siteTitle)): ?>
                             <h1 class="site-title"><?= $siteTitle ?></h1>
                         <?php endif; ?>
                     </header>
                     <div class="v2-region-edit-hint">✏️ Header bearbeiten</div>
-                <?php elseif (!empty($siteTitle)): ?>
+                <?php elseif (!$hideHeaderTitle && !empty($siteTitle)): ?>
                     <header class="site-header site-header--minimal">
                         <h1 class="site-title"><?= $siteTitle ?></h1>
                     </header>

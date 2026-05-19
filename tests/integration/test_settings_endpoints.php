@@ -24,6 +24,7 @@ $originalSettings = $storage->read();
 $payload = [
     'site' => [
         'title' => 'Contract Title',
+        'hideHeaderTitle' => true,
         'footerText' => "Zeile 1\nZeile 2",
         'headerImage' => '\\backend\\media\\header\\contract.jpg',
         'headerFocusPoint' => 'top center',
@@ -73,6 +74,7 @@ try {
     $checks['save_settings response matches SettingsService'] = ($saveResponse['json']['settings'] ?? null) == $expectedSavedSettings;
     $checks['save_settings persists normalized media paths'] = ($storedAfterSave['site']['headerImage'] ?? null) === '/backend/media/header/contract.jpg'
         && ($storedAfterSave['theme']['narrowBackgroundImage'] ?? null) === '/backend/media/backgrounds/contract.jpg';
+    $checks['save_settings persists header title visibility flag'] = ($storedAfterSave['site']['hideHeaderTitle'] ?? null) === true;
     $checks['save_settings persists same data as SettingsService'] = $storedAfterSave == $expectedStoredSettings;
     $checks['get_settings returns valid JSON'] = is_array($getResponse['json']);
     $checks['get_settings returns success true'] = ($getResponse['json']['success'] ?? false) === true;

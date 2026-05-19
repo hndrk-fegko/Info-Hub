@@ -17,6 +17,10 @@ const V2Settings = (function() {
     
     let _overlay = null;
     let _parallaxQueued = false;
+    let _scrollLockY = 0;
+    let _scrollLockPaddingRight = '';
+    let _restoreFocusEl = null;
+    let _isSaving = false;
     
     function init() {
         // Listen for settings changes to update canvas header/footer
@@ -30,7 +34,13 @@ const V2Settings = (function() {
      * Öffnet das Settings-Modal mit aktuellen Werten
      */
     function open() {
+        if (_overlay) {
+            focusPrimaryField();
+            return;
+        }
+
         const settings = V2State.getSettings();
+        _restoreFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         
         // Build modal HTML
         const html = buildModalHTML(settings);
@@ -40,16 +50,14 @@ const V2Settings = (function() {
         _overlay.className = 'v2-modal-overlay';
         _overlay.innerHTML = html;
         document.body.appendChild(_overlay);
+        lockPageScroll();
         
         // Close on overlay click
         _overlay.addEventListener('click', function(e) {
             if (e.target === _overlay) close();
         });
-        
-        // Close on Escape
-        _overlay.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') close();
-        });
+
+        document.addEventListener('keydown', onDocumentKeyDown);
         
         // Wire up events
         wireEvents(settings);
@@ -61,6 +69,7 @@ const V2Settings = (function() {
         refreshNarrowSettingsUI();
         syncNarrowRangeLabels();
         refreshLegalSettingsUI();
+        requestAnimationFrame(focusPrimaryField);
     }
     
     function buildModalHTML(settings) {
@@ -70,6 +79,7 @@ const V2Settings = (function() {
         const legal = getLegalState(settings);
         
         const headerImage = site.headerImage || '';
+        const hideHeaderTitle = site.hideHeaderTitle ? 'checked' : '';
         const focusPoint = site.headerFocusPoint || 'center center';
         const narrowLayout = theme.narrowLayout ? 'checked' : '';
         const narrowMode = normalizeOption(theme.narrowBackgroundMode, ['solid', 'gradient', 'image'], 'solid');
@@ -112,9 +122,9 @@ const V2Settings = (function() {
         const legalEnabled = legal.enabled ? 'checked' : '';
         
         return `
-        <div class="v2-modal" style="max-width: 640px;">
+        <div class="v2-modal" role="dialog" aria-modal="true" aria-labelledby="v2SettingsDialogTitle" tabindex="-1" style="max-width: 640px;">
             <div class="v2-modal-header">
-                <h2>⚙️ Einstellungen</h2>
+                <h2 id="v2SettingsDialogTitle">⚙️ Einstellungen</h2>
                 <button type="button" class="v2-modal-close" data-v2-settings-action="close">×</button>
             </div>
             <div class="v2-modal-body">
@@ -132,8 +142,16 @@ const V2Settings = (function() {
                         <label class="v2-label">Seitentitel</label>
                         <input type="text" class="v2-input" id="v2SetTitle" 
                                value="${escAttr(site.title || '')}" 
-                               placeholder="Wird im Header angezeigt">
-                        <small class="v2-hint">Leer lassen für nur Header-Bild</small>
+                               placeholder="Wird im Editor und standardmäßig im Header verwendet">
+                        <small class="v2-hint">Leer lassen für nur Header-Bild. Der Titel bleibt die Basis für Browser-Tab und Editor.</small>
+                    </div>
+
+                    <div class="v2-field">
+                        <label class="v2-checkbox-label">
+                            <input type="checkbox" id="v2SetHideHeaderTitle" ${hideHeaderTitle}>
+                            Titel nicht im Header anzeigen
+                        </label>
+                        <small class="v2-hint">Nützlich, wenn der Name schon im Headerbild steckt. Der Titel bleibt im Editor und im HTML-Titel erhalten.</small>
                     </div>
                     
                     <div class="v2-field">
@@ -517,6 +535,9 @@ const V2Settings = (function() {
     
     function wireEvents(settings) {
         _overlay?.addEventListener('click', handleOverlayActionClick);
+        _overlay?.querySelectorAll('[data-v2-settings-action="close"]').forEach((button) => {
+            button.addEventListener('click', handleCloseActionClick);
+        });
         document.getElementById('v2SetHeaderSelectBtn')?.addEventListener('click', selectHeader);
         document.getElementById('v2SetHeaderRemoveBtn')?.addEventListener('click', removeHeader);
         document.getElementById('v2SetBackgroundSelectBtn')?.addEventListener('click', selectBackground);
@@ -602,6 +623,12 @@ const V2Settings = (function() {
                     break;
             }
         }
+
+        function handleCloseActionClick(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            close();
+        }
     }
 
     async function selectHeader() {
@@ -684,11 +711,16 @@ const V2Settings = (function() {
     }
     
     async function save() {
+        if (_isSaving) {
+            return;
+        }
+
         const narrowBackgroundImage = document.getElementById('v2SetBackgroundPath')?.value || null;
 
         const newSettings = {
             site: {
                 title: document.getElementById('v2SetTitle').value.trim(),
+                hideHeaderTitle: document.getElementById('v2SetHideHeaderTitle').checked,
                 pageTitle: document.getElementById('v2SetPageTitle').value.trim(),
                 headerImage: document.getElementById('v2SetHeaderPath').value || null,
                 headerFocusPoint: document.getElementById('v2SetFocusPoint').value,
@@ -735,32 +767,145 @@ const V2Settings = (function() {
                 mailFromAddress: document.getElementById('v2SetMailFromAddress').value.trim()
             }
         };
+
+        setSavingState(true);
         
         try {
             const result = await V2Api.saveSettings(newSettings);
             if (result.success) {
                 V2State.setSettings(result.settings || newSettings);
-                close();
                 showToast('Einstellungen gespeichert!', 'success');
-                
-                // Refresh canvas to show updated header/footer/colors
-                // Full page reload ensures PHP re-renders header/footer correctly
-                window.location.reload();
+
+                // Full page reload keeps PHP-rendered header/footer/legal markup in sync.
+                close({ restoreFocus: false, keepScrollLocked: true });
+                startReloadTransition();
+                return;
             } else {
                 showToast('Speichern fehlgeschlagen: ' + (result.error || ''), 'error');
             }
         } catch(err) {
             console.error('[Settings] save failed:', err);
             showToast('Speichern fehlgeschlagen', 'error');
+        } finally {
+            if (_overlay) {
+                setSavingState(false);
+            } else {
+                _isSaving = false;
+            }
         }
     }
     
-    function close() {
+    function close(options = {}) {
+        const { restoreFocus = true, keepScrollLocked = false } = options;
+
         _highlightRegions(false);
+        document.removeEventListener('keydown', onDocumentKeyDown);
+
         if (_overlay) {
             _overlay.remove();
             _overlay = null;
         }
+
+        _isSaving = false;
+
+        if (!keepScrollLocked) {
+            unlockPageScroll();
+        }
+
+        const focusTarget = restoreFocus ? _restoreFocusEl : null;
+        _restoreFocusEl = null;
+
+        if (focusTarget && focusTarget.isConnected) {
+            requestAnimationFrame(() => {
+                focusTarget.focus();
+            });
+        }
+    }
+
+    function onDocumentKeyDown(event) {
+        if (!_overlay || _isSaving) {
+            return;
+        }
+
+        if (event.key !== 'Escape') {
+            return;
+        }
+
+        if (document.querySelector('.v2-media-picker-overlay')) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        close();
+    }
+
+    function focusPrimaryField() {
+        const modal = _overlay?.querySelector('.v2-modal');
+        if (!modal) {
+            return;
+        }
+
+        const firstField = modal.querySelector('input:not([type="hidden"]):not([type="checkbox"]):not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled])');
+        if (firstField instanceof HTMLElement) {
+            firstField.focus();
+            return;
+        }
+
+        modal.focus();
+    }
+
+    function lockPageScroll() {
+        _scrollLockY = window.scrollY || window.pageYOffset || 0;
+        _scrollLockPaddingRight = document.body.style.paddingRight || '';
+
+        const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+        if (scrollbarWidth > 0) {
+            document.body.style.paddingRight = `${scrollbarWidth}px`;
+        }
+
+        document.documentElement.classList.add('v2-modal-open');
+        document.body.classList.add('v2-modal-open');
+        document.body.style.top = `-${_scrollLockY}px`;
+    }
+
+    function unlockPageScroll() {
+        document.documentElement.classList.remove('v2-modal-open');
+        document.body.classList.remove('v2-modal-open');
+        document.body.style.top = '';
+        document.body.style.paddingRight = _scrollLockPaddingRight;
+        window.scrollTo(0, _scrollLockY);
+    }
+
+    function setSavingState(isSaving) {
+        _isSaving = !!isSaving;
+
+        if (!_overlay) {
+            return;
+        }
+
+        const saveButton = _overlay.querySelector('[data-v2-settings-action="save"]');
+        if (saveButton instanceof HTMLButtonElement) {
+            saveButton.disabled = _isSaving;
+            saveButton.textContent = _isSaving ? 'Speichert...' : '💾 Speichern';
+        }
+
+        _overlay.querySelectorAll('[data-v2-settings-action="close"]').forEach((button) => {
+            if (button instanceof HTMLButtonElement) {
+                button.disabled = _isSaving;
+            }
+        });
+    }
+
+    function startReloadTransition() {
+        document.documentElement.classList.add('v2-page-reloading');
+        document.body.classList.add('v2-page-reloading');
+
+        requestAnimationFrame(() => {
+            window.setTimeout(() => {
+                window.location.reload();
+            }, 180);
+        });
     }
     
     function _highlightRegions(on) {

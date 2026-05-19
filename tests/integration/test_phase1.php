@@ -22,6 +22,8 @@ $tests = [
     'HAS_TILE_SPECIFIC_CSS' => strpos($html, 'AccordionTile') !== false,
     'CSS_FILES_LOADED' => strpos($html, '/* variables.css */') !== false,
     'HAS_LIGHTBOX' => strpos($html, 'lightbox') !== false,
+    'HAS_PULL_REFRESH_MARKUP' => strpos($html, 'pullRefreshIndicator') !== false,
+    'HAS_PULL_REFRESH_INIT' => strpos($html, 'initPullToRefresh') !== false,
     'HAS_RESPONSIVE' => strpos($html, '@media (max-width: 600px)') !== false,
     'NO_DUPLICATE_RESET' => substr_count($html, 'box-sizing: border-box') <= 2,
 ];

@@ -35,9 +35,10 @@ Options -Indexes
     # - login.php
     # - setup.php
     # - editor.php
+    # - backup.php
     # - v2/editor.php
     # - api/endpoints.php
-    RewriteRule "^(?:login\.php|setup\.php|editor\.php|v2/editor\.php|api/endpoints\.php)$" - [L]
+    RewriteRule "^(?:login\.php|setup\.php|editor\.php|backup\.php|v2/editor\.php|api/endpoints\.php)$" - [L]
     
     # Alle anderen vorhandenen PHP-Dateien im Backend direkt blockieren
     RewriteCond %{REQUEST_FILENAME} -f
@@ -45,6 +46,6 @@ Options -Indexes
 </IfModule>
 
 # Absicht:
-# - login.php / setup.php / editor.php / v2/editor.php bleiben erreichbar
+# - login.php / setup.php / editor.php / backup.php / v2/editor.php bleiben erreichbar
 # - api/endpoints.php bleibt erreichbar
 # - interne Services, Tiles, Templates und Daten bleiben von außen blockiert

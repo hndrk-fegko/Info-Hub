@@ -3,6 +3,15 @@ $ErrorActionPreference = 'Stop'
 
 $rootDir = Split-Path -Parent $PSScriptRoot
 $distDir = Join-Path $rootDir 'dist'
+$requiredDirectories = @(
+    'backend/data/',
+    'backend/logs/',
+    'backend/archive/',
+    'backend/media/images/',
+    'backend/media/downloads/',
+    'backend/media/header/',
+    'backend/media/backgrounds/'
+)
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Error 'git ist erforderlich.'
@@ -63,6 +72,11 @@ try {
                 $entryName,
                 [System.IO.Compression.CompressionLevel]::Optimal
             ) | Out-Null
+        }
+
+        foreach ($relativeDirectory in $requiredDirectories) {
+            $entryName = (("$artifactBaseName/$relativeDirectory") -replace '\\', '/')
+            $archive.CreateEntry($entryName) | Out-Null
         }
     }
     finally {
