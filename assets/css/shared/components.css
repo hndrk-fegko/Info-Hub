@@ -40,14 +40,12 @@
 .iframe-modal {
     display: none;
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0;
     background: rgba(0, 0, 0, 0.5);
     z-index: 10000;
     justify-content: center;
     align-items: center;
+    padding: clamp(12px, 2vw, 24px);
 }
 
 .iframe-modal.active {
@@ -55,6 +53,7 @@
 }
 
 .iframe-modal-content {
+    position: relative;
     background: white;
     border-radius: var(--border-radius);
     width: 90%;
@@ -63,19 +62,64 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    isolation: isolate;
+}
+
+.iframe-modal-content::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: var(--iframe-modal-bg-color, transparent);
+    background-image: var(--iframe-modal-bg-image, none);
+    background-position: center center;
+    background-size: var(--iframe-modal-bg-size, cover);
+    background-repeat: var(--iframe-modal-bg-repeat, no-repeat);
+    filter: blur(var(--iframe-modal-bg-blur, 0px));
+    transform: scale(1.02);
+    z-index: 0;
+}
+
+.iframe-modal-content.iframe-modal-content--motion-fixed::before {
+    inset: -6%;
+    transform: scale(var(--iframe-modal-bg-fixed-scale, 1.06));
+}
+
+.iframe-modal-content.iframe-modal-content--motion-parallax::before {
+    inset: -14% -8%;
+    transform: scale(var(--iframe-modal-bg-parallax-scale, 1.16)) translateY(var(--iframe-modal-bg-offset, 0px));
+}
+
+.iframe-modal-content.iframe-modal-content--motion-stretch::before {
+    inset: 0;
+    transform: none;
+}
+
+.iframe-modal-content::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--iframe-modal-overlay-color, #000000);
+    opacity: var(--iframe-modal-overlay-opacity, 0);
+    z-index: 0;
+    pointer-events: none;
 }
 
 .iframe-modal-header {
+    position: relative;
+    z-index: 1;
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 16px 20px;
     border-bottom: 1px solid rgba(0,0,0,0.1);
+    background: var(--iframe-modal-header-bg, #fafafa);
+    color: var(--iframe-modal-header-fg, #0f172a);
 }
 
 .iframe-modal-title {
     font-size: 1.1rem;
     font-weight: 600;
+    color: inherit;
 }
 
 .iframe-modal-close {
@@ -83,11 +127,15 @@
     border: none;
     font-size: 1.5rem;
     cursor: pointer;
-    color: var(--text-light);
+    color: var(--iframe-modal-header-fg, var(--text-light));
     padding: 4px 8px;
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
 .iframe-modal-body {
+    position: relative;
+    z-index: 1;
     flex: 1;
     overflow: hidden;
 }
@@ -96,6 +144,63 @@
     width: 100%;
     height: 100%;
     border: none;
+}
+
+.iframe-modal-header--default {
+    --iframe-modal-header-bg: #fafafa;
+    --iframe-modal-header-fg: #0f172a;
+}
+
+.iframe-modal-header--accent1 {
+    --iframe-modal-header-bg: var(--accent-color, #667eea);
+    --iframe-modal-header-fg: #ffffff;
+}
+
+.iframe-modal-header--accent2 {
+    --iframe-modal-header-bg: var(--accent-color-2, #48bb78);
+    --iframe-modal-header-fg: #ffffff;
+}
+
+.iframe-modal-header--accent3 {
+    --iframe-modal-header-bg: var(--accent-color-3, #ed8936);
+    --iframe-modal-header-fg: #ffffff;
+}
+
+.iframe-modal-content--bg-default {
+    --iframe-modal-bg-color: transparent;
+}
+
+.iframe-modal-content--bg-custom {
+    --iframe-modal-bg-color: var(--iframe-modal-bg-color-override, transparent);
+}
+
+.iframe-modal-content--bg-accent1 {
+    --iframe-modal-bg-color: var(--accent-color, #667eea);
+}
+
+.iframe-modal-content--bg-accent2 {
+    --iframe-modal-bg-color: var(--accent-color-2, #48bb78);
+}
+
+.iframe-modal-content--bg-accent3 {
+    --iframe-modal-bg-color: var(--accent-color-3, #ed8936);
+}
+
+.iframe-modal-content--bg-image {
+    --iframe-modal-bg-color: transparent;
+}
+
+@media (max-width: 900px) {
+    .iframe-modal.iframe-modal--fullscreen-mobile {
+        padding: 0;
+    }
+
+    .iframe-modal.iframe-modal--fullscreen-mobile .iframe-modal-content {
+        width: 100%;
+        max-width: none;
+        height: 100%;
+        border-radius: 0;
+    }
 }
 
 /* ===== Legal Modal ===== */

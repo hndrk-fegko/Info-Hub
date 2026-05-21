@@ -48,16 +48,17 @@ class SectionTile extends TileBase {
                 'uploadAction' => 'background',
                 'group' => 'style'
             ],
-            'backgroundAttachment' => [
-                'type' => 'select',
-                'label' => 'Bildbezug',
+            'backgroundMotionPercent' => [
+                'type' => 'range',
+                'label' => 'Bildbewegung (%)',
                 'required' => false,
-                'default' => 'content',
+                'default' => 0,
+                'min' => 0,
+                'max' => 100,
+                'step' => 1,
+                'unit' => '%',
                 'group' => 'style',
-                'options' => [
-                    'content' => 'Relativ zum Inhalt',
-                    'viewport' => 'Relativ zum Viewport'
-                ]
+                'hint' => '0% = mit Inhalt gestreckt, 100% = wirkt fixiert im Viewport.'
             ],
             'backgroundDisplay' => [
                 'type' => 'select',
@@ -131,9 +132,16 @@ class SectionTile extends TileBase {
             $errors[] = 'Ungültiger Hintergrundmodus';
         }
 
-        $backgroundAttachment = $data['backgroundAttachment'] ?? 'content';
-        if (!in_array($backgroundAttachment, ['content', 'viewport'], true)) {
-            $errors[] = 'Ungültiger Bildbezug';
+        $backgroundMotionPercent = isset($data['backgroundMotionPercent']) ? (int)$data['backgroundMotionPercent'] : null;
+        if ($backgroundMotionPercent === null && isset($data['backgroundAttachment'])) {
+            $backgroundMotionPercent = match ((string)$data['backgroundAttachment']) {
+                'fixed', 'viewport' => 100,
+                'parallax' => 60,
+                default => 0
+            };
+        }
+        if ($backgroundMotionPercent !== null && ($backgroundMotionPercent < 0 || $backgroundMotionPercent > 100)) {
+            $errors[] = 'Bildbewegung muss zwischen 0 und 100 liegen';
         }
 
         $backgroundDisplay = $data['backgroundDisplay'] ?? 'cover';
@@ -182,7 +190,17 @@ class SectionTile extends TileBase {
     public function render(array $data): string {
         $title = trim((string)($data['title'] ?? ''));
         $backgroundMode = $this->esc($data['backgroundMode'] ?? 'default');
-        $backgroundAttachment = $this->esc($data['backgroundAttachment'] ?? 'content');
+        $backgroundMotionPercent = isset($data['backgroundMotionPercent']) ? (int)$data['backgroundMotionPercent'] : null;
+        if ($backgroundMotionPercent === null && isset($data['backgroundAttachment'])) {
+            $backgroundMotionPercent = match ((string)$data['backgroundAttachment']) {
+                'fixed', 'viewport' => 100,
+                'parallax' => 60,
+                default => 0
+            };
+        }
+        if ($backgroundMotionPercent === null || $backgroundMotionPercent < 0 || $backgroundMotionPercent > 100) {
+            $backgroundMotionPercent = 0;
+        }
         $backgroundDisplay = $this->esc($data['backgroundDisplay'] ?? 'cover');
         $overlayEnabled = !empty($data['overlayEnabled']) && $backgroundMode === 'image';
         $overlayColorEnabled = $overlayEnabled
@@ -197,11 +215,6 @@ class SectionTile extends TileBase {
             'accent2' => 'Akzent 2',
             'accent3' => 'Akzent 3',
             'image' => 'Bild'
-        ];
-
-        $attachmentLabels = [
-            'content' => 'Inhalt',
-            'viewport' => 'Viewport'
         ];
 
         $displayLabels = [
@@ -220,7 +233,7 @@ class SectionTile extends TileBase {
         $html .= '<span class="section-marker-chip">Hintergrund: ' . $this->esc($modeLabels[$backgroundMode] ?? $backgroundMode) . '</span>';
 
         if ($backgroundMode === 'image') {
-            $html .= '<span class="section-marker-chip">Bezug: ' . $this->esc($attachmentLabels[$backgroundAttachment] ?? $backgroundAttachment) . '</span>';
+            $html .= '<span class="section-marker-chip">Bewegung: ' . $backgroundMotionPercent . '%</span>';
             $html .= '<span class="section-marker-chip">Bild: ' . $this->esc($displayLabels[$backgroundDisplay] ?? $backgroundDisplay) . '</span>';
         }
 

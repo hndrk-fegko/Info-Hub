@@ -445,6 +445,7 @@ body.v2-page-reloading #tileToolbar {
     position: absolute;
     inset: 0;
     background: var(--v2-narrow-backdrop, #1a1a2e);
+    background-color: var(--v2-narrow-backdrop-fallback, #1a1a2e);
     background-position: center center;
     background-repeat: var(--v2-narrow-background-repeat, no-repeat);
     background-size: var(--v2-narrow-background-size, cover);
@@ -466,10 +467,14 @@ body.v2-page-reloading #tileToolbar {
     z-index: 0;
 }
 
-.v2-canvas-wrapper--parallax::before {
-    inset: -10%;
+.v2-canvas-wrapper--motion::before {
+    top: var(--v2-narrow-motion-top, -6vh);
+    left: 0;
+    right: 0;
+    bottom: auto;
+    height: var(--v2-narrow-motion-height, 112vh);
     background-attachment: scroll;
-    transform: scale(var(--v2-narrow-background-parallax-scale, 1.08)) translateY(var(--v2-parallax-offset, 0px));
+    transform: scale(var(--v2-narrow-background-scale, 1)) translateY(var(--v2-parallax-offset, 0px));
     will-change: transform;
 }
 
@@ -496,7 +501,7 @@ body.v2-page-reloading #tileToolbar {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .v2-canvas-wrapper--parallax::before {
+    .v2-canvas-wrapper--motion::before {
         transform: none;
     }
 }

@@ -988,9 +988,21 @@ JS;
             ? $data['backgroundMode']
             : 'default';
 
-        $backgroundAttachment = in_array(($data['backgroundAttachment'] ?? ''), ['content', 'viewport'], true)
-            ? $data['backgroundAttachment']
-            : 'content';
+        $legacyAttachmentRaw = (string)($data['backgroundAttachment'] ?? 'content');
+        $legacyMotionPercent = match ($legacyAttachmentRaw) {
+            'viewport', 'fixed' => 100,
+            'parallax' => 60,
+            default => 0
+        };
+        $backgroundMotionPercent = array_key_exists('backgroundMotionPercent', $data)
+            ? (int)$data['backgroundMotionPercent']
+            : $legacyMotionPercent;
+        if ($backgroundMotionPercent < 0 || $backgroundMotionPercent > 100) {
+            $backgroundMotionPercent = $legacyMotionPercent;
+        }
+        $backgroundAttachment = $backgroundMotionPercent >= 100
+            ? 'viewport'
+            : ($backgroundMotionPercent > 0 ? 'parallax' : 'content');
 
         $backgroundDisplay = in_array(($data['backgroundDisplay'] ?? ''), ['cover', 'tile'], true)
             ? $data['backgroundDisplay']
@@ -1025,6 +1037,7 @@ JS;
             'backgroundMode' => $backgroundMode,
             'backgroundImage' => $backgroundImage,
             'backgroundAttachment' => $backgroundAttachment,
+            'backgroundMotionPercent' => $backgroundMotionPercent,
             'backgroundDisplay' => $backgroundDisplay,
             'overlayEnabled' => $overlayEnabled,
             'overlayColorEnabled' => $overlayColorEnabled,
@@ -1061,8 +1074,12 @@ JS;
             $sectionClasses[] = 'page-section--implicit';
         }
 
-        if ($config['backgroundMode'] === 'image' && $config['backgroundAttachment'] === 'viewport') {
-            $sectionClasses[] = 'page-section--viewport-bg';
+        if ($config['backgroundMode'] === 'image') {
+            if (($config['backgroundMotionPercent'] ?? 0) > 0) {
+                $sectionClasses[] = 'page-section--bg-motion';
+            } else {
+                $sectionClasses[] = 'page-section--bg-stretch';
+            }
         }
 
         $scheduleAttrs = $markerTile ? $this->getScheduleAttributes($markerTile) : '';
@@ -1113,17 +1130,23 @@ JS;
         $backgroundScale = $config['overlayBlurEnabled']
             ? number_format(1 + ($config['overlayBlurStrength'] / 1000), 3, '.', '')
             : '1';
+        $motionFactor = (float)max(0, min(100, (int)($config['backgroundMotionPercent'] ?? 0))) / 100;
 
         return [
             '--section-background-color:' . $backgroundColor,
             '--section-background-image:' . $backgroundImage,
-            '--section-background-size:' . ($config['backgroundDisplay'] === 'tile' ? 'auto' : 'cover'),
+            '--section-background-size:' . ($config['backgroundDisplay'] === 'tile'
+                ? 'auto'
+                : 'cover'),
             '--section-background-repeat:' . ($config['backgroundDisplay'] === 'tile' ? 'repeat' : 'no-repeat'),
-            '--section-background-attachment:' . ($config['backgroundAttachment'] === 'viewport' ? 'fixed' : 'scroll'),
+            '--section-background-attachment:scroll',
             '--section-overlay-color:' . $config['overlayColor'],
             '--section-overlay-opacity:' . ($config['overlayColorEnabled'] ? (string)($config['overlayOpacity'] / 100) : '0'),
             '--section-background-blur:' . $backgroundBlur . 'px',
-            '--section-background-scale:' . $backgroundScale
+            '--section-background-scale:' . $backgroundScale,
+            '--section-motion-factor:' . $motionFactor,
+            '--section-motion-height:112vh',
+            '--section-motion-top:-6vh'
         ];
     }
 
@@ -1301,9 +1324,18 @@ JS;
         $display = in_array(($theme['narrowBackgroundImageDisplay'] ?? ''), ['cover', 'tile'], true)
             ? $theme['narrowBackgroundImageDisplay']
             : 'cover';
-        $motion = in_array(($theme['narrowBackgroundImageMotion'] ?? ''), ['fixed', 'parallax'], true)
+        $legacyMotion = in_array(($theme['narrowBackgroundImageMotion'] ?? ''), ['fixed', 'parallax', 'stretch'], true)
             ? $theme['narrowBackgroundImageMotion']
-            : 'fixed';
+            : 'stretch';
+        $legacyMotionPercent = match ($legacyMotion) {
+            'fixed' => 100,
+            'parallax' => 60,
+            default => 0
+        };
+        $motionPercent = (int)($theme['narrowBackgroundMotionPercent'] ?? $legacyMotionPercent);
+        if ($motionPercent < 0 || $motionPercent > 100) {
+            $motionPercent = $legacyMotionPercent;
+        }
         $angle = (int)($theme['narrowGradientAngle'] ?? 180);
         if ($angle < 0 || $angle > 360) {
             $angle = 180;
@@ -1334,7 +1366,7 @@ JS;
             'gradientAngle' => $angle,
             'image' => $image,
             'imageDisplay' => $display,
-            'imageMotion' => $motion,
+            'motionPercent' => $motionPercent,
             'overlayEnabled' => $overlayEnabled,
             'overlayColorEnabled' => $overlayColorEnabled,
             'overlayBlurEnabled' => $overlayBlurEnabled,
@@ -1399,19 +1431,20 @@ JS;
         $narrowBackdrop = $this->buildNarrowBackdropCSS($narrowConfig);
         $narrowOverlayDisplay = $narrowConfig['overlayColorEnabled'] ? 'block' : 'none';
         $narrowShadow = $narrowConfig['contentShadow'] ? '0 0 60px rgba(0,0,0,0.4)' : 'none';
-        $narrowImageSize = $narrowConfig['imageDisplay'] === 'tile' ? 'auto' : 'cover';
+        $narrowMotionFactor = (float)max(0, min(100, (int)$narrowConfig['motionPercent'])) / 100;
+        $narrowHasMotion = $narrowConfig['mode'] === 'image' && $narrowConfig['motionPercent'] > 0;
+        $narrowImageSize = $narrowConfig['imageDisplay'] === 'tile'
+            ? 'auto'
+            : 'cover';
         $narrowImageRepeat = $narrowConfig['imageDisplay'] === 'tile' ? 'repeat' : 'no-repeat';
-        $narrowImageAttachment = $narrowConfig['imageMotion'] === 'fixed' ? 'fixed' : 'scroll';
-        $narrowMotionClass = $narrowConfig['mode'] === 'image' && $narrowConfig['imageMotion'] === 'parallax' ? ' has-parallax' : '';
+        $narrowImageAttachment = 'scroll';
+        $narrowMotionClass = $narrowHasMotion ? ' has-motion' : '';
         $narrowBlurAmount = $narrowConfig['overlayBlurEnabled']
             ? number_format(($narrowConfig['overlayBlurStrength'] / 100) * 24, 2, '.', '')
             : '0';
         $narrowBackgroundScale = $narrowConfig['overlayBlurEnabled']
             ? number_format(1 + ($narrowConfig['overlayBlurStrength'] / 1000), 3, '.', '')
             : '1';
-        $narrowBackgroundParallaxScale = $narrowConfig['overlayBlurEnabled']
-            ? number_format(1.08 + ($narrowConfig['overlayBlurStrength'] / 1000), 3, '.', '')
-            : '1.08';
         
         // Title für <title>-Tag (pageTitle hat Priorität, dann title, dann Fallback)
         $pageTitleRaw = $site['pageTitle'] ?? '';
@@ -1477,12 +1510,15 @@ HTML;
         body.narrow-layout {
             --narrow-width: {$narrowWidth}px;
             --narrow-backdrop: {$narrowBackdrop};
+            --narrow-backdrop-fallback: {$narrowConfig['color']};
             --narrow-image-repeat: {$narrowImageRepeat};
             --narrow-image-size: {$narrowImageSize};
             --narrow-image-attachment: {$narrowImageAttachment};
             --narrow-background-blur: {$narrowBlurAmount}px;
             --narrow-background-scale: {$narrowBackgroundScale};
-            --narrow-background-parallax-scale: {$narrowBackgroundParallaxScale};
+            --narrow-motion-factor: {$narrowMotionFactor};
+            --narrow-motion-height: 112vh;
+            --narrow-motion-top: -6vh;
             --narrow-overlay-color: {$narrowConfig['overlayColor']};
             --narrow-overlay-opacity: {$narrowConfig['overlayOpacity']};
             --narrow-overlay-display: {$narrowOverlayDisplay};
@@ -1547,8 +1583,8 @@ CSS;
 
     <!-- Iframe Modal -->
     <div class="iframe-modal" id="iframe-modal">
-        <div class="iframe-modal-content">
-            <div class="iframe-modal-header">
+        <div class="iframe-modal-content iframe-modal-content--bg-default iframe-modal-content--motion-fixed">
+            <div class="iframe-modal-header iframe-modal-header--default">
                 <h3 class="iframe-modal-title" id="iframe-modal-title">Formular</h3>
                 <button type="button" class="iframe-modal-close" data-iframe-close>&times;</button>
             </div>
@@ -1596,6 +1632,113 @@ CSS;
             }
         }
 
+        const _bgColorCache = new Map();
+
+        function extractImageUrl(backgroundImageValue) {
+            if (!backgroundImageValue || backgroundImageValue === 'none') {
+                return null;
+            }
+
+            const match = backgroundImageValue.match(/url\(["']?(.*?)["']?\)/i);
+            return match ? match[1] : null;
+        }
+
+        function getAverageHexColor(src) {
+            if (!src) {
+                return Promise.resolve(null);
+            }
+
+            if (_bgColorCache.has(src)) {
+                return Promise.resolve(_bgColorCache.get(src));
+            }
+
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.decoding = 'async';
+                img.crossOrigin = 'anonymous';
+
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 24;
+                        canvas.height = 24;
+                        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                        if (!ctx) {
+                            _bgColorCache.set(src, null);
+                            resolve(null);
+                            return;
+                        }
+
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                        let r = 0;
+                        let g = 0;
+                        let b = 0;
+                        let w = 0;
+
+                        for (let i = 0; i < data.length; i += 4) {
+                            const alpha = data[i + 3] / 255;
+                            if (alpha <= 0) continue;
+                            r += data[i] * alpha;
+                            g += data[i + 1] * alpha;
+                            b += data[i + 2] * alpha;
+                            w += alpha;
+                        }
+
+                        const hex = w > 0
+                            ? '#' + [r / w, g / w, b / w]
+                                .map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0'))
+                                .join('')
+                            : null;
+
+                        _bgColorCache.set(src, hex);
+                        resolve(hex);
+                    } catch (err) {
+                        _bgColorCache.set(src, null);
+                        resolve(null);
+                    }
+                };
+
+                img.onerror = () => {
+                    _bgColorCache.set(src, null);
+                    resolve(null);
+                };
+
+                img.src = src;
+            });
+        }
+
+        function initBackgroundFallbackColors() {
+            const narrowMedia = document.querySelector('.page-shell__backdrop-media');
+            const narrowBackdrop = document.querySelector('.page-shell__backdrop');
+
+            if (narrowMedia && narrowBackdrop) {
+                const narrowImage = extractImageUrl(getComputedStyle(narrowMedia).backgroundImage);
+                if (narrowImage) {
+                    getAverageHexColor(narrowImage).then((hex) => {
+                        if (!hex) return;
+                        narrowBackdrop.style.setProperty('--narrow-backdrop-fallback', hex);
+                        narrowMedia.style.setProperty('--narrow-backdrop-fallback', hex);
+                    });
+                }
+            }
+
+            const sectionBackgrounds = Array.from(document.querySelectorAll('.page-section__background'));
+            sectionBackgrounds.forEach((bgEl) => {
+                const imageUrl = extractImageUrl(getComputedStyle(bgEl).backgroundImage);
+                if (!imageUrl) return;
+
+                getAverageHexColor(imageUrl).then((hex) => {
+                    if (!hex) return;
+                    const section = bgEl.closest('.page-section');
+                    if (section) {
+                        section.style.setProperty('--section-background-color', hex);
+                    }
+                });
+            });
+        }
+
         function initHeaderReveal() {
             document.querySelectorAll('.header-image.has-placeholder').forEach(container => {
                 const mainImage = container.querySelector('.header-image-main');
@@ -1631,20 +1774,96 @@ CSS;
         }
 
         function initNarrowParallax() {
-            const backdrop = document.querySelector('.page-shell__backdrop.has-parallax');
+            const backdrop = document.querySelector('.page-shell__backdrop.has-motion');
             if (!backdrop || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
                 return;
             }
 
             let frameRequested = false;
+            let currentOffset = 0;
 
             const update = () => {
                 frameRequested = false;
                 const rect = backdrop.getBoundingClientRect();
-                const viewportCenter = window.innerHeight / 2;
-                const backdropCenter = rect.top + rect.height / 2;
-                const offset = Math.round((viewportCenter - backdropCenter) * 0.08);
+                const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+                const motionFactor = Number.parseFloat(getComputedStyle(backdrop).getPropertyValue('--narrow-motion-factor')) || 0;
+                const minHeight = viewportHeight * 1.12;
+                const maxHeight = rect.height + (viewportHeight * 0.12);
+                const height = minHeight + ((1 - motionFactor) * Math.max(0, maxHeight - minHeight));
+                const top = -(height * 0.06);
+                const targetOffset = (-rect.top) * motionFactor;
+                const followAlpha = motionFactor >= 0.98 ? 1 : (0.18 + (motionFactor * 0.5));
+                currentOffset += (targetOffset - currentOffset) * followAlpha;
+                if (motionFactor >= 0.98 || Math.abs(targetOffset - currentOffset) < 0.2) {
+                    currentOffset = targetOffset;
+                }
+                const offset = Math.round(currentOffset);
+                backdrop.style.setProperty('--narrow-motion-height', String(height) + 'px');
+                backdrop.style.setProperty('--narrow-motion-top', String(top) + 'px');
                 backdrop.style.setProperty('--narrow-parallax-offset', String(offset) + 'px');
+
+                if (Math.abs(targetOffset - currentOffset) >= 0.2) {
+                    requestUpdate();
+                }
+            };
+
+            const requestUpdate = () => {
+                if (frameRequested) {
+                    return;
+                }
+                frameRequested = true;
+                requestAnimationFrame(update);
+            };
+
+            requestUpdate();
+            window.addEventListener('scroll', requestUpdate, { passive: true });
+            window.addEventListener('resize', requestUpdate);
+        }
+
+        function initSectionParallax() {
+            const sections = Array.from(document.querySelectorAll('.page-section--bg-motion'));
+            if (sections.length === 0 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                return;
+            }
+
+            let frameRequested = false;
+            const currentOffsets = new WeakMap();
+
+            const update = () => {
+                frameRequested = false;
+                sections.forEach((section) => {
+                    const rect = section.getBoundingClientRect();
+                    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+                    const motionFactor = Number.parseFloat(getComputedStyle(section).getPropertyValue('--section-motion-factor')) || 0;
+                    const minHeight = viewportHeight * 1.12;
+                    const maxHeight = rect.height + (viewportHeight * 0.12);
+                    const height = minHeight + ((1 - motionFactor) * Math.max(0, maxHeight - minHeight));
+                    const top = -(height * 0.06);
+                    const targetOffset = (-rect.top) * motionFactor;
+                    const prevOffset = currentOffsets.get(section) || 0;
+                    const followAlpha = motionFactor >= 0.98 ? 1 : (0.18 + (motionFactor * 0.5));
+                    let currentOffset = prevOffset + ((targetOffset - prevOffset) * followAlpha);
+                    if (motionFactor >= 0.98 || Math.abs(targetOffset - currentOffset) < 0.2) {
+                        currentOffset = targetOffset;
+                    }
+                    currentOffsets.set(section, currentOffset);
+                    const offset = Math.round(currentOffset);
+                    section.style.setProperty('--section-motion-height', String(height) + 'px');
+                    section.style.setProperty('--section-motion-top', String(top) + 'px');
+                    section.style.setProperty('--section-parallax-offset', String(offset) + 'px');
+                });
+
+                const hasPending = sections.some((section) => {
+                    const rect = section.getBoundingClientRect();
+                    const motionFactor = Number.parseFloat(getComputedStyle(section).getPropertyValue('--section-motion-factor')) || 0;
+                    const targetOffset = (-rect.top) * motionFactor;
+                    const currentOffset = currentOffsets.get(section) || 0;
+                    return Math.abs(targetOffset - currentOffset) >= 0.2;
+                });
+
+                if (hasPending) {
+                    requestUpdate();
+                }
             };
 
             const requestUpdate = () => {
@@ -1664,7 +1883,9 @@ CSS;
         document.addEventListener('DOMContentLoaded', () => {
             initHeaderReveal();
             initEntranceMotion();
+            initBackgroundFallbackColors();
             initNarrowParallax();
+            initSectionParallax();
             initPullToRefresh();
             applyUrlParams();
             // Kontrast NUR berechnen wenn NICHT minimalbox

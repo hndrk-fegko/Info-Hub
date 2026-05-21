@@ -17,10 +17,13 @@ const V2Settings = (function() {
     
     let _overlay = null;
     let _parallaxQueued = false;
+    let _parallaxOffsetCurrent = 0;
     let _scrollLockY = 0;
     let _scrollLockPaddingRight = '';
     let _restoreFocusEl = null;
     let _isSaving = false;
+    const _imageColorCache = new Map();
+    let _narrowColorRequestToken = 0;
     
     function init() {
         // Listen for settings changes to update canvas header/footer
@@ -115,7 +118,7 @@ const V2Settings = (function() {
         ).join('');
 
         const imageDisplay = normalizeOption(theme.narrowBackgroundImageDisplay, ['cover', 'tile'], 'cover');
-        const imageMotion = normalizeOption(theme.narrowBackgroundImageMotion, ['fixed', 'parallax'], 'fixed');
+        const imageMotionPercent = clampNumber(theme.narrowBackgroundMotionPercent, 0, 100, getLegacyMotionPercent(theme.narrowBackgroundImageMotion));
         const gradientAngle = clampNumber(theme.narrowGradientAngle, 0, 360, 180);
         const overlayOpacity = narrowOverlay.opacity;
         const overlayBlurStrength = narrowOverlay.blurStrength;
@@ -319,11 +322,10 @@ const V2Settings = (function() {
                                     </select>
                                 </div>
                                 <div class="v2-field">
-                                    <label class="v2-label">Bildbewegung</label>
-                                    <select class="v2-input" id="v2SetNarrowImageMotion">
-                                        <option value="fixed" ${imageMotion === 'fixed' ? 'selected' : ''}>Fixiert</option>
-                                        <option value="parallax" ${imageMotion === 'parallax' ? 'selected' : ''}>Parallax</option>
-                                    </select>
+                                    <label class="v2-label">Bildbewegung: <span id="v2NarrowMotionPercentValue">${imageMotionPercent}</span>%</label>
+                                    <input type="range" class="v2-range-input" id="v2SetNarrowMotionPercent"
+                                           min="0" max="100" step="1" value="${imageMotionPercent}">
+                                    <small class="v2-hint">0% = mit Inhalt gestreckt, 100% = wirkt fixiert im Viewport.</small>
                                 </div>
                             </div>
 
@@ -553,7 +555,7 @@ const V2Settings = (function() {
             }
         });
 
-        ['v2SetNarrowWidth', 'v2SetNarrowGradientAngle', 'v2SetNarrowOverlayOpacity', 'v2SetNarrowOverlayBlurStrength'].forEach((id) => {
+        ['v2SetNarrowWidth', 'v2SetNarrowGradientAngle', 'v2SetNarrowMotionPercent', 'v2SetNarrowOverlayOpacity', 'v2SetNarrowOverlayBlurStrength'].forEach((id) => {
             const element = document.getElementById(id);
             if (element) {
                 element.addEventListener('input', syncNarrowRangeLabels);
@@ -740,7 +742,7 @@ const V2Settings = (function() {
                 narrowGradientAngle: parseInt(document.getElementById('v2SetNarrowGradientAngle').value, 10) || 180,
                 narrowBackgroundImage,
                 narrowBackgroundImageDisplay: document.getElementById('v2SetNarrowImageDisplay').value,
-                narrowBackgroundImageMotion: document.getElementById('v2SetNarrowImageMotion').value,
+                narrowBackgroundMotionPercent: parseInt(document.getElementById('v2SetNarrowMotionPercent').value, 10) || 0,
                 narrowBackgroundOverlayEnabled: document.getElementById('v2SetNarrowOverlayEnabled').checked,
                 narrowBackgroundOverlayColorEnabled: document.getElementById('v2SetNarrowOverlayColorEnabled').checked,
                 narrowBackgroundOverlayColor: document.getElementById('v2SetNarrowOverlayColor').value,
@@ -1005,6 +1007,12 @@ const V2Settings = (function() {
             angleValue.textContent = angleRange.value;
         }
 
+        const motionValue = document.getElementById('v2NarrowMotionPercentValue');
+        const motionRange = document.getElementById('v2SetNarrowMotionPercent');
+        if (motionValue && motionRange) {
+            motionValue.textContent = motionRange.value;
+        }
+
         const opacityValue = document.getElementById('v2NarrowOverlayOpacityValue');
         const opacityRange = document.getElementById('v2SetNarrowOverlayOpacity');
         if (opacityValue && opacityRange) {
@@ -1034,29 +1042,38 @@ const V2Settings = (function() {
         const mode = normalizeOption(theme.narrowBackgroundMode, ['solid', 'gradient', 'image'], 'solid');
         const imagePath = typeof theme.narrowBackgroundImage === 'string' ? theme.narrowBackgroundImage : '';
         const imageDisplay = normalizeOption(theme.narrowBackgroundImageDisplay, ['cover', 'tile'], 'cover');
-        const imageMotion = normalizeOption(theme.narrowBackgroundImageMotion, ['fixed', 'parallax'], 'fixed');
+        const motionPercent = clampNumber(theme.narrowBackgroundMotionPercent, 0, 100, getLegacyMotionPercent(theme.narrowBackgroundImageMotion));
+        const motionFactor = motionPercent / 100;
         const overlay = getNarrowOverlayState(theme);
         const width = clampNumber(theme.narrowWidth, 600, 1400, 960);
         const hasImage = mode === 'image' && imagePath;
         const contentShadow = theme.narrowContentShadow === false ? 'none' : '0 0 60px rgba(0,0,0,0.4)';
         const blurPx = overlay.blurEnabled ? ((overlay.blurStrength / 100) * 24) : 0;
         const baseScale = overlay.blurEnabled ? (1 + (overlay.blurStrength / 1000)) : 1;
-        const parallaxScale = overlay.blurEnabled ? (1.08 + (overlay.blurStrength / 1000)) : 1.08;
+        const hasMotion = narrowLayout && hasImage;
+        const effectiveSize = imageDisplay === 'tile'
+            ? 'auto'
+            : 'cover';
 
         wrapper.classList.toggle('v2-canvas-wrapper--narrow', narrowLayout);
-        wrapper.classList.toggle('v2-canvas-wrapper--parallax', narrowLayout && hasImage && imageMotion === 'parallax');
+        wrapper.classList.toggle('v2-canvas-wrapper--motion', hasMotion);
         wrapper.style.setProperty('--v2-narrow-width', `${width}px`);
         wrapper.style.setProperty('--v2-narrow-backdrop', buildNarrowBackdrop(theme));
+        wrapper.style.setProperty('--v2-narrow-backdrop-fallback', sanitizeHexColor(theme.narrowBackgroundColor, '#1a1a2e'));
         wrapper.style.setProperty('--v2-narrow-background-repeat', imageDisplay === 'tile' ? 'repeat' : 'no-repeat');
-        wrapper.style.setProperty('--v2-narrow-background-size', imageDisplay === 'tile' ? 'auto' : 'cover');
-        wrapper.style.setProperty('--v2-narrow-background-attachment', imageMotion === 'fixed' ? 'fixed' : 'scroll');
+        wrapper.style.setProperty('--v2-narrow-background-size', effectiveSize);
+        wrapper.style.setProperty('--v2-narrow-background-attachment', 'scroll');
         wrapper.style.setProperty('--v2-narrow-background-blur', `${narrowLayout && hasImage ? blurPx : 0}px`);
         wrapper.style.setProperty('--v2-narrow-background-scale', String(narrowLayout && hasImage ? baseScale : 1));
-        wrapper.style.setProperty('--v2-narrow-background-parallax-scale', String(narrowLayout && hasImage ? parallaxScale : 1.08));
+        wrapper.style.setProperty('--v2-narrow-motion-factor', String(narrowLayout && hasImage ? motionFactor : 0));
+        wrapper.style.setProperty('--v2-narrow-motion-height', '112vh');
+        wrapper.style.setProperty('--v2-narrow-motion-top', '-6vh');
         wrapper.style.setProperty('--v2-narrow-overlay-display', narrowLayout && hasImage && overlay.colorEnabled ? 'block' : 'none');
         wrapper.style.setProperty('--v2-narrow-overlay-color', overlay.color);
         wrapper.style.setProperty('--v2-narrow-overlay-opacity', String(narrowLayout && hasImage && overlay.colorEnabled ? (overlay.opacity / 100) : 0));
         canvas.style.boxShadow = narrowLayout ? contentShadow : '';
+
+        applyNarrowBackdropFallbackColor(wrapper, mode, imagePath);
 
         syncParallaxOffset();
     }
@@ -1070,16 +1087,121 @@ const V2Settings = (function() {
             const wrapper = document.querySelector('.v2-canvas-wrapper');
             if (!wrapper) return;
 
-            if (!wrapper.classList.contains('v2-canvas-wrapper--parallax')) {
+            if (!wrapper.classList.contains('v2-canvas-wrapper--motion')) {
+                _parallaxOffsetCurrent = 0;
                 wrapper.style.setProperty('--v2-parallax-offset', '0px');
                 return;
             }
 
             const rect = wrapper.getBoundingClientRect();
-            const viewportCenter = window.innerHeight / 2;
-            const wrapperCenter = rect.top + rect.height / 2;
-            const offset = Math.round((viewportCenter - wrapperCenter) * 0.08);
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+            const motionFactor = Number.parseFloat(getComputedStyle(wrapper).getPropertyValue('--v2-narrow-motion-factor')) || 0;
+            const minHeight = viewportHeight * 1.12;
+            const maxHeight = rect.height + (viewportHeight * 0.12);
+            const height = minHeight + ((1 - motionFactor) * Math.max(0, maxHeight - minHeight));
+            const top = -(height * 0.06);
+            const targetOffset = (-rect.top) * motionFactor;
+            const followAlpha = motionFactor >= 0.98 ? 1 : (0.18 + (motionFactor * 0.5));
+            _parallaxOffsetCurrent += (targetOffset - _parallaxOffsetCurrent) * followAlpha;
+            if (motionFactor >= 0.98 || Math.abs(targetOffset - _parallaxOffsetCurrent) < 0.2) {
+                _parallaxOffsetCurrent = targetOffset;
+            }
+            const offset = Math.round(_parallaxOffsetCurrent);
+            wrapper.style.setProperty('--v2-narrow-motion-height', `${height}px`);
+            wrapper.style.setProperty('--v2-narrow-motion-top', `${top}px`);
             wrapper.style.setProperty('--v2-parallax-offset', `${offset}px`);
+
+            if (Math.abs(targetOffset - _parallaxOffsetCurrent) >= 0.2) {
+                syncParallaxOffset();
+            }
+        });
+    }
+
+    function getLegacyMotionPercent(value) {
+        if (value === 'fixed') return 100;
+        if (value === 'parallax') return 60;
+        return 0;
+    }
+
+    async function applyNarrowBackdropFallbackColor(wrapper, mode, imagePath) {
+        if (!wrapper) return;
+
+        const requestToken = ++_narrowColorRequestToken;
+        if (mode !== 'image' || !imagePath) {
+            return;
+        }
+
+        const hex = await getImageAverageHex(imagePath);
+        if (requestToken !== _narrowColorRequestToken || !hex) {
+            return;
+        }
+
+        wrapper.style.setProperty('--v2-narrow-backdrop-fallback', hex);
+    }
+
+    function getImageAverageHex(src) {
+        if (!src) {
+            return Promise.resolve(null);
+        }
+
+        if (_imageColorCache.has(src)) {
+            return Promise.resolve(_imageColorCache.get(src));
+        }
+
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.decoding = 'async';
+            img.crossOrigin = 'anonymous';
+
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 24;
+                    canvas.height = 24;
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                    if (!ctx) {
+                        _imageColorCache.set(src, null);
+                        resolve(null);
+                        return;
+                    }
+
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                    let r = 0;
+                    let g = 0;
+                    let b = 0;
+                    let w = 0;
+
+                    for (let i = 0; i < data.length; i += 4) {
+                        const alpha = data[i + 3] / 255;
+                        if (alpha <= 0) continue;
+                        r += data[i] * alpha;
+                        g += data[i + 1] * alpha;
+                        b += data[i + 2] * alpha;
+                        w += alpha;
+                    }
+
+                    const hex = w > 0
+                        ? '#' + [r / w, g / w, b / w]
+                            .map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0'))
+                            .join('')
+                        : null;
+
+                    _imageColorCache.set(src, hex);
+                    resolve(hex);
+                } catch (err) {
+                    _imageColorCache.set(src, null);
+                    resolve(null);
+                }
+            };
+
+            img.onerror = () => {
+                _imageColorCache.set(src, null);
+                resolve(null);
+            };
+
+            img.src = src;
         });
     }
 

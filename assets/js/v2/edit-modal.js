@@ -306,10 +306,17 @@ const V2EditModal = (function() {
     }
 
     function _bindConditionalFieldVisibility(modal, tileType) {
-        if (tileType !== 'section') {
+        if (tileType === 'section') {
+            _bindSectionConditionalFieldVisibility(modal);
             return;
         }
 
+        if (tileType === 'iframe') {
+            _bindIframeConditionalFieldVisibility(modal);
+        }
+    }
+
+    function _bindSectionConditionalFieldVisibility(modal) {
         const backgroundModeField = modal.querySelector('#field-backgroundMode');
         const overlayEnabledField = modal.querySelector('#field-overlayEnabled');
         const overlayColorEnabledField = modal.querySelector('#field-overlayColorEnabled');
@@ -344,7 +351,7 @@ const V2EditModal = (function() {
             const showOverlayColor = showOverlayOptions && !!overlayColorEnabledField?.checked;
             const showOverlayBlur = showOverlayOptions && !!overlayBlurEnabledField?.checked;
 
-            ['backgroundImage', 'backgroundAttachment', 'backgroundDisplay', 'overlayEnabled'].forEach(fieldName => {
+            ['backgroundImage', 'backgroundMotionPercent', 'backgroundDisplay', 'overlayEnabled'].forEach(fieldName => {
                 toggleField(fieldName, showImageFields);
             });
 
@@ -365,6 +372,72 @@ const V2EditModal = (function() {
         overlayEnabledField?.addEventListener('change', syncVisibility);
         overlayColorEnabledField?.addEventListener('change', syncVisibility);
         overlayBlurEnabledField?.addEventListener('change', syncVisibility);
+        syncVisibility();
+    }
+
+    function _bindIframeConditionalFieldVisibility(modal) {
+        const displayModeField = modal.querySelector('#field-displayMode');
+        const aspectRatioField = modal.querySelector('#field-aspectRatio');
+        const customHeightField = modal.querySelector('#field-customHeight');
+        const modalBackgroundModeField = modal.querySelector('#field-modalBackgroundMode');
+        const modalBackgroundColorOverrideEnabledField = modal.querySelector('#field-modalBackgroundColorOverrideEnabled');
+        const modalOverlayEnabledField = modal.querySelector('#field-modalOverlayEnabled');
+        const modalOverlayColorEnabledField = modal.querySelector('#field-modalOverlayColorEnabled');
+        const modalOverlayBlurEnabledField = modal.querySelector('#field-modalOverlayBlurEnabled');
+
+        if (!displayModeField) {
+            return;
+        }
+
+        const toggleField = (fieldName, visible) => {
+            const field = modal.querySelector(`.v2-field[data-field-name="${fieldName}"]`);
+            if (field) {
+                field.classList.toggle('v2-field-hidden', !visible);
+            }
+        };
+
+        const syncVisibility = () => {
+            const isModal = displayModeField.value === 'modal';
+            const isInline = !isModal;
+            const modalBackgroundMode = modalBackgroundModeField?.value || 'default';
+            const isImageBackground = isModal && modalBackgroundMode === 'image';
+            const colorOverrideEnabled = isModal && !!modalBackgroundColorOverrideEnabledField?.checked;
+            const overlayEnabled = isImageBackground && !!modalOverlayEnabledField?.checked;
+            const overlayColorEnabled = overlayEnabled && !!modalOverlayColorEnabledField?.checked;
+            const overlayBlurEnabled = overlayEnabled && !!modalOverlayBlurEnabledField?.checked;
+            const isCustomHeight = isInline && (aspectRatioField?.value === 'custom');
+
+            ['modalPresentation', 'modalHeaderScheme', 'modalBackgroundMode', 'modalBackgroundColorOverrideEnabled'].forEach((fieldName) => {
+                toggleField(fieldName, isModal);
+            });
+
+            toggleField('modalBackgroundColorOverride', colorOverrideEnabled);
+
+            ['modalBackgroundImage', 'modalBackgroundDisplay', 'modalBackgroundMotionPercent', 'modalOverlayEnabled'].forEach((fieldName) => {
+                toggleField(fieldName, isImageBackground);
+            });
+
+            ['modalOverlayColorEnabled', 'modalOverlayBlurEnabled'].forEach((fieldName) => {
+                toggleField(fieldName, overlayEnabled);
+            });
+
+            ['modalOverlayColor', 'modalOverlayOpacity'].forEach((fieldName) => {
+                toggleField(fieldName, overlayColorEnabled);
+            });
+
+            toggleField('modalOverlayBlurStrength', overlayBlurEnabled);
+
+            toggleField('aspectRatio', isInline);
+            toggleField('customHeight', isCustomHeight);
+        };
+
+        displayModeField.addEventListener('change', syncVisibility);
+        aspectRatioField?.addEventListener('change', syncVisibility);
+        modalBackgroundModeField?.addEventListener('change', syncVisibility);
+        modalBackgroundColorOverrideEnabledField?.addEventListener('change', syncVisibility);
+        modalOverlayEnabledField?.addEventListener('change', syncVisibility);
+        modalOverlayColorEnabledField?.addEventListener('change', syncVisibility);
+        modalOverlayBlurEnabledField?.addEventListener('change', syncVisibility);
         syncVisibility();
     }
 

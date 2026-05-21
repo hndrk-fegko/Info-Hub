@@ -10,6 +10,7 @@
     position: relative;
     width: 100%;
     overflow: hidden;
+    background-color: var(--section-background-color, transparent);
 }
 
 .page-section__background {
@@ -25,6 +26,23 @@
     transform: scale(var(--section-background-scale, 1));
     transform-origin: center center;
     z-index: 0;
+}
+
+.page-section--bg-motion > .page-section__background {
+    top: var(--section-motion-top, -6vh);
+    left: 0;
+    right: 0;
+    bottom: auto;
+    height: var(--section-motion-height, 112vh);
+    background-attachment: scroll;
+    transform: scale(var(--section-background-scale, 1)) translateY(var(--section-parallax-offset, 0px));
+    will-change: transform;
+}
+
+.page-section--bg-stretch > .page-section__background {
+    inset: 0;
+    background-attachment: scroll;
+    transform: none;
 }
 
 .page-section__background::after {
@@ -46,8 +64,14 @@
     display: none;
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .page-section--bg-motion > .page-section__background {
+        transform: none;
+    }
+}
+
 @media (max-width: 900px) {
-    .page-section--viewport-bg > .page-section__background {
+    .page-section--bg-motion > .page-section__background {
         background-attachment: scroll;
     }
 }

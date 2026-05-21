@@ -881,6 +881,7 @@ const V2 = (function() {
         if (type === 'section') {
             newTile.data.backgroundMode = 'default';
             newTile.data.backgroundAttachment = 'content';
+            newTile.data.backgroundMotionPercent = 0;
             newTile.data.backgroundDisplay = 'cover';
             newTile.data.overlayEnabled = false;
             newTile.data.overlayColorEnabled = true;

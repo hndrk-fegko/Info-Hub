@@ -121,6 +121,13 @@ return [
         'suites' => ['contracts', 'render', 'integration'],
     ],
     [
+        'id' => 'iframe-modal-config',
+        'path' => __DIR__ . '/integration/test_iframe_modal_config.php',
+        'label' => 'Iframe modal config contract',
+        'description' => 'Prueft Iframe-Modal-Datenattribute sowie CSS/JS-Prioritaets-Hooks fuer Background und Header.',
+        'suites' => ['contracts', 'render', 'integration', 'iframe'],
+    ],
+    [
         'id' => 'unit-media-path-helper',
         'path' => __DIR__ . '/unit/test_media_path_helper.php',
         'label' => 'MediaPathHelper unit',

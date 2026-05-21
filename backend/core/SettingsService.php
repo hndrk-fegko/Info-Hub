@@ -221,7 +221,7 @@ class SettingsService {
 
         $settings = $this->applyEnumThemeSetting($settings, $themeInput, 'narrowBackgroundMode', ['solid', 'gradient', 'image']);
         $settings = $this->applyEnumThemeSetting($settings, $themeInput, 'narrowBackgroundImageDisplay', ['cover', 'tile']);
-        $settings = $this->applyEnumThemeSetting($settings, $themeInput, 'narrowBackgroundImageMotion', ['fixed', 'parallax']);
+        $settings = $this->applyEnumThemeSetting($settings, $themeInput, 'narrowBackgroundImageMotion', ['fixed', 'parallax', 'stretch']);
 
         $booleanKeys = [
             'narrowLayout',
@@ -239,6 +239,7 @@ class SettingsService {
 
         $settings = $this->applyRangedIntThemeSetting($settings, $themeInput, 'narrowWidth', 600, 1400);
         $settings = $this->applyRangedIntThemeSetting($settings, $themeInput, 'narrowGradientAngle', 0, 360);
+        $settings = $this->applyRangedIntThemeSetting($settings, $themeInput, 'narrowBackgroundMotionPercent', 0, 100);
         $settings = $this->applyRangedIntThemeSetting($settings, $themeInput, 'narrowBackgroundOverlayOpacity', 0, 100);
         $settings = $this->applyRangedIntThemeSetting($settings, $themeInput, 'narrowBackgroundOverlayBlurStrength', 0, 100);
 

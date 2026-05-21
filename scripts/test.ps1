@@ -35,5 +35,11 @@ if (-not $phpExecutable) {
     exit 2
 }
 
+if (-not $RunnerArgs -or $RunnerArgs.Count -eq 0) {
+    # Default: schneller Kernlauf ohne browser/manual E2E, damit sofort sichtbare Ergebnisse kommen.
+    $RunnerArgs = @('--suite=integration,contracts,unit')
+    Write-Host 'Keine Argumente uebergeben - nutze Default-Suites: integration, contracts, unit'
+}
+
 & $phpExecutable $runner @RunnerArgs
 exit $LASTEXITCODE

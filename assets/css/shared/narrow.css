@@ -6,10 +6,12 @@ body.narrow-layout {
     --narrow-backdrop: #1a1a2e;
     --narrow-image-repeat: no-repeat;
     --narrow-image-size: cover;
-    --narrow-image-attachment: fixed;
+    --narrow-image-attachment: scroll;
     --narrow-background-blur: 0px;
     --narrow-background-scale: 1;
-    --narrow-background-parallax-scale: 1.08;
+    --narrow-motion-factor: 0;
+    --narrow-motion-height: 112vh;
+    --narrow-motion-top: -6vh;
     --narrow-overlay-color: #000000;
     --narrow-overlay-opacity: 0.35;
     --narrow-overlay-display: block;
@@ -28,12 +30,14 @@ body.narrow-layout {
     display: flex;
     justify-content: center;
     overflow: hidden;
+    background-color: var(--narrow-backdrop-fallback, #1a1a2e);
 }
 
 .page-shell__backdrop-media {
     position: absolute;
     inset: 0;
     background: var(--narrow-backdrop);
+    background-color: var(--narrow-backdrop-fallback, #1a1a2e);
     background-position: center center;
     background-repeat: var(--narrow-image-repeat);
     background-size: var(--narrow-image-size);
@@ -43,10 +47,14 @@ body.narrow-layout {
     transform-origin: center center;
 }
 
-.page-shell__backdrop.has-parallax .page-shell__backdrop-media {
-    inset: -10%;
+.page-shell__backdrop.has-motion .page-shell__backdrop-media {
+    top: var(--narrow-motion-top);
+    left: 0;
+    right: 0;
+    bottom: auto;
+    height: var(--narrow-motion-height);
     background-attachment: scroll;
-    transform: scale(var(--narrow-background-parallax-scale)) translateY(var(--narrow-parallax-offset, 0px));
+    transform: scale(var(--narrow-background-scale)) translateY(var(--narrow-parallax-offset, 0px));
     will-change: transform;
 }
 
@@ -72,13 +80,13 @@ body.narrow-layout {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .page-shell__backdrop.has-parallax .page-shell__backdrop-media {
+    .page-shell__backdrop.has-motion .page-shell__backdrop-media {
         transform: none;
     }
 }
 
 @media (max-width: 900px) {
-    .page-shell__backdrop-media {
+    .page-shell__backdrop.has-motion .page-shell__backdrop-media {
         background-attachment: scroll;
     }
 }

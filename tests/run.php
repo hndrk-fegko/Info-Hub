@@ -27,7 +27,7 @@ function main(array $argv, array $manifest): void {
         exit(2);
     }
 
-    $results = runTests($selectedTests);
+    $results = runTests($selectedTests, $options['format'] === 'text');
     outputResults($results, $options['format']);
     exit($results['summary']['failed'] > 0 ? 1 : 0);
 }
@@ -132,17 +132,32 @@ function filterTests(array $tests, array $suiteFilters, array $testFilters): arr
     }));
 }
 
-function runTests(array $selectedTests): array {
+function runTests(array $selectedTests, bool $showProgress = true): array {
     $results = [];
     $suiteCounts = [];
     $startedAt = microtime(true);
+    $totalTests = count($selectedTests);
+    $currentIndex = 0;
 
     foreach ($selectedTests as $test) {
+        $currentIndex++;
+
         foreach ($test['suites'] as $suite) {
             if (!isset($suiteCounts[$suite])) {
                 $suiteCounts[$suite] = 0;
             }
             $suiteCounts[$suite]++;
+        }
+
+        if ($showProgress) {
+            echo sprintf(
+                "[RUN ] %d/%d %s (%s)%s",
+                $currentIndex,
+                $totalTests,
+                $test['id'],
+                implode(', ', $test['suites']),
+                PHP_EOL
+            );
         }
 
         if ($test['type'] === 'manual') {
@@ -163,6 +178,11 @@ function runTests(array $selectedTests): array {
                 'durationMs' => 0,
                 'output' => $instructions,
             ];
+
+            if ($showProgress) {
+                echo sprintf("[MAN ] %s%s", $test['id'], PHP_EOL);
+            }
+
             continue;
         }
 
@@ -186,6 +206,16 @@ function runTests(array $selectedTests): array {
             'durationMs' => $durationMs,
             'output' => implode(PHP_EOL, $outputLines),
         ];
+
+        if ($showProgress) {
+            echo sprintf(
+                "[%s] %s (%dms)%s",
+                $status === 'passed' ? 'PASS' : 'FAIL',
+                $test['id'],
+                $durationMs,
+                PHP_EOL
+            );
+        }
     }
 
     $totalDurationMs = (int) round((microtime(true) - $startedAt) * 1000);
