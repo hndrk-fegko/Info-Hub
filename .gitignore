@@ -14,9 +14,11 @@ backend/data/*.bak
 backend/media/downloads/*
 backend/media/images/*
 backend/media/header/*
+backend/media/backgrounds/*
 !backend/media/downloads/.gitkeep
 !backend/media/images/.gitkeep
 !backend/media/header/.gitkeep
+!backend/media/backgrounds/.gitkeep
 
 # Logs
 backend/logs/*
