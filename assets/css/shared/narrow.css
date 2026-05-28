@@ -54,7 +54,7 @@ body.narrow-layout {
     bottom: auto;
     height: var(--narrow-motion-height);
     background-attachment: scroll;
-    transform: scale(var(--narrow-background-scale)) translateY(var(--narrow-parallax-offset, 0px));
+    transform: translateY(var(--narrow-parallax-offset, 0px)) scale(var(--narrow-background-scale));
     will-change: transform;
 }
 

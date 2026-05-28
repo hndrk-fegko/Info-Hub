@@ -86,7 +86,8 @@
 
 .iframe-modal-content.iframe-modal-content--motion-parallax::before {
     inset: -14% -8%;
-    transform: scale(var(--iframe-modal-bg-parallax-scale, 1.16)) translateY(var(--iframe-modal-bg-offset, 0px));
+    transform: translateY(var(--iframe-modal-bg-offset, 0px)) scale(var(--iframe-modal-bg-parallax-scale, 1.16));
+    will-change: transform;
 }
 
 .iframe-modal-content.iframe-modal-content--motion-stretch::before {

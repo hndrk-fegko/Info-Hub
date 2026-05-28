@@ -777,11 +777,14 @@ git clone <repo-url>
 cd infohub
 
 # 2. PHP Built-in Server starten
-php -S localhost:8000
+# Windows/XAMPP: PHP-CLI ueber XAMPP verwenden, nicht auf `php` im PATH vertrauen
+C:\xampp\php\php.exe -S localhost:8000
 
 # 3. Browser öffnen
 http://localhost:8000/backend/setup.php
 ```
+
+**Windows-Hinweis:** Fuer CLI-Checks und lokale Server auf Windows standardmaessig `C:\xampp\php\php.exe` verwenden.
 
 ### Neuen Tile-Typ hinzufügen
 

@@ -474,7 +474,7 @@ body.v2-page-reloading #tileToolbar {
     bottom: auto;
     height: var(--v2-narrow-motion-height, 112vh);
     background-attachment: scroll;
-    transform: scale(var(--v2-narrow-background-scale, 1)) translateY(var(--v2-parallax-offset, 0px));
+    transform: translateY(var(--v2-parallax-offset, 0px)) scale(var(--v2-narrow-background-scale, 1));
     will-change: transform;
 }
 

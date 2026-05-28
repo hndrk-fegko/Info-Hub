@@ -35,7 +35,7 @@
     bottom: auto;
     height: var(--section-motion-height, 112vh);
     background-attachment: scroll;
-    transform: scale(var(--section-background-scale, 1)) translateY(var(--section-parallax-offset, 0px));
+    transform: translateY(var(--section-parallax-offset, 0px)) scale(var(--section-background-scale, 1));
     will-change: transform;
 }
 

@@ -1,5 +1,76 @@
 /* IframeTile JavaScript - Modal Funktionalitaet */
 
+let _iframeModalParallaxQueued = false;
+let _iframeModalParallaxObserver = null;
+
+function getIframeModalViewportHeight() {
+    return window.innerHeight || document.documentElement.clientHeight || 0;
+}
+
+function formatIframeModalOffset(offset) {
+    return `${Math.round(offset * 1000) / 1000}px`;
+}
+
+function ensureIframeModalParallaxObserver() {
+    if (_iframeModalParallaxObserver || typeof ResizeObserver === 'undefined') {
+        return;
+    }
+
+    const content = document.querySelector('.iframe-modal-content');
+    if (!content) {
+        return;
+    }
+
+    _iframeModalParallaxObserver = new ResizeObserver(syncIframeModalParallax);
+    _iframeModalParallaxObserver.observe(content);
+}
+
+function syncIframeModalParallax() {
+    if (_iframeModalParallaxQueued) {
+        return;
+    }
+
+    _iframeModalParallaxQueued = true;
+    requestAnimationFrame(() => {
+        _iframeModalParallaxQueued = false;
+
+        const modal = document.getElementById('iframe-modal');
+        const content = document.querySelector('.iframe-modal-content');
+        if (!content) {
+            return;
+        }
+
+        if (!modal || !modal.classList.contains('active') || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            content.style.setProperty('--iframe-modal-bg-offset', '0px');
+            return;
+        }
+
+        if (!content.classList.contains('iframe-modal-content--motion-parallax')) {
+            content.style.setProperty('--iframe-modal-bg-offset', '0px');
+            return;
+        }
+
+        const motionFactor = Number.parseFloat(getComputedStyle(content).getPropertyValue('--iframe-modal-bg-motion-factor')) || 0;
+        if (motionFactor <= 0) {
+            content.style.setProperty('--iframe-modal-bg-offset', '0px');
+            return;
+        }
+
+        const rect = content.getBoundingClientRect();
+        const viewportHeight = getIframeModalViewportHeight();
+        if (rect.bottom < 0 || rect.top > viewportHeight) {
+            return;
+        }
+
+        content.style.setProperty('--iframe-modal-bg-offset', formatIframeModalOffset((-rect.top) * motionFactor));
+    });
+}
+
+function initIframeModals() {
+    ensureIframeModalParallaxObserver();
+    syncIframeModalParallax();
+}
+
 function applyIframeModalConfig(trigger) {
     const modal = document.getElementById('iframe-modal');
     const content = document.querySelector('.iframe-modal-content');
@@ -59,10 +130,14 @@ function applyIframeModalConfig(trigger) {
         'iframe-modal-content--motion-parallax',
         'iframe-modal-content--motion-stretch'
     );
-    const motionClass = motionPercent >= 100
+    const motionClass = !hasImageBackground
+        ? 'iframe-modal-content--motion-stretch'
+        : (motionPercent >= 100
         ? 'iframe-modal-content--motion-fixed'
-        : (motionPercent > 0 ? 'iframe-modal-content--motion-parallax' : 'iframe-modal-content--motion-stretch');
+        : (motionPercent > 0 ? 'iframe-modal-content--motion-parallax' : 'iframe-modal-content--motion-stretch'));
     content.classList.add(motionClass);
+    content.style.setProperty('--iframe-modal-bg-motion-factor', String(hasImageBackground ? (motionPercent / 100) : 0));
+    content.style.setProperty('--iframe-modal-bg-offset', '0px');
 
     if (backgroundColorOverride) {
         content.style.setProperty('--iframe-modal-bg-color-override', backgroundColorOverride);
@@ -100,6 +175,8 @@ function applyIframeModalConfig(trigger) {
             ? `${(Math.max(0, Math.min(100, overlayBlurStrength)) / 100) * 24}px`
             : '0px'
     );
+
+    syncIframeModalParallax();
 }
 
 function resetIframeModalConfig() {
@@ -139,9 +216,11 @@ function resetIframeModalConfig() {
     content.style.removeProperty('--iframe-modal-bg-repeat');
     content.style.removeProperty('--iframe-modal-bg-parallax-scale');
     content.style.removeProperty('--iframe-modal-bg-fixed-scale');
+    content.style.removeProperty('--iframe-modal-bg-motion-factor');
     content.style.removeProperty('--iframe-modal-overlay-color');
     content.style.removeProperty('--iframe-modal-overlay-opacity');
     content.style.removeProperty('--iframe-modal-bg-blur');
+    content.style.setProperty('--iframe-modal-bg-offset', '0px');
 }
 
 function openIframeModal(url, title, trigger) {
@@ -159,6 +238,8 @@ function openIframeModal(url, title, trigger) {
     document.getElementById('iframe-modal-frame').src = url;
     document.getElementById('iframe-modal').classList.add('active');
     document.body.style.overflow = 'hidden';
+    ensureIframeModalParallaxObserver();
+    syncIframeModalParallax();
 }
 
 function closeIframeModal() {
@@ -196,3 +277,13 @@ document.addEventListener('keydown', (e) => {
         closeIframeModal();
     }
 });
+
+window.addEventListener('resize', syncIframeModalParallax);
+window.addEventListener('scroll', syncIframeModalParallax, { passive: true });
+
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncIframeModalParallax);
+    window.visualViewport.addEventListener('scroll', syncIframeModalParallax);
+}
+
+initIframeModals();

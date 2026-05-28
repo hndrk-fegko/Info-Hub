@@ -1773,6 +1773,14 @@ CSS;
             });
         }
 
+        function getParallaxViewportHeight() {
+            return window.innerHeight || document.documentElement.clientHeight || 0;
+        }
+
+        function formatParallaxOffset(offset) {
+            return String(Math.round(offset * 1000) / 1000) + 'px';
+        }
+
         function initNarrowParallax() {
             const backdrop = document.querySelector('.page-shell__backdrop.has-motion');
             if (!backdrop || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -1780,31 +1788,34 @@ CSS;
             }
 
             let frameRequested = false;
-            let currentOffset = 0;
+
+            const measure = () => {
+                const viewportHeight = getParallaxViewportHeight();
+                const motionFactor = Number.parseFloat(getComputedStyle(backdrop).getPropertyValue('--narrow-motion-factor')) || 0;
+                const minHeight = viewportHeight * 1.12;
+                const maxHeight = backdrop.offsetHeight + (viewportHeight * 0.12);
+                const height = minHeight + ((1 - motionFactor) * Math.max(0, maxHeight - minHeight));
+                const top = -(height * 0.06);
+
+                backdrop.style.setProperty('--narrow-motion-height', String(height) + 'px');
+                backdrop.style.setProperty('--narrow-motion-top', String(top) + 'px');
+
+                if (motionFactor <= 0) {
+                    backdrop.style.setProperty('--narrow-parallax-offset', '0px');
+                }
+            };
 
             const update = () => {
                 frameRequested = false;
                 const rect = backdrop.getBoundingClientRect();
-                const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
                 const motionFactor = Number.parseFloat(getComputedStyle(backdrop).getPropertyValue('--narrow-motion-factor')) || 0;
-                const minHeight = viewportHeight * 1.12;
-                const maxHeight = rect.height + (viewportHeight * 0.12);
-                const height = minHeight + ((1 - motionFactor) * Math.max(0, maxHeight - minHeight));
-                const top = -(height * 0.06);
-                const targetOffset = (-rect.top) * motionFactor;
-                const followAlpha = motionFactor >= 0.98 ? 1 : (0.18 + (motionFactor * 0.5));
-                currentOffset += (targetOffset - currentOffset) * followAlpha;
-                if (motionFactor >= 0.98 || Math.abs(targetOffset - currentOffset) < 0.2) {
-                    currentOffset = targetOffset;
-                }
-                const offset = Math.round(currentOffset);
-                backdrop.style.setProperty('--narrow-motion-height', String(height) + 'px');
-                backdrop.style.setProperty('--narrow-motion-top', String(top) + 'px');
-                backdrop.style.setProperty('--narrow-parallax-offset', String(offset) + 'px');
 
-                if (Math.abs(targetOffset - currentOffset) >= 0.2) {
-                    requestUpdate();
+                if (motionFactor <= 0) {
+                    backdrop.style.setProperty('--narrow-parallax-offset', '0px');
+                    return;
                 }
+
+                backdrop.style.setProperty('--narrow-parallax-offset', formatParallaxOffset((-rect.top) * motionFactor));
             };
 
             const requestUpdate = () => {
@@ -1815,9 +1826,19 @@ CSS;
                 requestAnimationFrame(update);
             };
 
-            requestUpdate();
+            const refresh = () => {
+                measure();
+                requestUpdate();
+            };
+
+            refresh();
             window.addEventListener('scroll', requestUpdate, { passive: true });
-            window.addEventListener('resize', requestUpdate);
+            window.addEventListener('resize', refresh);
+
+            if ('ResizeObserver' in window) {
+                const resizeObserver = new ResizeObserver(refresh);
+                resizeObserver.observe(backdrop);
+            }
         }
 
         function initSectionParallax() {
@@ -1827,43 +1848,45 @@ CSS;
             }
 
             let frameRequested = false;
-            const currentOffsets = new WeakMap();
+
+            const measure = () => {
+                const viewportHeight = getParallaxViewportHeight();
+
+                sections.forEach((section) => {
+                    const motionFactor = Number.parseFloat(getComputedStyle(section).getPropertyValue('--section-motion-factor')) || 0;
+                    const minHeight = viewportHeight * 1.12;
+                    const maxHeight = section.offsetHeight + (viewportHeight * 0.12);
+                    const height = minHeight + ((1 - motionFactor) * Math.max(0, maxHeight - minHeight));
+                    const top = -(height * 0.06);
+
+                    section.style.setProperty('--section-motion-height', String(height) + 'px');
+                    section.style.setProperty('--section-motion-top', String(top) + 'px');
+
+                    if (motionFactor <= 0) {
+                        section.style.setProperty('--section-parallax-offset', '0px');
+                    }
+                });
+            };
 
             const update = () => {
                 frameRequested = false;
+                const viewportHeight = getParallaxViewportHeight();
+
                 sections.forEach((section) => {
                     const rect = section.getBoundingClientRect();
-                    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
                     const motionFactor = Number.parseFloat(getComputedStyle(section).getPropertyValue('--section-motion-factor')) || 0;
-                    const minHeight = viewportHeight * 1.12;
-                    const maxHeight = rect.height + (viewportHeight * 0.12);
-                    const height = minHeight + ((1 - motionFactor) * Math.max(0, maxHeight - minHeight));
-                    const top = -(height * 0.06);
-                    const targetOffset = (-rect.top) * motionFactor;
-                    const prevOffset = currentOffsets.get(section) || 0;
-                    const followAlpha = motionFactor >= 0.98 ? 1 : (0.18 + (motionFactor * 0.5));
-                    let currentOffset = prevOffset + ((targetOffset - prevOffset) * followAlpha);
-                    if (motionFactor >= 0.98 || Math.abs(targetOffset - currentOffset) < 0.2) {
-                        currentOffset = targetOffset;
+
+                    if (motionFactor <= 0) {
+                        section.style.setProperty('--section-parallax-offset', '0px');
+                        return;
                     }
-                    currentOffsets.set(section, currentOffset);
-                    const offset = Math.round(currentOffset);
-                    section.style.setProperty('--section-motion-height', String(height) + 'px');
-                    section.style.setProperty('--section-motion-top', String(top) + 'px');
-                    section.style.setProperty('--section-parallax-offset', String(offset) + 'px');
-                });
 
-                const hasPending = sections.some((section) => {
-                    const rect = section.getBoundingClientRect();
-                    const motionFactor = Number.parseFloat(getComputedStyle(section).getPropertyValue('--section-motion-factor')) || 0;
-                    const targetOffset = (-rect.top) * motionFactor;
-                    const currentOffset = currentOffsets.get(section) || 0;
-                    return Math.abs(targetOffset - currentOffset) >= 0.2;
-                });
+                    if (rect.bottom < 0 || rect.top > viewportHeight) {
+                        return;
+                    }
 
-                if (hasPending) {
-                    requestUpdate();
-                }
+                    section.style.setProperty('--section-parallax-offset', formatParallaxOffset((-rect.top) * motionFactor));
+                });
             };
 
             const requestUpdate = () => {
@@ -1874,9 +1897,19 @@ CSS;
                 requestAnimationFrame(update);
             };
 
-            requestUpdate();
+            const refresh = () => {
+                measure();
+                requestUpdate();
+            };
+
+            refresh();
             window.addEventListener('scroll', requestUpdate, { passive: true });
-            window.addEventListener('resize', requestUpdate);
+            window.addEventListener('resize', refresh);
+
+            if ('ResizeObserver' in window) {
+                const resizeObserver = new ResizeObserver(refresh);
+                sections.forEach((section) => resizeObserver.observe(section));
+            }
         }
         
         // Bei Seitenladung ausführen

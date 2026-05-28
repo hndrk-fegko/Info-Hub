@@ -17,7 +17,7 @@ const V2Settings = (function() {
     
     let _overlay = null;
     let _parallaxQueued = false;
-    let _parallaxOffsetCurrent = 0;
+    let _parallaxResizeObserver = null;
     let _scrollLockY = 0;
     let _scrollLockPaddingRight = '';
     let _restoreFocusEl = null;
@@ -29,7 +29,8 @@ const V2Settings = (function() {
         // Listen for settings changes to update canvas header/footer
         V2State.on('state:settings-changed', onSettingsChanged);
         window.addEventListener('scroll', syncParallaxOffset, { passive: true });
-        window.addEventListener('resize', syncParallaxOffset);
+        window.addEventListener('resize', syncParallaxMetricsAndOffset);
+        ensureParallaxResizeObserver();
         onSettingsChanged({ settings: V2State.getSettings() });
     }
     
@@ -1075,6 +1076,56 @@ const V2Settings = (function() {
 
         applyNarrowBackdropFallbackColor(wrapper, mode, imagePath);
 
+        ensureParallaxResizeObserver();
+        syncParallaxMetricsAndOffset();
+    }
+
+    function getParallaxViewportHeight() {
+        return window.innerHeight || document.documentElement.clientHeight || 0;
+    }
+
+    function formatParallaxOffset(offset) {
+        return `${Math.round(offset * 1000) / 1000}px`;
+    }
+
+    function ensureParallaxResizeObserver() {
+        if (_parallaxResizeObserver || typeof ResizeObserver === 'undefined') return;
+
+        const wrapper = document.querySelector('.v2-canvas-wrapper');
+        if (!wrapper) return;
+
+        _parallaxResizeObserver = new ResizeObserver(syncParallaxMetricsAndOffset);
+        _parallaxResizeObserver.observe(wrapper);
+    }
+
+    function syncParallaxMetrics() {
+        const wrapper = document.querySelector('.v2-canvas-wrapper');
+        if (!wrapper) return;
+
+        if (!wrapper.classList.contains('v2-canvas-wrapper--motion')) {
+            wrapper.style.setProperty('--v2-narrow-motion-height', '112vh');
+            wrapper.style.setProperty('--v2-narrow-motion-top', '-6vh');
+            wrapper.style.setProperty('--v2-parallax-offset', '0px');
+            return;
+        }
+
+        const viewportHeight = getParallaxViewportHeight();
+        const motionFactor = Number.parseFloat(getComputedStyle(wrapper).getPropertyValue('--v2-narrow-motion-factor')) || 0;
+        const minHeight = viewportHeight * 1.12;
+        const maxHeight = wrapper.offsetHeight + (viewportHeight * 0.12);
+        const height = minHeight + ((1 - motionFactor) * Math.max(0, maxHeight - minHeight));
+        const top = -(height * 0.06);
+
+        wrapper.style.setProperty('--v2-narrow-motion-height', `${height}px`);
+        wrapper.style.setProperty('--v2-narrow-motion-top', `${top}px`);
+
+        if (motionFactor <= 0) {
+            wrapper.style.setProperty('--v2-parallax-offset', '0px');
+        }
+    }
+
+    function syncParallaxMetricsAndOffset() {
+        syncParallaxMetrics();
         syncParallaxOffset();
     }
 
@@ -1088,32 +1139,18 @@ const V2Settings = (function() {
             if (!wrapper) return;
 
             if (!wrapper.classList.contains('v2-canvas-wrapper--motion')) {
-                _parallaxOffsetCurrent = 0;
+                wrapper.style.setProperty('--v2-parallax-offset', '0px');
+                return;
+            }
+
+            const motionFactor = Number.parseFloat(getComputedStyle(wrapper).getPropertyValue('--v2-narrow-motion-factor')) || 0;
+            if (motionFactor <= 0) {
                 wrapper.style.setProperty('--v2-parallax-offset', '0px');
                 return;
             }
 
             const rect = wrapper.getBoundingClientRect();
-            const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-            const motionFactor = Number.parseFloat(getComputedStyle(wrapper).getPropertyValue('--v2-narrow-motion-factor')) || 0;
-            const minHeight = viewportHeight * 1.12;
-            const maxHeight = rect.height + (viewportHeight * 0.12);
-            const height = minHeight + ((1 - motionFactor) * Math.max(0, maxHeight - minHeight));
-            const top = -(height * 0.06);
-            const targetOffset = (-rect.top) * motionFactor;
-            const followAlpha = motionFactor >= 0.98 ? 1 : (0.18 + (motionFactor * 0.5));
-            _parallaxOffsetCurrent += (targetOffset - _parallaxOffsetCurrent) * followAlpha;
-            if (motionFactor >= 0.98 || Math.abs(targetOffset - _parallaxOffsetCurrent) < 0.2) {
-                _parallaxOffsetCurrent = targetOffset;
-            }
-            const offset = Math.round(_parallaxOffsetCurrent);
-            wrapper.style.setProperty('--v2-narrow-motion-height', `${height}px`);
-            wrapper.style.setProperty('--v2-narrow-motion-top', `${top}px`);
-            wrapper.style.setProperty('--v2-parallax-offset', `${offset}px`);
-
-            if (Math.abs(targetOffset - _parallaxOffsetCurrent) >= 0.2) {
-                syncParallaxOffset();
-            }
+            wrapper.style.setProperty('--v2-parallax-offset', formatParallaxOffset((-rect.top) * motionFactor));
         });
     }
 
